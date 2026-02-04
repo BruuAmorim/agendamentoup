@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico API - EvAgendamento</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-success { background: #48bb78; }
+        .status-error { background: #f56565; }
+        .status-warning { background: #ed8936; }
+        .status-info { background: #4299e1; }
+
+        .test-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .test-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .test-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin: 0;
+        }
+
+        .test-result {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .test-result.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .test-result.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .test-result.warning {
+            background: #fffaf0;
+            color: #744210;
+            border: 1px solid #fbb6ce;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .progress {
+            background: #edf2f7;
+            border-radius: 10px;
+            height: 6px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .summary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .summary h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+
+        .config-info {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .config-info h4 {
+            margin: 0 0 10px 0;
+            color: #234e52;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .config-label { font-weight: bold; }
+        .config-value { color: #2b6cb0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico da API EvAgendamento</h1>
+        <p class="subtitle">Ferramenta para identificar problemas de conectividade e configuração</p>
+
+        <div class="config-info">
+            <h4>📋 Configuração Atual</h4>
+            <div class="config-item">
+                <span class="config-label">URL Base da API:</span>
+                <span class="config-value" id="apiUrl">Carregando...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Origem Atual:</span>
+                <span class="config-value" id="currentOrigin">Carregando...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Protocolo:</span>
+                <span class="config-value" id="protocol">Carregando...</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="runFullDiagnosis()" id="runBtn">
+                🚀 Executar Diagnóstico Completo
+            </button>
+            <button onclick="clearResults()">
+                🧹 Limpar Resultados
+            </button>
+        </div>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div id="testResults"></div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h3>📊 Resumo do Diagnóstico</h3>
+            <p id="summaryText">Aguardando resultados...</p>
+        </div>
+    </div>
+
+    <script>
+        let apiClient = null;
+
+        // Carregar configuração ao iniciar
+        window.onload = function() {
+            loadConfig();
+        };
+
+        function loadConfig() {
+            document.getElementById('currentOrigin').textContent = window.location.origin;
+            document.getElementById('protocol').textContent = window.location.protocol;
+
+            // Simular carregamento da API (será sobrescrito quando o script da API carregar)
+            document.getElementById('apiUrl').textContent = 'http://localhost:3000/api';
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        function addTestResult(title, status, message, details = null) {
+            const resultsDiv = document.getElementById('testResults');
+
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-section';
+
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'test-header';
+
+            const titleDiv = document.createElement('h3');
+            titleDiv.className = 'test-title';
+            titleDiv.innerHTML = `<span class="status-indicator status-${status}"></span>${title}`;
+
+            const statusText = document.createElement('span');
+            statusText.textContent = status.toUpperCase();
+            statusText.style.fontSize = '12px';
+            statusText.style.fontWeight = 'bold';
+            statusText.style.padding = '4px 8px';
+            statusText.style.borderRadius = '4px';
+            statusText.style.textTransform = 'uppercase';
+
+            switch(status) {
+                case 'success': statusText.style.background = '#c6f6d5'; statusText.style.color = '#22543d'; break;
+                case 'error': statusText.style.background = '#fed7d7'; statusText.style.color = '#742a2a'; break;
+                case 'warning': statusText.style.background = '#feebc8'; statusText.style.color = '#744210'; break;
+                default: statusText.style.background = '#bee3f8'; statusText.style.color = '#2a4365';
+            }
+
+            headerDiv.appendChild(titleDiv);
+            headerDiv.appendChild(statusText);
+
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            resultDiv.textContent = message;
+
+            // Adicionar detalhes se houver
+            if (details) {
+                const detailsDiv = document.createElement('div');
+                detailsDiv.style.marginTop = '10px';
+                detailsDiv.style.padding = '10px';
+                detailsDiv.style.background = 'rgba(0,0,0,0.05)';
+                detailsDiv.style.borderRadius = '4px';
+                detailsDiv.style.fontSize = '12px';
+
+                let detailsText = 'Detalhes técnicos:\n' + JSON.stringify(details, null, 2);
+
+                // Adicionar sugestões se houver
+                if (details.suggestions && details.suggestions.length > 0) {
+                    detailsText += '\n\n💡 Sugestões para resolver:\n';
+                    details.suggestions.forEach((suggestion, index) => {
+                        detailsText += `${index + 1}. ${suggestion}\n`;
+                    });
+                }
+
+                detailsDiv.textContent = detailsText;
+                resultDiv.appendChild(detailsDiv);
+            }
+
+            testDiv.appendChild(headerDiv);
+            testDiv.appendChild(resultDiv);
+
+            resultsDiv.appendChild(testDiv);
+
+            // Scroll para o resultado
+            testDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function runTest(testName, testFunction) {
+            try {
+                const result = await testFunction();
+                addTestResult(testName, 'success', result.message, result.details);
+                return true;
+            } catch (error) {
+                addTestResult(testName, 'error', error.message, error.details);
+                return false;
+            }
+        }
+
+        async function runFullDiagnosis() {
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            runBtn.textContent = '🔄 Executando...';
+
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            updateProgress(0);
+
+            let passedTests = 0;
+            let totalTests = 5;
+
+                // Limpar agendamentos de teste anteriores
+            console.log('🧹 Limpando agendamentos de teste anteriores...');
+            await cleanupTestAppointments();
+
+            // Teste 1: Conectividade básica
+            updateProgress(20);
+            if (await runTest('🌐 Conectividade Básica', testBasicConnectivity)) {
+                passedTests++;
+            }
+
+            // Teste 2: Health Check
+            updateProgress(40);
+            if (await runTest('🏥 Health Check da API', testHealthCheck)) {
+                passedTests++;
+            }
+
+            // Teste 3: CORS
+            updateProgress(60);
+            if (await runTest('🔒 Configuração CORS', testCORS)) {
+                passedTests++;
+            }
+
+            // Teste 4: Endpoints da API
+            updateProgress(80);
+            if (await runTest('📡 Endpoints Disponíveis', testAPIEndpoints)) {
+                passedTests++;
+            }
+
+            // Teste 5: Criação de Agendamento
+            updateProgress(100);
+            if (await runTest('📝 Criação de Agendamento', testCreateAppointment)) {
+                passedTests++;
+            }
+
+            // Resultado final
+            showSummary(passedTests, totalTests);
+
+            runBtn.disabled = false;
+            runBtn.textContent = '🚀 Executar Diagnóstico Completo';
+        }
+
+        async function testBasicConnectivity() {
+            const healthUrl = 'http://localhost:3000/health';
+            console.log('🔍 Testando conectividade básica:', healthUrl);
+
+            try {
+                console.log('📡 Fazendo requisição GET para:', healthUrl);
+
+                // Criar AbortController para timeout (compatível com navegadores modernos)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(healthUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                console.log('📥 Resposta recebida, status:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Resposta JSON válida:', data);
+                    return {
+                        message: `✅ Conexão estabelecida com sucesso: ${data.status}`,
+                        details: { status: response.status, data, url: healthUrl, timestamp: new Date().toISOString() }
+                    };
+                } else {
+                    // Tentar ler resposta de erro se houver
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        errorData = { message: response.statusText };
+                    }
+
+                    console.warn('⚠️ API retornou erro:', response.status, errorData);
+
+                    let suggestions = [];
+                    if (errorData.message && errorData.message.includes('Horário indisponível')) {
+                        suggestions = [
+                            'Já existe um agendamento neste horário',
+                            'O diagnóstico limpa agendamentos de teste automaticamente',
+                            'Se o erro persistir, tente novamente em alguns segundos'
+                        ];
+                    } else if (errorData.message && errorData.message.includes('Dados inválidos')) {
+                        suggestions = [
+                            'Verifique se todos os campos obrigatórios estão preenchidos',
+                            'Campos obrigatórios: nome, data, horário'
+                        ];
+                    }
+
+                    return {
+                        message: `⚠️ Servidor respondeu, mas com erro ${response.status}: ${errorData.message || response.statusText}`,
+                        details: {
+                            status: response.status,
+                            error: errorData,
+                            url: healthUrl,
+                            suggestions: suggestions
+                        }
+                    };
+                }
+
+            } catch (error) {
+                console.error('❌ Erro na conectividade:', error);
+
+                let errorMessage = 'Falha na conexão';
+                let suggestions = [];
+
+                if (error.name === 'AbortError') {
+                    errorMessage = '⏱️ Timeout: Servidor demorou mais de 10 segundos para responder.';
+                    suggestions = [
+                        'Verifique se o servidor está rodando',
+                        'Verifique se há problemas de performance no servidor',
+                        'Tente novamente em alguns segundos'
+                    ];
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED') || error.name === 'TypeError') {
+                    errorMessage = '❌ Servidor não encontrado ou não está acessível.';
+                    suggestions = [
+                        'Execute "npm start" no diretório do projeto',
+                        'Verifique se a porta 3000 não está ocupada por outro processo',
+                        'Tente acessar http://localhost:3000/health diretamente no navegador',
+                        'Verifique se o firewall está bloqueando a conexão'
+                    ];
+                } else if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
+                    errorMessage = '🚫 Bloqueado por CORS - Problema de política de mesma origem.';
+                    suggestions = [
+                        'Use um servidor local (Live Server) em vez de abrir arquivo diretamente',
+                        'Verifique as configurações de CORS no server.js',
+                        'Configure NODE_ENV=development',
+                        'O arquivo HTML deve ser servido por um servidor web'
+                    ];
+                } else if (error.message.includes('NetworkError') || error.message.includes('ERR_NETWORK')) {
+                    errorMessage = '🌐 Erro de rede ou conectividade.';
+                    suggestions = [
+                        'Verifique sua conexão com a internet',
+                        'Desative firewall temporariamente para teste',
+                        'Tente em outra rede Wi-Fi',
+                        'Verifique se há problemas de DNS'
+                    ];
+                } else {
+                    errorMessage = `🔧 Erro desconhecido: ${error.message}`;
+                    suggestions = [
+                        'Verifique os logs do console do navegador (F12)',
+                        'Verifique os logs do terminal onde o servidor está rodando',
+                        'Tente recarregar a página e executar novamente',
+                        'Verifique se há extensões do navegador interferindo'
+                    ];
+                }
+
+                throw {
+                    message: errorMessage,
+                    details: {
+                        url: healthUrl,
+                        error: error.message,
+                        suggestions: suggestions
+                    }
+                };
+            }
+        }
+
+        async function testHealthCheck() {
+            const response = await fetch('http://localhost:3000/health');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(`Health check falhou: HTTP ${response.status}`);
+            }
+
+            return {
+                message: `Health check OK: ${data.status}`,
+                details: data
+            };
+        }
+
+        async function testCORS() {
+            const response = await fetch('http://localhost:3000/health', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            return {
+                message: 'CORS funcionando corretamente',
+                details: {
+                    status: response.status,
+                    allowedHeaders: response.headers.get('access-control-allow-headers'),
+                    allowedOrigin: response.headers.get('access-control-allow-origin')
+                }
+            };
+        }
+
+        async function testAPIEndpoints() {
+            const endpoints = [
+                { name: 'Horários disponíveis', url: 'http://localhost:3000/api/appointments/available/' + (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })() + '?duration=60' },
+                { name: 'Listar agendamentos', url: 'http://localhost:3000/api/appointments?limit=1' }
+            ];
+
+            const results = [];
+
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url);
+                    if (response.ok) {
+                        results.push(`${endpoint.name}: OK`);
+                    } else {
+                        results.push(`${endpoint.name}: HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    results.push(`${endpoint.name}: ERRO - ${error.message}`);
+                }
+            }
+
+            return {
+                message: 'Teste de endpoints concluído',
+                details: { results }
+            };
+        }
+
+        async function testCreateAppointment() {
+            // Gerar uma data futura dinâmica (amanhã)
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const futureDate = tomorrow.toISOString().split('T')[0];
+
+            // Gerar horário único baseado no timestamp atual para evitar conflitos
+            const now = new Date();
+            const timestamp = now.getTime();
+            // Usar os minutos do timestamp para gerar um horário único
+            const minutesSinceMidnight = Math.floor((timestamp / 1000 / 60) % (24 * 60));
+            const hours = Math.floor(minutesSinceMidnight / 60);
+            const minutes = minutesSinceMidnight % 60;
+            // Garantir horário comercial (8h às 18h)
+            const businessHours = hours < 8 ? 8 : hours > 17 ? 17 : hours;
+            const businessMinutes = minutes < 30 ? 0 : 30; // Apenas meia hora em meia hora
+            const futureTime = `${String(businessHours).padStart(2, '0')}:${String(businessMinutes).padStart(2, '0')}`;
+
+            console.log('📅 Data gerada para teste:', futureDate, 'Horário único:', futureTime);
+
+            const testData = {
+                customer_name: 'Teste Diagnóstico ' + timestamp.toString().slice(-4), // Nome único
+                customer_phone: '(11) 99999-9999',
+                appointment_date: futureDate,
+                appointment_time: futureTime,
+                duration_minutes: 60,
+                notes: 'Teste automático de diagnóstico único - ' + new Date().toISOString()
+            };
+
+            console.log('📝 Criando agendamento de teste:', testData);
+
+            const response = await fetch('http://localhost:3000/api/appointments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(testData)
+            });
+
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}`;
+                let suggestions = [];
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || response.statusText;
+
+                    // Sugestões específicas baseadas no erro
+                    if (errorMessage.includes('Data do agendamento não pode ser no passado')) {
+                        suggestions = [
+                            'O código foi atualizado para gerar datas futuras automaticamente',
+                            'Se o erro persistir, verifique se o servidor tem a hora correta',
+                            'Tente executar o diagnóstico novamente'
+                        ];
+                    } else if (errorMessage.includes('Horário indisponível')) {
+                        suggestions = [
+                            'O horário gerado pode já estar ocupado',
+                            'Tente executar novamente para gerar um horário diferente',
+                            'Verifique se há conflitos de agendamento'
+                        ];
+                    } else if (errorMessage.includes('Campos obrigatórios')) {
+                        suggestions = [
+                            'Verifique se todos os campos foram enviados corretamente',
+                            'Campos obrigatórios: nome, data, horário'
+                        ];
+                    }
+                } catch (e) {
+                    console.warn('Não foi possível parsear resposta de erro:', e);
+                }
+
+                throw {
+                    message: `Falha na criação: ${errorMessage}`,
+                    details: {
+                        status: response.status,
+                        data: testData,
+                        suggestions: suggestions
+                    }
+                };
+            }
+
+            const result = await response.json();
+            console.log('✅ Agendamento criado:', result);
+
+            return {
+                message: `Agendamento criado com sucesso (ID: ${result.data?.id})`,
+                details: {
+                    id: result.data?.id,
+                    date: futureDate,
+                    time: futureTime,
+                    status: result.success
+                }
+            };
+        }
+
+        function showSummary(passed, total) {
+            const summary = document.getElementById('summary');
+            const summaryText = document.getElementById('summaryText');
+
+            const percentage = Math.round((passed / total) * 100);
+
+            let message = `✅ ${passed}/${total} testes passaram (${percentage}%)`;
+
+            if (passed === total) {
+                message += '\n\n🎉 Todos os testes passaram! A API está funcionando corretamente.';
+                summary.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+            } else if (passed >= total * 0.7) {
+                message += '\n\n⚠️ A maioria dos testes passou, mas há alguns problemas a resolver.';
+                summary.style.background = 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)';
+            } else {
+                message += '\n\n❌ Vários testes falharam. Verifique a configuração do servidor.';
+                summary.style.background = 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)';
+            }
+
+            summaryText.textContent = message;
+            summary.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            updateProgress(0);
+        }
+
+        // Atualizar URL da API quando disponível
+        setTimeout(() => {
+            if (typeof API !== 'undefined' && API.baseURL) {
+                document.getElementById('apiUrl').textContent = API.baseURL;
+            }
+        }, 1000);
+
+        // Função para limpar agendamentos de teste
+        async function cleanupTestAppointments() {
+            try {
+                // Buscar agendamentos de hoje e amanhã
+                const today = new Date();
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+
+                const dates = [
+                    today.toISOString().split('T')[0],
+                    tomorrow.toISOString().split('T')[0]
+                ];
+
+                for (const date of dates) {
+                    try {
+                        const response = await fetch(`http://localhost:3000/api/appointments?date=${date}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const testAppointments = data.data.filter(apt =>
+                                apt.notes && apt.notes.includes('Teste automático de diagnóstico')
+                            );
+
+                            for (const appointment of testAppointments) {
+                                console.log(`🗑️ Removendo agendamento de teste: ${appointment.id}`);
+                                await fetch(`http://localhost:3000/api/appointments/${appointment.id}`, {
+                                    method: 'DELETE'
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`Erro ao limpar agendamentos da data ${date}:`, error);
+                    }
+                }
+
+                console.log('✅ Limpeza de agendamentos de teste concluída');
+            } catch (error) {
+                console.warn('Erro na limpeza de agendamentos de teste:', error);
+            }
+        }
+    </script>
+</body>
+</html>

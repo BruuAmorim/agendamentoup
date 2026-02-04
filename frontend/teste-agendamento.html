@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Agendamento</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 20px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; margin: 10px 0; }
+        input { margin: 5px 0; padding: 8px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Teste de Criação de Agendamento</h1>
+
+    <div>
+        <label>Nome do Cliente:</label><br>
+        <input type="text" id="customer_name" value="João Silva"><br>
+
+        <label>Telefone:</label><br>
+        <input type="tel" id="customer_phone" value="(11) 99999-9999"><br>
+
+        <label>Data:</label><br>
+        <input type="date" id="appointment_date" value="2026-01-25"><br>
+
+        <label>Horário:</label><br>
+        <input type="time" id="appointment_time" value="14:30"><br>
+
+        <button onclick="testCreateAppointment()">Criar Agendamento</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        async function testCreateAppointment() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testando...';
+
+            try {
+                const data = {
+                    customer_name: document.getElementById('customer_name').value,
+                    customer_phone: document.getElementById('customer_phone').value,
+                    appointment_date: document.getElementById('appointment_date').value,
+                    appointment_time: document.getElementById('appointment_time').value,
+                    duration_minutes: 60,
+                    notes: 'Teste manual - ' + new Date().toISOString()
+                };
+
+                console.log('Enviando dados:', data);
+
+                const response = await fetch('http://localhost:3000/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                console.log('Resposta:', result);
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="result success">
+                        <strong>✅ Agendamento criado com sucesso!</strong><br>
+                        ID: ${result.data?.id}<br>
+                        Status: ${result.success}
+                    </div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">
+                        <strong>❌ Erro na criação:</strong><br>
+                        ${result.message || 'Erro desconhecido'}
+                    </div>`;
+                }
+
+            } catch (error) {
+                console.error('Erro:', error);
+                resultDiv.innerHTML = `<div class="result error">
+                    <strong>❌ Erro de rede:</strong><br>
+                    ${error.message}
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>

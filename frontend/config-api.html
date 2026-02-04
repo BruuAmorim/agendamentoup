@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuração API - EvAgendamento</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .config-group {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .config-group h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        input[type="url"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="url"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            background: #f7fafc;
+            border-color: #667eea;
+        }
+
+        .preset-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            text-align: center;
+            margin: 30px 0 20px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .status.info {
+            background: #ebf8ff;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .current-config {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .current-config h4 {
+            margin: 0 0 10px 0;
+            color: #234e52;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .config-label { font-weight: bold; }
+        .config-value { color: #2b6cb0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Configuração da API</h1>
+        <p class="subtitle">Configure a URL base da API do EvAgendamento</p>
+
+        <div class="current-config">
+            <h4>📋 Configuração Atual</h4>
+            <div class="config-item">
+                <span class="config-label">URL Base:</span>
+                <span class="config-value" id="currentUrl">Carregando...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Origem:</span>
+                <span class="config-value" id="currentOrigin">Carregando...</span>
+            </div>
+        </div>
+
+        <div class="config-group">
+            <h3>🌐 URL Base da API</h3>
+            <div class="form-group">
+                <label for="apiUrl">URL completa da API:</label>
+                <input type="url" id="apiUrl" placeholder="http://localhost:3000/api" value="http://localhost:3000/api">
+                <div class="help-text">Inclua o caminho completo até /api</div>
+            </div>
+
+            <div class="preset-buttons">
+                <button class="preset-btn active" onclick="setPreset('local')">🏠 Localhost:3000</button>
+                <button class="preset-btn" onclick="setPreset('local-alt')">🏠 Localhost:8000</button>
+                <button class="preset-btn" onclick="setPreset('production')">🌐 Produção</button>
+                <button class="preset-btn" onclick="setPreset('custom')">✏️ Personalizado</button>
+            </div>
+        </div>
+
+        <div class="config-group">
+            <h3>🧪 Teste de Conectividade</h3>
+            <div class="form-group">
+                <label for="testUrl">URL para teste:</label>
+                <input type="url" id="testUrl" placeholder="http://localhost:3000/health" value="http://localhost:3000/health">
+                <div class="help-text">URL do endpoint de health check</div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="testConnection()" id="testBtn">🔍 Testar Conexão</button>
+            </div>
+
+            <div id="testResult" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="saveConfig()" id="saveBtn">💾 Salvar Configuração</button>
+            <button onclick="resetConfig()">🔄 Restaurar Padrão</button>
+        </div>
+
+        <div id="saveResult" class="status" style="display: none;"></div>
+
+        <div class="config-group">
+            <h3>📖 Como Usar</h3>
+            <ol style="color: #4a5568; line-height: 1.6;">
+                <li>Configure a URL da sua API</li>
+                <li>Teste a conexão clicando em "Testar Conexão"</li>
+                <li>Salve a configuração</li>
+                <li>Abra a aplicação principal (<code>index.html</code>)</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Carregar configuração atual ao iniciar
+        window.onload = function() {
+            loadCurrentConfig();
+        };
+
+        function loadCurrentConfig() {
+            document.getElementById('currentOrigin').textContent = window.location.origin;
+
+            // Tentar carregar do localStorage
+            const savedUrl = localStorage.getItem('api_base_url');
+            if (savedUrl) {
+                document.getElementById('currentUrl').textContent = savedUrl;
+                document.getElementById('apiUrl').value = savedUrl;
+                document.getElementById('testUrl').value = savedUrl.replace('/api', '/health');
+            } else {
+                document.getElementById('currentUrl').textContent = 'http://localhost:3000/api (padrão)';
+            }
+        }
+
+        function setPreset(preset) {
+            // Remover classe active de todos
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            let url = '';
+            let testUrl = '';
+
+            switch(preset) {
+                case 'local':
+                    url = 'http://localhost:3000/api';
+                    testUrl = 'http://localhost:3000/health';
+                    break;
+                case 'local-alt':
+                    url = 'http://localhost:8000/api';
+                    testUrl = 'http://localhost:8000/health';
+                    break;
+                case 'production':
+                    url = 'https://api.evagendamento.com/api';
+                    testUrl = 'https://api.evagendamento.com/health';
+                    break;
+                case 'custom':
+                    // Não alterar valores
+                    return;
+            }
+
+            document.getElementById('apiUrl').value = url;
+            document.getElementById('testUrl').value = testUrl;
+
+            // Adicionar classe active ao botão clicado
+            event.target.classList.add('active');
+        }
+
+        async function testConnection() {
+            const testBtn = document.getElementById('testBtn');
+            const testResult = document.getElementById('testResult');
+            const testUrl = document.getElementById('testUrl').value;
+
+            if (!testUrl) {
+                showTestResult('error', 'URL de teste não informada');
+                return;
+            }
+
+            testBtn.disabled = true;
+            testBtn.textContent = '🔄 Testando...';
+            testResult.style.display = 'none';
+
+            try {
+                console.log('Testando conexão:', testUrl);
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showTestResult('success', `✅ Conexão OK: ${data.status || 'API respondendo'}`);
+                    console.log('Teste bem-sucedido:', data);
+                } else {
+                    showTestResult('error', `❌ HTTP ${response.status}: ${data.message || response.statusText}`);
+                }
+
+            } catch (error) {
+                console.error('Erro no teste:', error);
+
+                let errorMsg = '❌ Erro de conexão';
+                if (error.message.includes('Failed to fetch')) {
+                    errorMsg += ': Servidor não encontrado ou não está rodando';
+                } else if (error.message.includes('CORS')) {
+                    errorMsg += ': Bloqueado por CORS';
+                } else {
+                    errorMsg += `: ${error.message}`;
+                }
+
+                showTestResult('error', errorMsg);
+            }
+
+            testBtn.disabled = false;
+            testBtn.textContent = '🔍 Testar Conexão';
+        }
+
+        function showTestResult(type, message) {
+            const testResult = document.getElementById('testResult');
+            testResult.className = `status ${type}`;
+            testResult.textContent = message;
+            testResult.style.display = 'block';
+        }
+
+        function saveConfig() {
+            const saveBtn = document.getElementById('saveBtn');
+            const saveResult = document.getElementById('saveResult');
+            const apiUrl = document.getElementById('apiUrl').value;
+
+            if (!apiUrl) {
+                showSaveResult('error', 'URL da API não pode estar vazia');
+                return;
+            }
+
+            try {
+                // Validar URL
+                new URL(apiUrl);
+
+                // Salvar no localStorage
+                localStorage.setItem('api_base_url', apiUrl);
+
+                // Atualizar exibição
+                document.getElementById('currentUrl').textContent = apiUrl;
+
+                showSaveResult('success', '✅ Configuração salva com sucesso!');
+                console.log('Configuração salva:', apiUrl);
+
+                // Limpar resultado após 3 segundos
+                setTimeout(() => {
+                    saveResult.style.display = 'none';
+                }, 3000);
+
+            } catch (error) {
+                showSaveResult('error', '❌ URL inválida. Use o formato: http://exemplo.com/api');
+            }
+        }
+
+        function showSaveResult(type, message) {
+            const saveResult = document.getElementById('saveResult');
+            saveResult.className = `status ${type}`;
+            saveResult.textContent = message;
+            saveResult.style.display = 'block';
+        }
+
+        function resetConfig() {
+            localStorage.removeItem('api_base_url');
+            document.getElementById('apiUrl').value = 'http://localhost:3000/api';
+            document.getElementById('testUrl').value = 'http://localhost:3000/health';
+            document.getElementById('currentUrl').textContent = 'http://localhost:3000/api (padrão)';
+
+            // Resetar botões de preset
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector('.preset-btn').classList.add('active');
+
+            showSaveResult('info', '🔄 Configuração restaurada para padrão');
+            setTimeout(() => {
+                document.getElementById('saveResult').style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
+
+
+

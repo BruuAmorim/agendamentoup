@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurar Integrações - EvAgendamento</title>
+
+  <!-- Fonte -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .integrations-page {
+      min-height: 100vh;
+      background: var(--background);
+    }
+
+    .integrations-header {
+      background: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    .integrations-header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .integrations-header h1 {
+      color: var(--text);
+      margin: 0;
+    }
+
+    .integrations-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .integration-card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    .integration-card h2 {
+      margin: 0 0 20px 0;
+      color: var(--text);
+      font-size: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-group .help-text {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    .form-group .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .btn-test {
+      background: var(--secondary);
+      color: var(--text);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-right: 10px;
+      transition: background-color 0.2s;
+    }
+
+    .btn-test:hover {
+      background: var(--secondary-dark);
+    }
+
+    .btn-save {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+    }
+
+    .btn-save:hover {
+      background: var(--primary-dark);
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-active {
+      background: var(--success);
+    }
+
+    .status-inactive {
+      background: var(--danger);
+    }
+
+    .test-result {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .test-result.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .test-result.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="integrations-header">
+    <div class="integrations-header-content">
+      <h1>🔗 Configurar Integrações</h1>
+      <div>
+        <a href="/admin/dashboard" class="admin-btn admin-btn-secondary" style="text-decoration: none; padding: 10px 20px; border-radius: 8px; background: var(--secondary); color: var(--text);">
+          ← Voltar ao Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="integrations-main">
+    <!-- URL Base da API -->
+    <div class="integration-card">
+      <h2>🌐 URL Base da API</h2>
+      <p style="color: var(--muted); margin-bottom: 15px;">
+        Use esta URL como referência para configurar integrações externas (n8n, webhooks, etc.).
+      </p>
+
+      <div class="form-group">
+        <label>URL Base da API EvAgendamento</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="text" id="apiBaseUrl" readonly style="flex: 1; background: var(--background); border: 1px solid var(--border);">
+          <button type="button" class="btn-test" id="copyApiUrlBtn" style="padding: 8px 12px; font-size: 14px;">📋 Copiar</button>
+        </div>
+        <div class="help-text">
+          Esta é a URL base oficial da API para integrações externas
+        </div>
+      </div>
+
+      <!-- Endpoints Principais -->
+      <div style="margin-top: 20px;">
+        <h4 style="color: var(--text); margin-bottom: 10px;">📋 Endpoints Principais:</h4>
+        <div style="background: var(--background); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px; line-height: 1.6;">
+          <div><strong>GET</strong> /api/slots/:date - Horários disponíveis</div>
+          <div><strong>POST</strong> /api/appointments - Criar agendamento</div>
+          <div><strong>PUT</strong> /api/appointments/:id - Atualizar agendamento</div>
+          <div><strong>DELETE</strong> /api/appointments/:id - Excluir agendamento</div>
+          <div><strong>GET</strong> /api/health - Status da API</div>
+        </div>
+        <div class="help-text" style="margin-top: 10px;">
+          💡 <strong>Dica:</strong> Use estes endpoints para configurar webhooks no n8n e outras integrações externas.
+        </div>
+      </div>
+    </div>
+
+    <!-- Integração n8n -->
+    <div class="integration-card">
+      <h2>🔗 Integração n8n</h2>
+      <p style="color: var(--muted); margin-bottom: 25px;">
+        Configure o webhook do n8n para receber notificações automáticas sobre eventos de agendamentos.
+      </p>
+
+      <form id="n8nIntegrationForm">
+        <div class="form-group">
+          <label>URL do Webhook *</label>
+          <input type="url" id="webhookUrl" placeholder="https://seu-n8n.com/webhook/evagendamento" required>
+          <div class="help-text">
+            URL completa do webhook criado no n8n para receber eventos
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="isActive">
+            <label for="isActive" style="margin: 0; font-weight: normal;">
+              <span class="status-indicator" id="statusIndicator"></span>
+              Ativar integração
+            </label>
+          </div>
+          <div class="help-text">
+            Quando ativada, o sistema enviará eventos para o webhook configurado
+          </div>
+        </div>
+
+        <div class="test-result" id="testResult"></div>
+
+        <div style="margin-top: 25px;">
+          <button type="button" class="btn-test" id="testWebhookBtn">🧪 Testar Conexão</button>
+          <button type="submit" class="btn-save">💾 Salvar Configuração</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Informações sobre eventos -->
+    <div class="integration-card">
+      <h2>📋 Eventos Enviados</h2>
+      <p style="color: var(--muted); margin-bottom: 15px;">
+        O sistema envia automaticamente os seguintes eventos para o webhook:
+      </p>
+      <ul style="color: var(--text); line-height: 1.8;">
+        <li><strong>appointment_created</strong> - Quando um novo agendamento é criado</li>
+        <li><strong>appointment_updated</strong> - Quando um agendamento é atualizado</li>
+        <li><strong>appointment_cancelled</strong> - Quando um agendamento é cancelado</li>
+        <li><strong>appointment_deleted</strong> - Quando um agendamento é excluído</li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="../js/config-api.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    // Gerenciamento de Integrações
+    class IntegrationManager {
+      constructor() {
+        this.init();
+      }
+
+      init() {
+        this.checkAdminAccess();
+        this.bindEvents();
+        this.loadApiBaseUrl();
+        this.loadIntegration();
+      }
+
+      checkAdminAccess() {
+        if (!window.authManager || !window.authManager.isAdmin()) {
+          window.location.href = '/';
+          return;
+        }
+      }
+
+      bindEvents() {
+        // Formulário de integração
+        const form = document.getElementById('n8nIntegrationForm');
+        if (form) {
+          form.addEventListener('submit', (e) => this.saveIntegration(e));
+        }
+
+        // Botão de teste
+        const testBtn = document.getElementById('testWebhookBtn');
+        if (testBtn) {
+          testBtn.addEventListener('click', () => this.testWebhook());
+        }
+
+        // Botão de cópia da URL da API
+        const copyBtn = document.getElementById('copyApiUrlBtn');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => this.copyApiUrl());
+        }
+      }
+
+      async loadApiBaseUrl() {
+        try {
+          // Buscar informações da API para obter a URL base
+          const response = await window.authManager.apiRequest('/api/health');
+          if (response.success && response.baseUrl) {
+            const apiBaseUrlInput = document.getElementById('apiBaseUrl');
+            if (apiBaseUrlInput) {
+              apiBaseUrlInput.value = response.baseUrl;
+            }
+            return;
+          }
+        } catch (error) {
+          console.error('Erro ao carregar URL base da API:', error);
+        }
+
+        // Fallback: detectar automaticamente baseada na localização do frontend
+        const apiBaseUrlInput = document.getElementById('apiBaseUrl');
+        if (apiBaseUrlInput) {
+          const autoDetectedUrl = this.getAutoDetectedApiUrl();
+          apiBaseUrlInput.value = autoDetectedUrl;
+        }
+      }
+
+      getAutoDetectedApiUrl() {
+        // Em produção, usar a mesma origem que o frontend
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          return `${window.location.origin}/api`;
+        }
+
+        // Em desenvolvimento, usar localhost com a porta atual
+        const port = window.location.port || 3000;
+        return `http://localhost:${port}/api`;
+      }
+
+      loadIntegration() {
+        try {
+          const response = await window.authManager.apiRequest('/api/integrations');
+          if (response.success && response.integration) {
+            const integration = response.integration;
+
+            document.getElementById('webhookUrl').value = integration.webhookUrl || '';
+            document.getElementById('isActive').checked = integration.isActive || false;
+            this.updateStatusIndicator();
+          }
+        } catch (error) {
+          console.error('Erro ao carregar integração:', error);
+          this.showToast('Erro ao carregar configuração', 'error');
+        }
+      }
+
+      updateStatusIndicator() {
+        const indicator = document.getElementById('statusIndicator');
+        const isActive = document.getElementById('isActive').checked;
+        indicator.className = `status-indicator ${isActive ? 'status-active' : 'status-inactive'}`;
+      }
+
+      async saveIntegration(e) {
+        e.preventDefault();
+
+        const webhookUrl = document.getElementById('webhookUrl').value.trim();
+        const isActive = document.getElementById('isActive').checked;
+
+        if (!webhookUrl) {
+          this.showToast('URL do webhook é obrigatória', 'error');
+          return;
+        }
+
+        try {
+          const response = await window.authManager.apiRequest('/api/integrations', {
+            method: 'PUT',
+            body: JSON.stringify({ webhookUrl, isActive })
+          });
+
+          if (response.success) {
+            this.showToast('Configuração salva com sucesso!', 'success');
+            this.updateStatusIndicator();
+          } else {
+            this.showToast(response.message || 'Erro ao salvar configuração', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao salvar integração:', error);
+          this.showToast('Erro ao salvar configuração', 'error');
+        }
+      }
+
+      copyApiUrl() {
+        const apiUrlInput = document.getElementById('apiBaseUrl');
+        if (apiUrlInput) {
+          apiUrlInput.select();
+          apiUrlInput.setSelectionRange(0, 99999); // Para dispositivos móveis
+
+          try {
+            document.execCommand('copy');
+            this.showToast('URL da API copiada para a área de transferência!', 'success');
+          } catch (error) {
+            console.error('Erro ao copiar URL:', error);
+            this.showToast('Erro ao copiar URL. Selecione e copie manualmente.', 'error');
+          }
+        }
+      }
+
+      async testWebhook() {
+        const testResult = document.getElementById('testResult');
+        testResult.className = 'test-result';
+        testResult.textContent = 'Testando conexão...';
+
+        const testBtn = document.getElementById('testWebhookBtn');
+        testBtn.disabled = true;
+        testBtn.textContent = 'Testando...';
+
+        try {
+          const response = await window.authManager.apiRequest('/api/integrations/test', {
+            method: 'POST'
+          });
+
+          if (response.success) {
+            testResult.className = 'test-result success';
+            testResult.textContent = `✅ ${response.message || 'Conexão testada com sucesso!'}`;
+          } else {
+            testResult.className = 'test-result error';
+            testResult.textContent = `❌ ${response.message || 'Falha na conexão'}`;
+          }
+        } catch (error) {
+          testResult.className = 'test-result error';
+          testResult.textContent = `❌ Erro ao testar conexão: ${error.message || 'Erro desconhecido'}`;
+        } finally {
+          testBtn.disabled = false;
+          testBtn.textContent = '🧪 Testar Conexão';
+        }
+      }
+
+      showToast(message, type = 'info') {
+        if (window.authManager) {
+          window.authManager.showToast(message, type);
+        } else {
+          alert(message);
+        }
+      }
+    }
+
+    // Instância global
+    let integrationManager;
+
+    // Inicializar quando DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', () => {
+      integrationManager = new IntegrationManager();
+      window.integrationManager = integrationManager;
+      
+      // Atualizar indicador de status quando checkbox mudar
+      const isActiveCheckbox = document.getElementById('isActive');
+      if (isActiveCheckbox) {
+        isActiveCheckbox.addEventListener('change', () => {
+          if (integrationManager) integrationManager.updateStatusIndicator();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+

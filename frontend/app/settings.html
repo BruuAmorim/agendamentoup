@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações - EvAgendamento</title>
+
+  <!-- Fonte -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../css/styles.css">
+
+  <style>
+    .settings-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .settings-header h1 {
+      margin: 0;
+      color: #0091FF;
+      font-size: 28px;
+    }
+
+    .save-btn-floating {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #0091FF, #007acc);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 145, 255, 0.4);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .save-btn-floating:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(0, 145, 255, 0.6);
+    }
+
+    .save-btn-floating:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .settings-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 24px;
+      background: transparent;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #666;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn:hover {
+      background: #f0f7ff;
+      color: #0091FF;
+    }
+
+    .tab-btn.active {
+      background: #0091FF;
+      color: white;
+      border-color: #0091FF;
+    }
+
+    .tab-content {
+      display: none;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #0091FF;
+      box-shadow: 0 0 0 3px rgba(0, 145, 255, 0.1);
+    }
+
+    .logo-upload {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo-preview {
+      width: 120px;
+      height: 120px;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #f9f9f9;
+    }
+
+    .logo-preview img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .logo-preview-placeholder {
+      color: #999;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .checkbox-item label {
+      margin: 0;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .extra-fields-list {
+      margin-top: 20px;
+    }
+
+    .extra-field-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .extra-field-item input {
+      flex: 1;
+    }
+
+    .extra-field-item button {
+      padding: 8px 16px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .add-field-btn {
+      padding: 10px 20px;
+      background: #0091FF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .services-list {
+      margin-top: 20px;
+    }
+
+    .service-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+
+    .service-item input {
+      flex: 1;
+    }
+
+    .service-item button {
+      padding: 8px 16px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .days-selector {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .day-checkbox {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .day-checkbox:hover {
+      background: #f0f7ff;
+    }
+
+    .day-checkbox input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .day-checkbox label {
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .day-checkbox.checked {
+      background: #e6f4ff;
+      border: 2px solid #0091FF;
+    }
+
+    .time-inputs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #0091FF;
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <!-- Background waves -->
+  <div class="waves-container" id="wavesContainer">
+    <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
+      <path fill="#cfe9ff"
+        d="M0,160L80,176C160,192,320,224,480,218.7C640,213,800,171,960,160C1120,149,1280,171,1360,181.3L1440,192V0H0Z" />
+    </svg>
+  </div>
+
+  <div class="settings-container">
+    <a href="agendamentos.html" class="back-link">← Voltar para Agendamentos</a>
+
+    <div class="settings-header">
+      <h1>⚙️ Configurações do Sistema</h1>
+      <button id="logoutBtn" class="logout-btn" title="Sair">🚪 Sair</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="settings-tabs">
+      <button class="tab-btn active" data-tab="general">📋 Geral</button>
+      <button class="tab-btn" data-tab="form">📝 Formulário</button>
+      <button class="tab-btn" data-tab="services">🛠️ Serviços</button>
+      <button class="tab-btn" data-tab="schedule">📅 Agenda</button>
+    </div>
+
+    <!-- Tab: Geral -->
+    <div class="tab-content active" id="general-tab">
+      <h2>Configurações Gerais</h2>
+      
+      <div class="form-group">
+        <label>Nome da Empresa *</label>
+        <input type="text" id="companyName" placeholder="Ex: EVA Cloudd" required>
+      </div>
+
+      <div class="form-group">
+        <label>Logo da Empresa</label>
+        <div class="logo-upload">
+          <div class="logo-preview" id="logoPreview">
+            <div class="logo-preview-placeholder">Sem logo</div>
+          </div>
+          <div>
+            <input type="file" id="logoUpload" accept="image/*" style="margin-bottom: 10px;">
+            <button type="button" class="add-field-btn" onclick="document.getElementById('logoUpload').click()">
+              Selecionar Logo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Formulário -->
+    <div class="tab-content" id="form-tab">
+      <h2>Campos do Formulário de Agendamento</h2>
+      
+      <div class="form-group">
+        <label>Campos Visíveis</label>
+        <div class="checkbox-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="fieldNome" checked>
+            <label for="fieldNome">Nome do Cliente</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="fieldTelefone" checked>
+            <label for="fieldTelefone">Telefone</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="fieldEmail">
+            <label for="fieldEmail">E-mail</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="fieldCPF">
+            <label for="fieldCPF">CPF</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Campos Extras</label>
+        <div class="extra-fields-list" id="extraFieldsList">
+          <!-- Campos extras serão adicionados aqui dinamicamente -->
+        </div>
+        <button type="button" class="add-field-btn" onclick="addExtraField()">
+          + Adicionar Campo Extra
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: Serviços -->
+    <div class="tab-content" id="services-tab">
+      <h2>Serviços Disponíveis</h2>
+      
+      <div class="services-list" id="servicesList">
+        <!-- Serviços serão adicionados aqui dinamicamente -->
+      </div>
+      
+      <button type="button" class="add-field-btn" onclick="addService()">
+        + Adicionar Serviço
+      </button>
+    </div>
+
+    <!-- Tab: Agenda -->
+    <div class="tab-content" id="schedule-tab">
+      <h2>Configurações de Funcionamento</h2>
+      
+      <div class="form-group">
+        <label>Dias da Semana</label>
+        <div class="days-selector">
+          <div class="day-checkbox" data-day="monday">
+            <input type="checkbox" id="dayMonday" checked>
+            <label for="dayMonday">Seg</label>
+          </div>
+          <div class="day-checkbox" data-day="tuesday">
+            <input type="checkbox" id="dayTuesday" checked>
+            <label for="dayTuesday">Ter</label>
+          </div>
+          <div class="day-checkbox" data-day="wednesday">
+            <input type="checkbox" id="dayWednesday" checked>
+            <label for="dayWednesday">Qua</label>
+          </div>
+          <div class="day-checkbox" data-day="thursday">
+            <input type="checkbox" id="dayThursday" checked>
+            <label for="dayThursday">Qui</label>
+          </div>
+          <div class="day-checkbox" data-day="friday">
+            <input type="checkbox" id="dayFriday" checked>
+            <label for="dayFriday">Sex</label>
+          </div>
+          <div class="day-checkbox" data-day="saturday">
+            <input type="checkbox" id="daySaturday">
+            <label for="daySaturday">Sáb</label>
+          </div>
+          <div class="day-checkbox" data-day="sunday">
+            <input type="checkbox" id="daySunday">
+            <label for="daySunday">Dom</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Horário de Funcionamento</label>
+        <div class="time-inputs">
+          <div>
+            <label>Início</label>
+            <input type="time" id="startTime" value="08:00" required>
+          </div>
+          <div>
+            <label>Fim</label>
+            <input type="time" id="endTime" value="18:00" required>
+          </div>
+          <div>
+            <label>Intervalo (minutos)</label>
+            <input type="number" id="slotInterval" value="30" min="15" step="15" required>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botão Salvar Flutuante -->
+  <button class="save-btn-floating" id="saveSettingsBtn">
+    💾 Salvar Alterações
+  </button>
+
+  <!-- Scripts -->
+  <script src="../js/config-api.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
+

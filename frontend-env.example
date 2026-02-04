@@ -1,0 +1,7 @@
+# Variáveis de ambiente para o frontend (Vercel)
+
+# URL da API de produção (Render)
+VITE_API_URL=https://evaagendamento.onrender.com
+
+# Ambiente (opcional - será detectado automaticamente)
+# VITE_NODE_ENV=production

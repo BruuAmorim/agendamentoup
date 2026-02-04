@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teste - EvAgendamento</title>
+</head>
+<body>
+  <h1>Teste - Sistema Funcionando</h1>
+  <p>Se você consegue ver esta página, o servidor web está funcionando corretamente.</p>
+
+  <h2>Links de Teste:</h2>
+  <ul>
+    <li><a href="/css/index.html">Página de Login</a></li>
+    <li><a href="/admin/dashboard">Dashboard Admin</a></li>
+    <li><a href="/app/agendamentos">Sistema de Agendamentos</a></li>
+  </ul>
+
+  <h2>Status dos Servidores:</h2>
+  <div id="status"></div>
+
+  <script>
+    // Testar conectividade
+    async function testConnection() {
+      const statusDiv = document.getElementById('status');
+
+      try {
+        // Testar backend
+        const backendResponse = await fetch('http://localhost:3000/health');
+        const backendStatus = backendResponse.ok ? '✅ Backend OK' : '❌ Backend com problema';
+
+        statusDiv.innerHTML = `
+          <p>${backendStatus}</p>
+          <p>🌐 Servidor Web: ✅ OK</p>
+        `;
+      } catch (error) {
+        statusDiv.innerHTML = `
+          <p>❌ Backend: Não responde</p>
+          <p>🌐 Servidor Web: ✅ OK</p>
+        `;
+      }
+    }
+
+    testConnection();
+  </script>
+</body>
+</html>

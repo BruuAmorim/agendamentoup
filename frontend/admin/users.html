@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerenciar Usuários - EvAgendamento</title>
+
+  <!-- Fonte -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .admin-users {
+      min-height: 100vh;
+      background: var(--background);
+    }
+
+    .users-header {
+      background: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    .users-header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .users-header h1 {
+      color: var(--text);
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+
+    .users-actions {
+      display: flex;
+      gap: 15px;
+    }
+
+    .admin-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .admin-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .admin-btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .admin-btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .admin-btn-secondary {
+      background: var(--secondary);
+      color: var(--text);
+    }
+
+    .admin-btn-secondary:hover {
+      background: var(--secondary-dark);
+    }
+
+    .users-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .users-card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .users-controls {
+      padding: 0;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-box input {
+      padding: 10px 15px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 300px;
+    }
+
+    .users-table-container {
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
+      overflow-x: auto;
+    }
+
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .users-table th,
+    .users-table td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .users-table th {
+      background: var(--background);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .users-table tbody tr:hover {
+      background: var(--background);
+    }
+
+    .user-role {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .role-admin {
+      background: var(--primary);
+      color: white;
+    }
+
+    .role-user {
+      background: var(--secondary);
+      color: var(--text);
+    }
+
+    .role-moderator {
+      background: #6f42c1;
+      color: white;
+    }
+
+    .user-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .status-active {
+      background: var(--success);
+      color: white;
+    }
+
+    .status-inactive {
+      background: var(--danger);
+      color: white;
+    }
+
+    .user-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .user-action-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-edit {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-edit:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-deactivate {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-deactivate:hover {
+      background: #c82333;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-delete {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-delete:hover {
+      background: #c82333;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-activate {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-activate:hover {
+      background: #218838;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="users-header">
+    <div class="users-header-content">
+      <h1>👥 Gerenciar Usuários</h1>
+      <div class="users-actions">
+        <button class="admin-btn admin-btn-primary" id="addUserBtn" style="padding: 12px 24px; font-size: 1rem; font-weight: 600; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+          ➕ Novo Usuário
+        </button>
+        <a href="/admin/dashboard" class="admin-btn admin-btn-secondary">
+          ← Voltar ao Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="users-main">
+    <!-- Card Único com Todo o Conteúdo -->
+    <div class="users-card">
+      <!-- Controls -->
+      <div class="users-controls">
+        <div class="search-box">
+          <input type="text" id="searchUsers" placeholder="🔍 Buscar usuários..." />
+        </div>
+        <div class="filter-box">
+          <select id="filterRole">
+            <option value="">Todos os perfis</option>
+            <option value="admin_master">Administrador</option>
+            <option value="moderator">Moderador</option>
+            <option value="user">Usuário</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="users-table-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Perfil</th>
+              <th>Status</th>
+              <th>Cadastro</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <!-- Usuários serão carregados dinamicamente -->
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <i>👥</i>
+          <h3>Nenhum usuário encontrado</h3>
+          <p>Não há usuários cadastrados ou correspondentes aos filtros aplicados.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Novo Usuário -->
+  <div id="newUserModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>➕ Novo Usuário</h3>
+        <button class="modal-close" id="newUserModalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="newUserForm">
+          <div class="form-group">
+            <label>Nome Completo *</label>
+            <input type="text" id="newUserName" placeholder="Digite o nome completo" required>
+          </div>
+          <div class="form-group">
+            <label>E-mail *</label>
+            <input type="email" id="newUserEmail" placeholder="exemplo@email.com" required>
+          </div>
+          <div class="form-group">
+            <label>Senha *</label>
+            <input type="password" id="newUserPassword" placeholder="Digite a senha" required>
+          </div>
+          <div class="form-group">
+            <label>Perfil *</label>
+            <select id="newUserRole" required>
+              <option value="user">Usuário Comum</option>
+              <option value="moderator">Moderador</option>
+              <option value="admin_master">Administrador Master</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="admin-btn admin-btn-secondary" id="cancelNewUserBtn">Cancelar</button>
+        <button class="admin-btn admin-btn-primary" id="saveNewUserBtn">Criar Usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gerenciar Funcionários -->
+  <div id="manageEmployeesModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3>👥 Gerenciar Funcionários</h3>
+        <button class="modal-close" id="manageEmployeesModalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="employeesInfo" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+          <p style="margin: 0; color: var(--muted);">
+            <strong>Moderador:</strong> <span id="moderatorName"></span><br>
+            <strong>Limite:</strong> <span id="employeeLimitInfo"></span> funcionários
+          </p>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h4 style="margin: 0;">Funcionários Vinculados</h4>
+          <button class="admin-btn admin-btn-primary" id="addEmployeeBtn" style="padding: 8px 16px; font-size: 0.9rem;">
+            ➕ Adicionar Funcionário
+          </button>
+        </div>
+
+        <div id="employeesList" style="max-height: 400px; overflow-y: auto;">
+          <!-- Lista de funcionários será carregada aqui -->
+        </div>
+
+        <!-- Modal Adicionar Funcionário -->
+        <div id="addEmployeeForm" style="display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+          <h4 style="margin: 0 0 15px 0;">Adicionar Novo Funcionário</h4>
+          <div class="form-group">
+            <label>Selecionar Usuário *</label>
+            <select id="employeeUserSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px;">
+              <option value="">Selecione um usuário comum...</option>
+            </select>
+            <small style="color: var(--muted); font-size: 0.85rem;">Apenas usuários com perfil "Usuário" podem ser funcionários</small>
+          </div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="admin-btn admin-btn-secondary" id="cancelAddEmployeeBtn" style="padding: 8px 16px;">Cancelar</button>
+            <button class="admin-btn admin-btn-primary" id="saveAddEmployeeBtn" style="padding: 8px 16px;">Adicionar</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="admin-btn admin-btn-secondary" id="closeManageEmployeesBtn">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Editar Usuário -->
+  <div id="editUserModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>✏️ Editar Usuário</h3>
+        <button class="modal-close" id="editUserModalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="editUserForm">
+          <input type="hidden" id="editUserId">
+          <div class="form-group">
+            <label>Nome Completo *</label>
+            <input type="text" id="editUserName" placeholder="Digite o nome completo" required>
+          </div>
+          <div class="form-group">
+            <label>E-mail *</label>
+            <input type="email" id="editUserEmail" placeholder="exemplo@email.com" required>
+          </div>
+          <div class="form-group">
+            <label>Nova Senha (deixe vazio para manter)</label>
+            <input type="password" id="editUserPassword" placeholder="Digite a nova senha">
+          </div>
+          <div class="form-group">
+            <label>Perfil *</label>
+            <select id="editUserRole" required>
+              <option value="user">Usuário Comum</option>
+              <option value="moderator">Moderador</option>
+              <option value="admin_master">Administrador Master</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="editUserActive"> Usuário ativo
+            </label>
+          </div>
+          <!-- Campo de limite de funcionários (apenas para moderadores) -->
+          <div class="form-group" id="employeeLimitGroup" style="display: none;">
+            <label>Limite de Funcionários *</label>
+            <input type="number" id="editEmployeeLimit" placeholder="Quantidade máxima de funcionários" min="1" max="100">
+            <small style="color: var(--muted); font-size: 0.85rem;">Número máximo de funcionários que este moderador pode adicionar</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="admin-btn admin-btn-secondary" id="cancelEditUserBtn">Cancelar</button>
+        <button class="admin-btn admin-btn-primary" id="saveEditUserBtn">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../js/config-api.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    // Gerenciamento de Usuários
+    class UserManagement {
+      constructor() {
+        this.users = [];
+        this.filteredUsers = [];
+        this.init();
+      }
+
+      async init() {
+        await this.checkAdminAccess();
+        this.bindEvents();
+        this.loadUsers();
+      }
+
+      async checkAdminAccess() {
+        // Aguardar inicialização do authManager se necessário
+        if (!window.authManager) {
+          // Aguardar até que o authManager esteja disponível
+          let attempts = 0;
+          while (!window.authManager && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+          }
+        }
+
+        if (!window.authManager) {
+          console.error('AuthManager não disponível');
+          window.location.href = '/css/index.html';
+          return;
+        }
+
+        // Verificar autenticação antes de verificar role
+        if (!window.authManager.isAuthenticated()) {
+          console.warn('Usuário não autenticado, redirecionando para login');
+          window.location.href = '/css/index.html';
+          return;
+        }
+
+        // Verificar se é admin
+        if (!window.authManager.isAdmin()) {
+          console.warn('Acesso negado: usuário não é admin', window.authManager.currentUser);
+          window.location.href = '/css/index.html';
+          return;
+        }
+
+        console.log('✅ Acesso autorizado para admin:', window.authManager.currentUser);
+      }
+
+      bindEvents() {
+        // Busca
+        const searchInput = document.getElementById('searchUsers');
+        if (searchInput) {
+          searchInput.addEventListener('input', () => this.filterUsers());
+        }
+
+        // Filtro por role
+        const filterRole = document.getElementById('filterRole');
+        if (filterRole) {
+          filterRole.addEventListener('change', () => this.filterUsers());
+        }
+
+        // Novo usuário
+        const addUserBtn = document.getElementById('addUserBtn');
+        if (addUserBtn) {
+          addUserBtn.addEventListener('click', () => this.openNewUserModal());
+        }
+
+        // Modal novo usuário
+        const newUserModalClose = document.getElementById('newUserModalClose');
+        if (newUserModalClose) {
+          newUserModalClose.addEventListener('click', () => this.closeNewUserModal());
+        }
+
+        const cancelNewUserBtn = document.getElementById('cancelNewUserBtn');
+        if (cancelNewUserBtn) {
+          cancelNewUserBtn.addEventListener('click', () => this.closeNewUserModal());
+        }
+
+        const saveNewUserBtn = document.getElementById('saveNewUserBtn');
+        if (saveNewUserBtn) {
+          saveNewUserBtn.addEventListener('click', (e) => this.saveNewUser(e));
+        }
+
+        // Modal editar usuário
+        const editUserModalClose = document.getElementById('editUserModalClose');
+        if (editUserModalClose) {
+          editUserModalClose.addEventListener('click', () => this.closeEditUserModal());
+        }
+
+        const cancelEditUserBtn = document.getElementById('cancelEditUserBtn');
+        if (cancelEditUserBtn) {
+          cancelEditUserBtn.addEventListener('click', () => this.closeEditUserModal());
+        }
+
+        const saveEditUserBtn = document.getElementById('saveEditUserBtn');
+        if (saveEditUserBtn) {
+          saveEditUserBtn.addEventListener('click', (e) => this.saveEditUser(e));
+        }
+
+        // Modal gerenciar funcionários
+        const manageEmployeesModalClose = document.getElementById('manageEmployeesModalClose');
+        if (manageEmployeesModalClose) {
+          manageEmployeesModalClose.addEventListener('click', () => this.closeManageEmployeesModal());
+        }
+
+        const closeManageEmployeesBtn = document.getElementById('closeManageEmployeesBtn');
+        if (closeManageEmployeesBtn) {
+          closeManageEmployeesBtn.addEventListener('click', () => this.closeManageEmployeesModal());
+        }
+
+        const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+        if (addEmployeeBtn) {
+          addEmployeeBtn.addEventListener('click', () => {
+            document.getElementById('addEmployeeForm').style.display = 'block';
+          });
+        }
+
+        const cancelAddEmployeeBtn = document.getElementById('cancelAddEmployeeBtn');
+        if (cancelAddEmployeeBtn) {
+          cancelAddEmployeeBtn.addEventListener('click', () => {
+            document.getElementById('addEmployeeForm').style.display = 'none';
+            document.getElementById('employeeUserSelect').value = '';
+          });
+        }
+
+        const saveAddEmployeeBtn = document.getElementById('saveAddEmployeeBtn');
+        if (saveAddEmployeeBtn) {
+          saveAddEmployeeBtn.addEventListener('click', () => this.addEmployee());
+          // Inicialmente desabilitado
+          saveAddEmployeeBtn.disabled = true;
+        }
+
+        // Habilitar/desabilitar botão quando selecionar usuário
+        const employeeUserSelect = document.getElementById('employeeUserSelect');
+        if (employeeUserSelect && saveAddEmployeeBtn) {
+          employeeUserSelect.addEventListener('change', () => {
+            const selectedValue = employeeUserSelect.value;
+            saveAddEmployeeBtn.disabled = !selectedValue || selectedValue === '';
+          });
+        }
+
+        // Mostrar/ocultar campo de limite quando mudar o role
+        const editUserRole = document.getElementById('editUserRole');
+        if (editUserRole) {
+          editUserRole.addEventListener('change', (e) => {
+            const employeeLimitGroup = document.getElementById('employeeLimitGroup');
+            if (e.target.value === 'moderator') {
+              employeeLimitGroup.style.display = 'block';
+            } else {
+              employeeLimitGroup.style.display = 'none';
+            }
+          });
+        }
+      }
+
+      async manageEmployees(moderatorId) {
+        const moderator = this.users.find(u => u.id === moderatorId);
+        if (!moderator || moderator.role !== 'moderator') {
+          this.showToast('Apenas moderadores podem ter funcionários', 'error');
+          return;
+        }
+
+        // Preencher informações do moderador
+        document.getElementById('moderatorName').textContent = moderator.name;
+        document.getElementById('moderatorName').dataset.moderatorId = moderatorId;
+        
+        // Buscar limite de funcionários
+        try {
+          const settingsResponse = await window.authManager.apiRequest(`/api/moderator/settings?userId=${moderatorId}`);
+          const employeeLimit = settingsResponse.success && settingsResponse.data ? 
+            (settingsResponse.data.employee_limit || 10) : 10;
+          document.getElementById('employeeLimitInfo').textContent = employeeLimit;
+        } catch (error) {
+          document.getElementById('employeeLimitInfo').textContent = '10';
+        }
+
+        // Abrir modal
+        const modal = document.getElementById('manageEmployeesModal');
+        if (modal) {
+          modal.classList.add('show');
+          this.loadEmployees(moderatorId);
+          this.loadAvailableUsersForEmployee(moderatorId);
+        }
+      }
+
+      closeManageEmployeesModal() {
+        const modal = document.getElementById('manageEmployeesModal');
+        if (modal) {
+          modal.classList.remove('show');
+          document.getElementById('addEmployeeForm').style.display = 'none';
+          document.getElementById('employeeUserSelect').value = '';
+        }
+      }
+
+      async loadEmployees(moderatorId) {
+        try {
+          // Usar endpoint admin para listar funcionários
+          const response = await window.authManager.apiRequest(`/api/users/${moderatorId}/employees`);
+          
+          const employeesList = document.getElementById('employeesList');
+          if (response.success && response.data && response.data.length > 0) {
+            employeesList.innerHTML = `
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f8f9fa; border-bottom: 2px solid var(--border);">
+                    <th style="padding: 12px; text-align: left;">Nome</th>
+                    <th style="padding: 12px; text-align: left;">Email</th>
+                    <th style="padding: 12px; text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${response.data.map(emp => `
+                    <tr style="border-bottom: 1px solid var(--border);">
+                      <td style="padding: 12px;">${emp.name}</td>
+                      <td style="padding: 12px;">${emp.email}</td>
+                      <td style="padding: 12px; text-align: center;">
+                        <button class="user-action-btn btn-delete" onclick="userManagement.removeEmployee(${moderatorId}, ${emp.id})" style="padding: 6px 12px; font-size: 0.85rem;">
+                          🗑️ Remover
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          } else {
+            employeesList.innerHTML = `
+              <div style="text-align: center; padding: 40px; color: var(--muted);">
+                <p>Nenhum funcionário vinculado ainda.</p>
+                <p style="font-size: 0.9rem;">Clique em "Adicionar Funcionário" para começar.</p>
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Erro ao carregar funcionários:', error);
+          document.getElementById('employeesList').innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--danger);">
+              <p>Erro ao carregar funcionários.</p>
+            </div>
+          `;
+        }
+      }
+
+      async loadAvailableUsersForEmployee(moderatorId) {
+        try {
+          // Buscar apenas usuários comuns que ainda não são funcionários deste moderador
+          const allUsersResponse = await window.authManager.apiRequest('/api/users');
+          const employeesResponse = await window.authManager.apiRequest(`/api/users/${moderatorId}/employees`);
+          
+          const allUsers = allUsersResponse.success ? allUsersResponse.users : [];
+          const currentEmployees = employeesResponse.success ? employeesResponse.data : [];
+          const employeeIds = currentEmployees.map(e => e.id);
+          
+          // Filtrar apenas usuários comuns que não são funcionários
+          const availableUsers = allUsers.filter(u => 
+            u.role === 'user' && !employeeIds.includes(u.id)
+          );
+
+          const select = document.getElementById('employeeUserSelect');
+          const saveAddEmployeeBtn = document.getElementById('saveAddEmployeeBtn');
+          
+          select.innerHTML = '<option value="">Selecione um usuário comum...</option>' +
+            availableUsers.map(u => `<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
+          
+          // Desabilitar botão se não houver usuários disponíveis
+          if (saveAddEmployeeBtn) {
+            saveAddEmployeeBtn.disabled = availableUsers.length === 0 || select.value === '';
+          }
+        } catch (error) {
+          console.error('Erro ao carregar usuários disponíveis:', error);
+        }
+      }
+
+      async removeEmployee(moderatorId, userId) {
+        if (!confirm('Tem certeza que deseja remover este funcionário?')) {
+          return;
+        }
+
+        try {
+          // Usar endpoint admin para remover funcionário
+          const response = await window.authManager.apiRequest(`/api/users/${moderatorId}/employees/${userId}`, {
+            method: 'DELETE'
+          });
+
+          if (response.success) {
+            this.showToast('Funcionário removido com sucesso!', 'success');
+            this.loadEmployees(moderatorId);
+            this.loadAvailableUsersForEmployee(moderatorId);
+          } else {
+            this.showToast(response.message || 'Erro ao remover funcionário', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao remover funcionário:', error);
+          this.showToast('Erro ao remover funcionário', 'error');
+        }
+      }
+
+      async addEmployee() {
+        const moderatorId = parseInt(document.getElementById('moderatorName').dataset.moderatorId);
+        const userId = parseInt(document.getElementById('employeeUserSelect').value);
+
+        console.log('🔍 addEmployee - Input:', { moderatorId, userId });
+
+        if (!userId || isNaN(userId)) {
+          this.showToast('Selecione um usuário', 'error');
+          return;
+        }
+
+        if (!moderatorId || isNaN(moderatorId)) {
+          this.showToast('Erro: Moderador não identificado', 'error');
+          return;
+        }
+
+        // Desabilitar botão durante a requisição
+        const saveBtn = document.getElementById('saveAddEmployeeBtn');
+        const originalText = saveBtn ? saveBtn.textContent : '';
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Adicionando...';
+        }
+
+        try {
+          console.log('📤 Enviando requisição para adicionar funcionário...');
+          const response = await window.authManager.apiRequest(`/api/users/${moderatorId}/employees`, {
+            method: 'POST',
+            body: JSON.stringify({ user_id: userId })
+          });
+
+          console.log('📥 Resposta recebida:', response);
+
+          if (response.success) {
+            this.showToast('Funcionário adicionado com sucesso!', 'success');
+            document.getElementById('addEmployeeForm').style.display = 'none';
+            document.getElementById('employeeUserSelect').value = '';
+            if (saveBtn) {
+              saveBtn.disabled = true;
+            }
+            this.loadEmployees(moderatorId);
+            this.loadAvailableUsersForEmployee(moderatorId);
+          } else {
+            this.showToast(response.message || response.error || 'Erro ao adicionar funcionário', 'error');
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = originalText;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro ao adicionar funcionário:', error);
+          console.error('❌ Detalhes:', error.message);
+          this.showToast(error.message || 'Erro ao adicionar funcionário', 'error');
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+          }
+        }
+      }
+
+      async loadUsers() {
+        try {
+          const response = await window.authManager.apiRequest('/api/users');
+          if (response.success) {
+            this.users = response.users;
+            this.filteredUsers = [...this.users];
+            this.renderUsers();
+          }
+        } catch (error) {
+          console.error('Erro ao carregar usuários:', error);
+          this.showToast('Erro ao carregar usuários', 'error');
+        }
+      }
+
+      filterUsers() {
+        const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+        const roleFilter = document.getElementById('filterRole').value;
+
+        this.filteredUsers = this.users.filter(user => {
+          const matchesSearch = user.name.toLowerCase().includes(searchTerm) ||
+                               user.email.toLowerCase().includes(searchTerm);
+          const matchesRole = !roleFilter || user.role === roleFilter;
+
+          return matchesSearch && matchesRole;
+        });
+
+        this.renderUsers();
+      }
+
+      renderUsers() {
+        const tbody = document.getElementById('usersTableBody');
+        const emptyState = document.getElementById('emptyState');
+
+        if (!tbody) return;
+
+        if (this.filteredUsers.length === 0) {
+          tbody.innerHTML = '';
+          if (emptyState) emptyState.style.display = 'block';
+          return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        tbody.innerHTML = this.filteredUsers.map(user => `
+          <tr>
+            <td>${user.name}</td>
+            <td>${user.email}</td>
+            <td>
+              <span class="user-role role-${user.role}">
+                ${user.role === 'admin_master' ? 'Admin' : user.role === 'moderator' ? 'Moderador' : 'Usuário'}
+              </span>
+            </td>
+            <td>
+              <span class="user-status ${user.isActive ? 'status-active' : 'status-inactive'}">
+                ${user.isActive ? 'Ativo' : 'Inativo'}
+              </span>
+            </td>
+            <td>${new Date(user.createdAt).toLocaleDateString('pt-BR')}</td>
+            <td>
+              <div class="user-actions">
+                <button class="user-action-btn btn-edit" onclick="userManagement.editUser(${user.id})" title="Editar usuário">
+                  ✏️ Editar
+                </button>
+                ${user.role === 'moderator' ?
+                  `<button class="user-action-btn btn-employees" onclick="userManagement.manageEmployees(${user.id})" title="Gerenciar funcionários" style="background: #6f42c1; color: white;">
+                    👥 Funcionários
+                  </button>` : ''
+                }
+                ${user.isActive ?
+                  `<button class="user-action-btn btn-deactivate" onclick="userManagement.toggleUserStatus(${user.id}, false)" title="Desativar usuário">
+                    🚫 Desativar
+                  </button>` :
+                  `<button class="user-action-btn btn-activate" onclick="userManagement.toggleUserStatus(${user.id}, true)" title="Reativar usuário">
+                    ✅ Reativar
+                  </button>`
+                }
+                <button class="user-action-btn btn-delete" onclick="userManagement.deleteUser(${user.id})" title="Excluir permanentemente">
+                  🗑️ Excluir
+                </button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      openNewUserModal() {
+        const modal = document.getElementById('newUserModal');
+        if (modal) {
+          modal.classList.add('show');
+          document.getElementById('newUserName').focus();
+        }
+      }
+
+      closeNewUserModal() {
+        const modal = document.getElementById('newUserModal');
+        if (modal) {
+          modal.classList.remove('show');
+          document.getElementById('newUserForm').reset();
+        }
+      }
+
+      async saveNewUser(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('newUserName').value.trim();
+        const email = document.getElementById('newUserEmail').value.toLowerCase().trim();
+        const password = document.getElementById('newUserPassword').value;
+        const role = document.getElementById('newUserRole').value;
+
+        if (!name || !email || !password) {
+          this.showToast('Preencha todos os campos obrigatórios', 'error');
+          return;
+        }
+
+        try {
+          const response = await window.authManager.apiRequest('/api/users', {
+            method: 'POST',
+            body: JSON.stringify({ name, email, password, role })
+          });
+
+          if (response.success) {
+            this.showToast('Usuário criado com sucesso!', 'success');
+            this.closeNewUserModal();
+            this.loadUsers();
+          } else {
+            this.showToast(response.message || 'Erro ao criar usuário', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao criar usuário:', error);
+          this.showToast('Erro ao criar usuário', 'error');
+        }
+      }
+
+      async editUser(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+
+        // Preencher modal
+        document.getElementById('editUserId').value = user.id;
+        document.getElementById('editUserName').value = user.name;
+        document.getElementById('editUserEmail').value = user.email;
+        document.getElementById('editUserPassword').value = '';
+        document.getElementById('editUserRole').value = user.role;
+        document.getElementById('editUserActive').checked = user.isActive;
+
+        // Se for moderador, carregar limite de funcionários
+        const employeeLimitGroup = document.getElementById('employeeLimitGroup');
+        const employeeLimitInput = document.getElementById('editEmployeeLimit');
+        
+        if (user.role === 'moderator') {
+          employeeLimitGroup.style.display = 'block';
+          // Buscar configurações do moderador para obter o limite atual
+          try {
+            const settingsResponse = await window.authManager.apiRequest(`/api/moderator/settings?userId=${user.id}`);
+            if (settingsResponse.success && settingsResponse.data) {
+              employeeLimitInput.value = settingsResponse.data.employee_limit || 10;
+            } else {
+              employeeLimitInput.value = 10; // Valor padrão
+            }
+          } catch (error) {
+            console.error('Erro ao carregar limite de funcionários:', error);
+            employeeLimitInput.value = 10;
+          }
+        } else {
+          employeeLimitGroup.style.display = 'none';
+        }
+
+        // Abrir modal
+        const modal = document.getElementById('editUserModal');
+        if (modal) {
+          modal.classList.add('show');
+        }
+      }
+
+      closeEditUserModal() {
+        const modal = document.getElementById('editUserModal');
+        if (modal) {
+          modal.classList.remove('show');
+          document.getElementById('editUserForm').reset();
+        }
+      }
+
+      async saveEditUser(e) {
+        e.preventDefault();
+
+        const id = document.getElementById('editUserId').value;
+        const name = document.getElementById('editUserName').value.trim();
+        const email = document.getElementById('editUserEmail').value.toLowerCase().trim();
+        const password = document.getElementById('editUserPassword').value;
+        const role = document.getElementById('editUserRole').value;
+        const isActive = document.getElementById('editUserActive').checked;
+
+        if (!name || !email) {
+          this.showToast('Preencha todos os campos obrigatórios', 'error');
+          return;
+        }
+
+        const updateData = { name, email, role, isActive };
+        if (password) updateData.password = password;
+
+        // Se for moderador, incluir limite de funcionários
+        if (role === 'moderator') {
+          const employeeLimit = parseInt(document.getElementById('editEmployeeLimit').value);
+          if (!isNaN(employeeLimit) && employeeLimit > 0) {
+            updateData.employee_limit = employeeLimit;
+          }
+        }
+
+        try {
+          const response = await window.authManager.apiRequest(`/api/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+          });
+
+          if (response.success) {
+            this.showToast('Usuário atualizado com sucesso!', 'success');
+            this.closeEditUserModal();
+            this.loadUsers();
+          } else {
+            this.showToast(response.message || 'Erro ao atualizar usuário', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao atualizar usuário:', error);
+          this.showToast('Erro ao atualizar usuário', 'error');
+        }
+      }
+
+      async toggleUserStatus(userId, activate) {
+        try {
+          const endpoint = activate ? `/api/users/${userId}/reactivate` : `/api/users/${userId}/deactivate`;
+          const method = 'PATCH';
+
+          const response = await window.authManager.apiRequest(endpoint, { method });
+
+          if (response.success) {
+            this.showToast(`Usuário ${activate ? 'reativado' : 'desativado'} com sucesso!`, 'success');
+            this.loadUsers();
+          } else {
+            this.showToast(response.message || 'Erro ao alterar status do usuário', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao alterar status do usuário:', error);
+          this.showToast('Erro ao alterar status do usuário', 'error');
+        }
+      }
+
+      async deleteUser(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+
+        const confirmMessage = `⚠️ ATENÇÃO: Esta ação é PERMANENTE e não pode ser desfeita!\n\n` +
+          `Você está prestes a excluir:\n` +
+          `- Nome: ${user.name}\n` +
+          `- Email: ${user.email}\n` +
+          `- Perfil: ${user.role}\n\n` +
+          `Tem certeza que deseja EXCLUIR este usuário do banco de dados?`;
+
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+
+        try {
+          const response = await window.authManager.apiRequest(`/api/users/${userId}`, {
+            method: 'DELETE'
+          });
+
+          if (response.success) {
+            this.showToast('Usuário excluído permanentemente!', 'success');
+            this.loadUsers();
+          } else {
+            this.showToast(response.message || 'Erro ao excluir usuário', 'error');
+          }
+        } catch (error) {
+          console.error('Erro ao excluir usuário:', error);
+          this.showToast('Erro ao excluir usuário', 'error');
+        }
+      }
+
+      showToast(message, type = 'info') {
+        if (window.authManager) {
+          window.authManager.showToast(message, type);
+        } else {
+          alert(message);
+        }
+      }
+    }
+
+    // Instância global
+    const userManagement = new UserManagement();
+
+    // Inicializar quando DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Aguardar inicialização do authManager
+      if (!window.authManager) {
+        let attempts = 0;
+        while (!window.authManager && attempts < 20) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+      }
+      
+      if (window.authManager) {
+        // Verificar autenticação antes de inicializar
+        await window.authManager.checkAuthStatus();
+        // Já inicializado no constructor, mas garantir que checkAdminAccess foi executado
+        if (userManagement && !userManagement.initialized) {
+          userManagement.init();
+        }
+      } else {
+        console.error('AuthManager não disponível após espera');
+        window.location.href = '/css/index.html';
+      }
+    });
+  </script>
+</body>
+</html>

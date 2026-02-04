@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Simples - EvAgendamento</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .test-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .test-section h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .result {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .result.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .result.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .result.warning {
+            background: #fffaf0;
+            color: #744210;
+            border: 1px solid #fbb6ce;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .status.info {
+            background: #ebf8ff;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Simples da API</h1>
+        <p class="subtitle">Teste básico de conectividade com a API do EvAgendamento</p>
+
+        <div class="test-section">
+            <h3>🏥 Health Check</h3>
+            <button onclick="testHealth()">Testar Conexão</button>
+            <div id="healthResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📅 Horários Disponíveis</h3>
+            <button onclick="testSlots()">Buscar Horários</button>
+            <div id="slotsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Criar Agendamento</h3>
+            <button onclick="testCreate()">Criar Teste</button>
+            <div id="createResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Logs de Debug</h3>
+            <div id="logs" class="result" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsDiv.textContent += `[${timestamp}] ${message}\n`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function showResult(elementId, type, message) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+
+        async function testHealth() {
+            log('🏥 Iniciando teste de health check...');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch('http://localhost:3000/health', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Health check OK: ${data.status}`);
+                    showResult('healthResult', 'success', `✅ Sucesso!\nStatus: ${data.status}\nTimestamp: ${data.timestamp}`);
+                } else {
+                    log(`❌ Health check falhou: ${response.status}`);
+                    showResult('healthResult', 'error', `❌ Erro ${response.status}\n${response.statusText}`);
+                }
+            } catch (error) {
+                log(`❌ Erro no health check: ${error.message}`);
+                let errorMsg = `❌ Falha na conexão\n${error.message}`;
+
+                if (error.name === 'AbortError') {
+                    errorMsg = '⏱️ Timeout: Servidor não respondeu em 5 segundos';
+                }
+
+                showResult('healthResult', 'error', errorMsg);
+            }
+        }
+
+        async function testSlots() {
+            log('📅 Testando busca de horários disponíveis...');
+
+            try {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dateStr = tomorrow.toISOString().split('T')[0];
+
+                const response = await fetch(`http://localhost:3000/api/appointments/available/${dateStr}?duration=60`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Horários obtidos: ${data.data.available_slots.length} slots`);
+                    showResult('slotsResult', 'success', `✅ ${data.data.available_slots.length} horários disponíveis para ${dateStr}`);
+                } else {
+                    log(`❌ Falha ao buscar horários: ${response.status}`);
+                    showResult('slotsResult', 'error', `❌ Erro ${response.status}\n${response.statusText}`);
+                }
+            } catch (error) {
+                log(`❌ Erro ao buscar horários: ${error.message}`);
+                showResult('slotsResult', 'error', `❌ Falha na conexão\n${error.message}`);
+            }
+        }
+
+        async function testCreate() {
+            log('📝 Testando criação de agendamento...');
+
+            try {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dateStr = tomorrow.toISOString().split('T')[0];
+                const timeStr = '10:00';
+
+                const testData = {
+                    customer_name: 'Teste Simples',
+                    customer_phone: '(11) 99999-9999',
+                    appointment_date: dateStr,
+                    appointment_time: timeStr,
+                    duration_minutes: 60,
+                    notes: 'Teste simples - ' + new Date().toISOString()
+                };
+
+                log(`📤 Enviando dados: ${JSON.stringify(testData, null, 2)}`);
+
+                const response = await fetch('http://localhost:3000/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Agendamento criado: ID ${data.data.id}`);
+                    showResult('createResult', 'success', `✅ Agendamento criado!\nID: ${data.data.id}\nData: ${dateStr} ${timeStr}`);
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                    log(`❌ Falha na criação: ${errorData.message}`);
+                    showResult('createResult', 'error', `❌ Erro ${response.status}\n${errorData.message}`);
+                }
+            } catch (error) {
+                log(`❌ Erro na criação: ${error.message}`);
+                showResult('createResult', 'error', `❌ Falha na conexão\n${error.message}`);
+            }
+        }
+
+        // Teste automático ao carregar
+        window.onload = function() {
+            log('🚀 Teste simples iniciado');
+            log('💡 Clique nos botões para testar cada funcionalidade');
+        };
+    </script>
+</body>
+</html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Simples - EvAgendamento</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .test-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .test-section h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .result {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .result.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .result.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .result.warning {
+            background: #fffaf0;
+            color: #744210;
+            border: 1px solid #fbb6ce;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .status.info {
+            background: #ebf8ff;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Simples da API</h1>
+        <p class="subtitle">Teste básico de conectividade com a API do EvAgendamento</p>
+
+        <div class="test-section">
+            <h3>🏥 Health Check</h3>
+            <button onclick="testHealth()">Testar Conexão</button>
+            <div id="healthResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📅 Horários Disponíveis</h3>
+            <button onclick="testSlots()">Buscar Horários</button>
+            <div id="slotsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Criar Agendamento</h3>
+            <button onclick="testCreate()">Criar Teste</button>
+            <div id="createResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Logs de Debug</h3>
+            <div id="logs" class="result" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsDiv.textContent += `[${timestamp}] ${message}\n`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function showResult(elementId, type, message) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+
+        async function testHealth() {
+            log('🏥 Iniciando teste de health check...');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch('http://localhost:3000/health', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Health check OK: ${data.status}`);
+                    showResult('healthResult', 'success', `✅ Sucesso!\nStatus: ${data.status}\nTimestamp: ${data.timestamp}`);
+                } else {
+                    log(`❌ Health check falhou: ${response.status}`);
+                    showResult('healthResult', 'error', `❌ Erro ${response.status}\n${response.statusText}`);
+                }
+            } catch (error) {
+                log(`❌ Erro no health check: ${error.message}`);
+                let errorMsg = `❌ Falha na conexão\n${error.message}`;
+
+                if (error.name === 'AbortError') {
+                    errorMsg = '⏱️ Timeout: Servidor não respondeu em 5 segundos';
+                }
+
+                showResult('healthResult', 'error', errorMsg);
+            }
+        }
+
+        async function testSlots() {
+            log('📅 Testando busca de horários disponíveis...');
+
+            try {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dateStr = tomorrow.toISOString().split('T')[0];
+
+                const response = await fetch(`http://localhost:3000/api/appointments/available/${dateStr}?duration=60`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Horários obtidos: ${data.data.available_slots.length} slots`);
+                    showResult('slotsResult', 'success', `✅ ${data.data.available_slots.length} horários disponíveis para ${dateStr}`);
+                } else {
+                    log(`❌ Falha ao buscar horários: ${response.status}`);
+                    showResult('slotsResult', 'error', `❌ Erro ${response.status}\n${response.statusText}`);
+                }
+            } catch (error) {
+                log(`❌ Erro ao buscar horários: ${error.message}`);
+                showResult('slotsResult', 'error', `❌ Falha na conexão\n${error.message}`);
+            }
+        }
+
+        async function testCreate() {
+            log('📝 Testando criação de agendamento...');
+
+            try {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dateStr = tomorrow.toISOString().split('T')[0];
+                const timeStr = '10:00';
+
+                const testData = {
+                    customer_name: 'Teste Simples',
+                    customer_phone: '(11) 99999-9999',
+                    appointment_date: dateStr,
+                    appointment_time: timeStr,
+                    duration_minutes: 60,
+                    notes: 'Teste simples - ' + new Date().toISOString()
+                };
+
+                log(`📤 Enviando dados: ${JSON.stringify(testData, null, 2)}`);
+
+                const response = await fetch('http://localhost:3000/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Agendamento criado: ID ${data.data.id}`);
+                    showResult('createResult', 'success', `✅ Agendamento criado!\nID: ${data.data.id}\nData: ${dateStr} ${timeStr}`);
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                    log(`❌ Falha na criação: ${errorData.message}`);
+                    showResult('createResult', 'error', `❌ Erro ${response.status}\n${errorData.message}`);
+                }
+            } catch (error) {
+                log(`❌ Erro na criação: ${error.message}`);
+                showResult('createResult', 'error', `❌ Falha na conexão\n${error.message}`);
+            }
+        }
+
+        // Teste automático ao carregar
+        window.onload = function() {
+            log('🚀 Teste simples iniciado');
+            log('💡 Clique nos botões para testar cada funcionalidade');
+        };
+    </script>
+</body>
+</html>
+
+
+
+

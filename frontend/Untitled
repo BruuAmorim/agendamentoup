@@ -1,0 +1,1 @@
+npm install express cors helmet mysql2 dotenv body-parser

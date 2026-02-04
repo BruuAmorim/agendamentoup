@@ -1,0 +1,59 @@
+<script>
+  // CORREÇÃO DE EMERGÊNCIA - Adicione no início do seu HTML
+  (function() {
+      console.log("🔧 Aplicando patch de correção para URLs duplicadas...");
+      
+      // Intercepta todas as requisições fetch
+      const originalFetch = window.fetch;
+      window.fetch = function(url, options) {
+          // Se a URL for uma string e contiver /api/api/
+          if (typeof url === 'string' && url.includes('/api/api/')) {
+              console.warn('⚠️  Corrigindo URL duplicada:', url);
+              const corrected = url.replace('/api/api/', '/api/');
+              console.log('✅ URL corrigida:', corrected);
+              return originalFetch(corrected, options);
+          }
+          return originalFetch(url, options);
+      };
+      
+      // Intercepta XMLHttpRequest também
+      const originalXHROpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url) {
+          if (typeof url === 'string' && url.includes('/api/api/')) {
+              console.warn('⚠️  Corrigindo XHR URL duplicada:', url);
+              arguments[1] = url.replace('/api/api/', '/api/');
+          }
+          return originalXHROpen.apply(this, arguments);
+      };
+      
+      console.log("✅ Patch aplicado com sucesso!");
+  })();
+  </script>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EvAgendamento - Sistema de Agendamentos</title>
+  <script>
+    // Redirecionar automaticamente para a página de login
+    window.location.href = 'css/index.html';
+  </script>
+</head>
+<body>
+  <p>Redirecionando para o sistema...</p>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,622 @@
+const { User } = require('../models');
+
+/**
+ * Controller de Gerenciamento de Usuários
+ */
+class UserController {
+
+  /**
+   * Listar todos os usuários (apenas admin_master)
+   */
+  static async getAllUsers(req, res) {
+    try {
+      const users = await User.findAll({
+        attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        order: [['createdAt', 'DESC']]
+      });
+
+      res.json({
+        success: true,
+        users: users
+      });
+
+    } catch (error) {
+      console.error('Erro ao listar usuários:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao listar usuários'
+      });
+    }
+  }
+
+  /**
+   * Obter usuário por ID
+   */
+  static async getUserById(req, res) {
+    try {
+      const { id } = req.params;
+
+      const user = await User.findByPk(id, {
+        attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt', 'updatedAt']
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          error: 'Usuário não encontrado',
+          message: 'Usuário não existe'
+        });
+      }
+
+      res.json({
+        success: true,
+        user: user
+      });
+
+    } catch (error) {
+      console.error('Erro ao obter usuário:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao obter usuário'
+      });
+    }
+  }
+
+  /**
+   * Criar novo usuário
+   */
+  static async createUser(req, res) {
+    try {
+      const { name, email, password, role } = req.body;
+
+      console.log('🔍 DEBUG createUser - Input:', { name, email, role }); // DEBUG
+
+      // Validações
+      if (!name || !email || !password) {
+        return res.status(400).json({
+          error: 'Dados inválidos',
+          message: 'Nome, email e senha são obrigatórios'
+        });
+      }
+
+      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
+        console.log('❌ DEBUG - Role inválida:', role); // DEBUG
+        return res.status(400).json({
+          error: 'Role inválido',
+          message: 'Role deve ser admin_master, moderator ou user'
+        });
+      }
+
+      // Verificar se email já existe (especificar apenas colunas que existem)
+      const existingUser = await User.findOne({ 
+        where: { email: email.toLowerCase().trim() },
+        attributes: ['id', 'email', 'name', 'role', 'isActive'] // Não incluir parent_user_id se não existir
+      });
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'Email já cadastrado',
+          message: 'Já existe um usuário com este email'
+        });
+      }
+
+      // Garantir que a role seja válida e definida
+      const validRoles = ['admin_master', 'moderator', 'user'];
+      const userRole = role && validRoles.includes(role) ? role : 'user';
+
+      console.log('🔍 DEBUG - Role final:', userRole); // DEBUG
+
+      // Criar usuário
+      console.log('🔍 Criando usuário com dados:', { name: name.trim(), email: email.toLowerCase().trim(), role: userRole });
+      
+      const newUser = await User.create({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password: password,
+        role: userRole
+      });
+      
+      console.log('✅ Usuário criado:', { id: newUser.id, email: newUser.email, role: newUser.role });
+
+      console.log('🔍 DEBUG - Usuário criado:', { id: newUser.id, role: newUser.role }); // DEBUG
+
+      // Verificar se o usuário foi realmente criado com a role correta
+      const createdUser = await User.findByPk(newUser.id);
+      console.log('🔍 DEBUG - Usuário do banco:', { id: createdUser.id, role: createdUser.role }); // DEBUG
+
+      // Retornar usuário criado (sem senha)
+      const userResponse = {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        isActive: newUser.isActive,
+        createdAt: newUser.createdAt,
+        updatedAt: newUser.updatedAt
+      };
+
+      res.status(201).json({
+        success: true,
+        message: 'Usuário criado com sucesso',
+        user: userResponse
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao criar usuário:', error);
+      console.error('❌ Stack:', error.stack);
+      console.error('❌ Mensagem:', error.message);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao criar usuário',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Atualizar usuário
+   */
+  static async updateUser(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, email, password, role, isActive } = req.body;
+
+      const user = await User.findByPk(id);
+      if (!user) {
+        return res.status(404).json({
+          error: 'Usuário não encontrado',
+          message: 'Usuário não existe'
+        });
+      }
+
+      // Validações
+      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
+        return res.status(400).json({
+          error: 'Role inválido',
+          message: 'Role deve ser admin_master, moderator ou user'
+        });
+      }
+
+      // Verificar se email já existe (se foi alterado)
+      if (email && email.toLowerCase().trim() !== user.email) {
+        const existingUser = await User.findOne({
+          where: { email: email.toLowerCase().trim() }
+        });
+        if (existingUser) {
+          return res.status(409).json({
+            error: 'Email já cadastrado',
+            message: 'Já existe um usuário com este email'
+          });
+        }
+      }
+
+      // Preparar dados para atualização
+      const updateData = {};
+      if (name) updateData.name = name.trim();
+      if (email) updateData.email = email.toLowerCase().trim();
+      if (password) updateData.password = password; // Será hashado pelo hook
+      if (role) updateData.role = role;
+      if (typeof isActive === 'boolean') updateData.isActive = isActive;
+      
+      // Se for moderador e tiver employee_limit, atualizar nas configurações
+      if (role === 'moderator' && req.body.employee_limit !== undefined) {
+        const { query } = require('../config/database');
+        const employeeLimit = parseInt(req.body.employee_limit);
+        if (!isNaN(employeeLimit) && employeeLimit > 0) {
+          const updateSettingsQuery = `
+            UPDATE moderator_settings 
+            SET employee_limit = $1 
+            WHERE user_id = $2
+          `;
+          await query(updateSettingsQuery, [employeeLimit, id]);
+        }
+      }
+
+      // Atualizar usuário
+      await user.update(updateData);
+
+      // Retornar usuário atualizado
+      const userResponse = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      };
+
+      res.json({
+        success: true,
+        message: 'Usuário atualizado com sucesso',
+        user: userResponse
+      });
+
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao atualizar usuário'
+      });
+    }
+  }
+
+  /**
+   * Deletar usuário (exclusão permanente do banco)
+   */
+  static async deleteUser(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log('🔍 deleteUser - ID:', id);
+      console.log('🔍 deleteUser - req.user:', req.user ? { id: req.user.id, role: req.user.role } : 'null');
+
+      const user = await User.findByPk(id, {
+        attributes: ['id', 'name', 'email', 'role', 'isActive']
+      });
+      
+      if (!user) {
+        console.log('❌ Usuário não encontrado:', id);
+        return res.status(404).json({
+          error: 'Usuário não encontrado',
+          message: 'Usuário não existe'
+        });
+      }
+
+      console.log('✅ Usuário encontrado:', { id: user.id, email: user.email, role: user.role });
+
+      // Impedir que admin_master seja deletado por si mesmo
+      if (user.role === 'admin_master' && req.user && req.user.id === parseInt(id)) {
+        console.log('❌ Tentativa de deletar próprio admin');
+        return res.status(400).json({
+          error: 'Operação não permitida',
+          message: 'Não é possível excluir sua própria conta de administrador'
+        });
+      }
+
+      // Se for moderador, remover funcionários vinculados primeiro
+      if (user.role === 'moderator') {
+        try {
+          const { query } = require('../config/database');
+          const deleteEmployeesQuery = 'DELETE FROM employees WHERE moderator_id = $1';
+          await query(deleteEmployeesQuery, [id]);
+          console.log('✅ Funcionários do moderador removidos');
+        } catch (e) {
+          // Se a tabela não existe ou não há funcionários, continuar
+          if (!e.message || !e.message.includes('no such table')) {
+            console.warn('⚠️ Erro ao remover funcionários (continuando):', e.message);
+          }
+        }
+      }
+
+      // Se for funcionário, remover vínculo
+      try {
+        const { query } = require('../config/database');
+        const deleteEmployeeLinkQuery = 'DELETE FROM employees WHERE user_id = $1';
+        await query(deleteEmployeeLinkQuery, [id]);
+        console.log('✅ Vínculos de funcionário removidos');
+      } catch (e) {
+        // Se a tabela não existe ou não há vínculos, continuar
+        if (!e.message || !e.message.includes('no such table')) {
+          console.warn('⚠️ Erro ao remover vínculos (continuando):', e.message);
+        }
+      }
+
+      // Exclusão permanente do banco de dados
+      console.log('🗑️ Tentando deletar usuário do banco...');
+      await user.destroy({ force: true });
+
+      console.log('✅ Usuário deletado com sucesso:', id);
+
+      res.json({
+        success: true,
+        message: 'Usuário excluído permanentemente com sucesso'
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao deletar usuário:', error);
+      console.error('❌ Mensagem:', error.message);
+      console.error('❌ Stack:', error.stack);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao deletar usuário',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Desativar usuário (soft delete)
+   */
+  static async deactivateUser(req, res) {
+    try {
+      const { id } = req.params;
+
+      const user = await User.findByPk(id);
+      if (!user) {
+        return res.status(404).json({
+          error: 'Usuário não encontrado',
+          message: 'Usuário não existe'
+        });
+      }
+
+      // Impedir que admin_master seja desativado por si mesmo
+      if (user.role === 'admin_master' && req.user.id === parseInt(id)) {
+        return res.status(400).json({
+          error: 'Operação não permitida',
+          message: 'Não é possível desativar sua própria conta de administrador'
+        });
+      }
+
+      // Soft delete - desativar usuário
+      await user.update({ isActive: false });
+
+      res.json({
+        success: true,
+        message: 'Usuário desativado com sucesso'
+      });
+
+    } catch (error) {
+      console.error('Erro ao desativar usuário:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao desativar usuário'
+      });
+    }
+  }
+
+  /**
+   * Reativar usuário
+   */
+  static async reactivateUser(req, res) {
+    try {
+      const { id } = req.params;
+
+      const user = await User.findByPk(id);
+      if (!user) {
+        return res.status(404).json({
+          error: 'Usuário não encontrado',
+          message: 'Usuário não existe'
+        });
+      }
+
+      await user.update({ isActive: true });
+
+      res.json({
+        success: true,
+        message: 'Usuário reativado com sucesso'
+      });
+
+    } catch (error) {
+      console.error('Erro ao reativar usuário:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao reativar usuário'
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/:id/employees
+   * Lista funcionários de um moderador (admin)
+   */
+  static async getModeratorEmployees(req, res) {
+    try {
+      const { id } = req.params;
+      const moderator = await User.findByPk(id);
+      
+      if (!moderator || moderator.role !== 'moderator') {
+        return res.status(400).json({
+          error: 'Usuário inválido',
+          message: 'O usuário especificado não é um moderador'
+        });
+      }
+
+      const { query } = require('../config/database');
+      
+      // Verificar se a tabela employees existe
+      try {
+        const employeesQuery = `
+          SELECT u.id, u.name, u.email, u.isActive, e.created_at
+          FROM employees e
+          JOIN users u ON e.user_id = u.id
+          WHERE e.moderator_id = $1
+          ORDER BY u.name ASC
+        `;
+        const result = await query(employeesQuery, [id]);
+
+        res.json({
+          success: true,
+          data: result.rows || []
+        });
+      } catch (tableError) {
+        // Se a tabela não existe, retornar array vazio
+        if (tableError.message && tableError.message.includes('no such table')) {
+          console.warn('⚠️ Tabela employees não existe ainda, retornando array vazio');
+          return res.json({
+            success: true,
+            data: []
+          });
+        }
+        throw tableError;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar funcionários do moderador:', error);
+      console.error('Stack:', error.stack);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao buscar funcionários',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * POST /api/users/:id/employees
+   * Adiciona funcionário a um moderador (admin)
+   */
+  static async addModeratorEmployee(req, res) {
+    try {
+      const { id } = req.params; // ID do moderador
+      const { user_id } = req.body;
+
+      console.log('🔍 addModeratorEmployee - Input:', { moderatorId: id, userId: user_id });
+
+      const moderator = await User.findByPk(id);
+      if (!moderator || moderator.role !== 'moderator') {
+        return res.status(400).json({
+          error: 'Usuário inválido',
+          message: 'O usuário especificado não é um moderador'
+        });
+      }
+
+      if (!user_id) {
+        return res.status(400).json({
+          error: 'Dados inválidos',
+          message: 'ID do usuário é obrigatório'
+        });
+      }
+
+      const employee = await User.findByPk(user_id);
+      if (!employee || employee.role !== 'user') {
+        return res.status(400).json({
+          error: 'Tipo inválido',
+          message: 'Apenas usuários comuns podem ser funcionários'
+        });
+      }
+
+      // Verificar limite
+      const { query } = require('../config/database');
+      let employeeLimit = 10;
+      try {
+        const settingsQuery = 'SELECT employee_limit FROM moderator_settings WHERE user_id = $1';
+        const settingsResult = await query(settingsQuery, [id]);
+        employeeLimit = settingsResult.rows[0]?.employee_limit || 10;
+      } catch (e) {
+        console.warn('⚠️ Erro ao buscar limite, usando padrão 10:', e.message);
+      }
+
+      let currentCount = 0;
+      try {
+        const countQuery = 'SELECT COUNT(*) as count FROM employees WHERE moderator_id = $1';
+        const countResult = await query(countQuery, [id]);
+        currentCount = parseInt(countResult.rows[0]?.count || 0);
+      } catch (e) {
+        if (e.message && e.message.includes('no such table')) {
+          console.warn('⚠️ Tabela employees não existe, criando...');
+          // Tabela será criada no próximo sync
+          currentCount = 0;
+        } else {
+          throw e;
+        }
+      }
+
+      if (currentCount >= employeeLimit) {
+        return res.status(400).json({
+          error: 'Limite atingido',
+          message: `O moderador atingiu o limite de ${employeeLimit} funcionários.`
+        });
+      }
+
+      // Verificar se já está vinculado
+      try {
+        const checkQuery = 'SELECT id FROM employees WHERE user_id = $1 AND moderator_id = $2';
+        const checkResult = await query(checkQuery, [user_id, id]);
+        
+        if (checkResult.rows.length > 0) {
+          return res.status(409).json({
+            error: 'Já vinculado',
+            message: 'Este usuário já é funcionário deste moderador'
+          });
+        }
+      } catch (e) {
+        if (e.message && e.message.includes('no such table')) {
+          // Tabela não existe, continuar para criar
+        } else {
+          throw e;
+        }
+      }
+
+      // Adicionar funcionário
+      try {
+        const insertQuery = 'INSERT INTO employees (user_id, moderator_id) VALUES ($1, $2)';
+        console.log('🔍 Executando INSERT:', { user_id, moderator_id: id });
+        await query(insertQuery, [user_id, id]);
+        console.log('✅ Funcionário inserido com sucesso');
+
+        res.json({
+          success: true,
+          message: 'Funcionário adicionado com sucesso'
+        });
+      } catch (insertError) {
+        console.error('❌ Erro ao inserir funcionário:', insertError);
+        console.error('❌ Mensagem:', insertError.message);
+        console.error('❌ Stack:', insertError.stack);
+        
+        if (insertError.message && insertError.message.includes('no such table')) {
+          return res.status(500).json({
+            error: 'Tabela não existe',
+            message: 'A tabela de funcionários ainda não foi criada. Aguarde alguns segundos e tente novamente.'
+          });
+        }
+        
+        if (insertError.message && insertError.message.includes('UNIQUE constraint')) {
+          return res.status(409).json({
+            error: 'Já vinculado',
+            message: 'Este usuário já é funcionário deste moderador'
+          });
+        }
+        
+        throw insertError;
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar funcionário:', error);
+      console.error('Stack:', error.stack);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao adicionar funcionário',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/users/:id/employees/:employeeId
+   * Remove funcionário de um moderador (admin)
+   */
+  static async removeModeratorEmployee(req, res) {
+    try {
+      const { id, employeeId } = req.params; // id = moderador, employeeId = funcionário
+
+      console.log('🔍 removeModeratorEmployee - Input:', { moderatorId: id, employeeId });
+
+      const { query } = require('../config/database');
+      
+      try {
+        const deleteQuery = 'DELETE FROM employees WHERE user_id = $1 AND moderator_id = $2';
+        await query(deleteQuery, [employeeId, id]);
+
+        res.json({
+          success: true,
+          message: 'Funcionário removido com sucesso'
+        });
+      } catch (tableError) {
+        if (tableError.message && tableError.message.includes('no such table')) {
+          return res.status(404).json({
+            error: 'Tabela não existe',
+            message: 'A tabela de funcionários ainda não foi criada.'
+          });
+        }
+        throw tableError;
+      }
+    } catch (error) {
+      console.error('Erro ao remover funcionário:', error);
+      console.error('Stack:', error.stack);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao remover funcionário',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+}
+
+module.exports = UserController;

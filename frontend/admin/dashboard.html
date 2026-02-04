@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Administrativo - EvAgendamento</title>
+
+  <!-- Fonte -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .admin-dashboard {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+
+    .admin-header {
+      background: white;
+      padding: 25px 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .admin-header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .admin-header h1 {
+      color: var(--text);
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .admin-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .admin-btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .admin-btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .admin-btn-secondary {
+      background: var(--secondary);
+      color: var(--text);
+    }
+
+    .admin-btn-secondary:hover {
+      background: var(--secondary-dark);
+    }
+
+    .admin-btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .admin-btn-danger:hover {
+      background: #c82333;
+    }
+
+    .admin-main {
+      width: 100%;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      min-height: calc(100vh - 200px);
+    }
+
+    .dashboard-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      min-height: auto;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .section-title {
+      margin: 0 0 25px 0;
+      color: var(--text);
+      font-size: 1.4rem;
+      font-weight: 600;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .stats-section {
+      margin-bottom: 40px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+      width: 100%;
+    }
+
+    @media (min-width: 1200px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+    }
+
+    .actions-section {
+      margin-bottom: 40px;
+    }
+
+    .activities-section {
+      margin-bottom: 0;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      width: 100%;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 120px;
+      text-align: center;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card h3 {
+      margin: 0 0 10px 0;
+      font-size: 2.5rem;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .stat-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .dashboard-sections {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    @media (min-width: 1024px) {
+      .dashboard-sections {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+
+    .recent-activities {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .activity-item {
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s ease;
+    }
+
+    .activity-item:hover {
+      background: var(--background);
+      margin: 0 -20px;
+      padding-left: 20px;
+      padding-right: 20px;
+      border-radius: 8px;
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-info h4 {
+      margin: 0 0 5px 0;
+      font-size: 1rem;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .activity-info p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .activity-time {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    @media (min-width: 1200px) {
+      .quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .quick-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 18px 24px;
+      background: var(--background);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .quick-action-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .quick-action-btn i {
+      font-size: 1.5rem;
+    }
+
+    .quick-action-btn span {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header Administrativo -->
+  <header class="admin-header">
+    <div class="admin-header-content">
+      <h1>🏢 Dashboard Administrativo</h1>
+      <div class="admin-actions">
+        <a href="/admin/users" class="admin-btn admin-btn-primary" id="manageUsersBtn">
+          👥 Gerenciar Usuários
+        </a>
+        <button class="admin-btn admin-btn-danger" id="adminLogoutBtn">
+          🚪 Sair
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="admin-main">
+    <!-- Card Único com Todo o Conteúdo -->
+    <div class="dashboard-card">
+      <!-- Grid de 2 colunas para Estatísticas e Ações Rápidas -->
+      <div class="dashboard-sections">
+        <!-- Estatísticas -->
+        <section class="stats-section">
+          <h2 class="section-title">📊 Estatísticas</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <h3 id="totalUsers">0</h3>
+              <p>Usuários Totais</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="activeUsers">0</h3>
+              <p>Usuários Ativos</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="totalAppointments">0</h3>
+              <p>Agendamentos Hoje</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ações Rápidas -->
+        <section class="actions-section">
+          <h2 class="section-title">⚡ Ações Rápidas</h2>
+          <div class="quick-actions">
+            <button type="button" class="quick-action-btn" id="quickUsersBtn">
+              <i>👥</i>
+              <span>Gerenciar Usuários</span>
+            </button>
+            <button type="button" class="quick-action-btn" id="quickIntegrationsBtn">
+              <i>🔗</i>
+              <span>Configurar Integrações</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Atividades Recentes -->
+      <section class="activities-section">
+        <h2 class="section-title">📋 Atividades Recentes</h2>
+        <ul class="recent-activities" id="recentActivities">
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Novo usuário cadastrado</h4>
+              <p>João Silva foi adicionado ao sistema</p>
+            </div>
+            <span class="activity-time">2h atrás</span>
+          </li>
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Agendamento realizado</h4>
+              <p>Cliente Maria solicitou agendamento</p>
+            </div>
+            <span class="activity-time">4h atrás</span>
+          </li>
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Integração configurada</h4>
+              <p>Webhook n8n foi atualizado</p>
+            </div>
+            <span class="activity-time">1d atrás</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="../js/config-api.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    // Dashboard Administrativo
+    class AdminDashboard {
+      constructor() {
+        this.init();
+      }
+
+      async init() {
+        await this.checkAdminAccess();
+        this.bindEvents();
+        this.loadDashboardData();
+      }
+
+      async checkAdminAccess() {
+        console.log('🔍 checkAdminAccess iniciado');
+        console.log('🔍 URL atual:', window.location.href);
+        
+        // Carregar user do localStorage diretamente (mais confiável)
+        const userData = localStorage.getItem('userData');
+        const token = localStorage.getItem('authToken');
+        
+        console.log('🔍 Token encontrado:', token ? 'Sim' : 'Não');
+        console.log('🔍 UserData encontrado:', userData ? 'Sim' : 'Não');
+        
+        if (!token || !userData) {
+          console.warn('⚠️ Token ou user não encontrado, redirecionando para login');
+          alert('Sessão não encontrada. Faça login novamente.');
+          window.location.href = '/css/index.html';
+          return;
+        }
+        
+        let user;
+        try {
+          user = JSON.parse(userData);
+          console.log('👤 User carregado do localStorage:', user);
+          console.log('👤 Email:', user.email);
+          console.log('👤 Role:', user.role);
+          console.log('👤 ID:', user.id);
+          
+          // Atualizar authManager se disponível
+          if (window.authManager) {
+            window.authManager.currentUser = user;
+            window.authManager.token = token;
+            console.log('✅ AuthManager atualizado');
+          }
+        } catch (e) {
+          console.error('❌ Erro ao parse userData:', e);
+          alert('Erro ao carregar dados do usuário. Faça login novamente.');
+          window.location.href = '/css/index.html';
+          return;
+        }
+        
+        // Normalizar role (garantir que seja string e trim)
+        let userRole = String(user.role || '').trim().toLowerCase();
+        const normalizedAdminRole = 'admin_master'.toLowerCase();
+        
+        console.log('🔍 Verificando role:', userRole);
+        console.log('🔍 Role original:', user.role);
+        console.log('🔍 Role normalizado:', userRole);
+        console.log('🔍 Comparando com admin_master (case-insensitive):', userRole === normalizedAdminRole);
+        console.log('🔍 Tipo do role:', typeof user.role);
+        console.log('🔍 Tipo do role normalizado:', typeof userRole);
+        
+        // Verificar se é admin - APENAS bloquear se NÃO for admin
+        // Comparação case-insensitive e com trim
+        if (userRole !== normalizedAdminRole) {
+          console.warn('❌ Acesso negado: usuário não é admin.');
+          console.warn('❌ Role recebido:', userRole);
+          console.warn('❌ Role esperado: admin_master');
+          console.warn('❌ Comparação estrita:', userRole === 'admin_master');
+          console.warn('❌ Comparação com trim:', userRole?.trim() === 'admin_master');
+          
+          // Redirecionar baseado no role
+          if (userRole === 'moderator') {
+            console.log('🔄 Redirecionando moderador para agendamentos');
+            window.location.href = '/app/agendamentos.html';
+          } else {
+            console.log('🔄 Redirecionando para login');
+            alert(`Acesso negado. Seu perfil é: ${userRole}. Apenas administradores podem acessar esta página.`);
+            window.location.href = '/css/index.html';
+          }
+          return;
+        }
+
+        console.log('✅ Acesso autorizado para admin!');
+        console.log('✅ User completo:', user);
+      }
+
+      bindEvents() {
+        // Botão de logout
+        const logoutBtn = document.getElementById('adminLogoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', () => {
+            if (window.authManager) {
+              window.authManager.logout();
+            }
+          });
+        }
+
+        // Botão de gerenciar usuários
+        const manageUsersBtn = document.getElementById('manageUsersBtn');
+        if (manageUsersBtn) {
+          manageUsersBtn.addEventListener('click', () => {
+            window.location.href = '/admin/users';
+          });
+        }
+
+        // Ações rápidas
+        const quickUsersBtn = document.getElementById('quickUsersBtn');
+        if (quickUsersBtn) {
+          console.log('Quick Users Button found:', quickUsersBtn);
+          quickUsersBtn.addEventListener('click', (e) => {
+            console.log('Quick Users clicked');
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = '/admin/users';
+          });
+        }
+
+        const quickIntegrationsBtn = document.getElementById('quickIntegrationsBtn');
+        if (quickIntegrationsBtn) {
+          quickIntegrationsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = '/admin/integrations';
+          });
+        }
+      }
+
+      async loadDashboardData() {
+        try {
+          // Carregar estatísticas dos usuários
+          const usersResponse = await window.authManager.apiRequest('/api/users');
+          if (usersResponse.success) {
+            const totalUsersEl = document.getElementById('totalUsers');
+            const activeUsersEl = document.getElementById('activeUsers');
+
+            const users = usersResponse.users;
+            const totalUsers = users.length;
+            const activeUsers = users.filter(u => u.isActive).length;
+
+            if (totalUsersEl) totalUsersEl.textContent = totalUsers;
+            if (activeUsersEl) activeUsersEl.textContent = activeUsers;
+          }
+
+          // Carregar estatísticas de agendamentos (hoje)
+          const today = new Date().toISOString().split('T')[0];
+          const appointmentsResponse = await window.authManager.apiRequest(`/api/appointments?date=${today}`);
+          if (appointmentsResponse.success) {
+            const totalAppointmentsEl = document.getElementById('totalAppointments');
+            if (totalAppointmentsEl) {
+              totalAppointmentsEl.textContent = appointmentsResponse.appointments?.length || 0;
+            }
+          }
+
+        } catch (error) {
+          console.error('Erro ao carregar dados do dashboard:', error);
+        }
+      }
+    }
+
+    // Inicializar dashboard quando DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Inicializar diretamente - checkAdminAccess vai verificar o acesso
+      new AdminDashboard();
+    });
+  </script>
+</body>
+</html>
