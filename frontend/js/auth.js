@@ -94,6 +94,7 @@ class AuthManager {
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
         localStorage.removeItem('userRole');
+        sessionStorage.removeItem('settings_password_verified');
     }
 
     bindEvents() {

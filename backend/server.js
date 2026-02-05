@@ -20,6 +20,7 @@ const integrationRoutes = require('./src/routes/integrationRoutes');
 const n8nRoutes = require('./src/routes/n8nRoutes');
 const dashboardRoutes = require('./src/routes/dashboard');
 const moderatorRoutes = require('./src/routes/moderator');
+const settingsPasswordRoutes = require('./src/routes/settingsPasswordRoutes');
 
 const app = express();
 const PORT = API_CONFIG.port || 3000;
@@ -112,6 +113,7 @@ app.use('/api/integrations', integrationRoutes);
 app.use('/api/n8n', n8nRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/moderator', moderatorRoutes);
+app.use('/api/settings-password', settingsPasswordRoutes);
 
 // Rota de fallback para 404
 app.use((req, res) => {
@@ -139,8 +141,14 @@ async function startServer() {
 
     // Sincronizar modelos (apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('✅ Modelos sincronizados.');
+      const dialect = sequelize.getDialect();
+      if (dialect === 'sqlite') {
+        await sequelize.sync({ alter: true });
+        console.log('✅ Modelos sincronizados (SQLite - alter).');
+      } else {
+        await sequelize.sync();
+        console.log('✅ Modelos sincronizados (sem alter).');
+      }
       
       // Criar tabelas adicionais se não existirem
       try {
@@ -285,8 +293,43 @@ async function startServer() {
             )
           `;
           await query(createModeratorSettings, []);
+
+          // Garantir colunas adicionais em PostgreSQL
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS working_hours JSONB DEFAULT '{"start": "09:00", "end": "18:00"}'::jsonb`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS working_days JSONB DEFAULT '["monday", "tuesday", "wednesday", "thursday", "friday"]'::jsonb`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS employee_limit INTEGER DEFAULT 10`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS campos_visiveis JSONB DEFAULT '["nome", "telefone"]'::jsonb`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS campos_extras JSONB DEFAULT '[]'::jsonb`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS logo TEXT`, []);
+          await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS slot_interval INTEGER DEFAULT 30`, []);
         }
         
+        // Criar tabela system_config_password para senha de configurações
+        if (dialect === 'sqlite') {
+          const createSystemConfigPassword = `
+            CREATE TABLE IF NOT EXISTS system_config_password (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              password_hash TEXT NOT NULL,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+          `;
+          await query(createSystemConfigPassword, []);
+          console.log('✅ Tabela system_config_password criada/verificada (SQLite)');
+        } else {
+          // PostgreSQL
+          const createSystemConfigPassword = `
+            CREATE TABLE IF NOT EXISTS system_config_password (
+              id SERIAL PRIMARY KEY,
+              password_hash TEXT NOT NULL,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+          `;
+          await query(createSystemConfigPassword, []);
+          console.log('✅ Tabela system_config_password criada/verificada (PostgreSQL)');
+        }
+
         // Criar tabela employees se não existir
         if (dialect === 'sqlite') {
           const createEmployees = `

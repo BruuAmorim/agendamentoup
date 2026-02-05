@@ -330,6 +330,92 @@ class AuthController {
       });
     }
   }
+
+  /**
+   * Verificar senha de configurações para acessar configurações
+   * Usa a senha armazenada na tabela system_config_password
+   */
+  static async verifyAdminPassword(req, res) {
+    try {
+      const { password } = req.body;
+
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Senha não fornecida',
+          message: 'Por favor, informe a senha'
+        });
+      }
+
+      // Verificar se o usuário está autenticado
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Não autenticado',
+          message: 'É necessário estar autenticado'
+        });
+      }
+
+      // Verificar se é admin ou moderator
+      const userRole = String(req.user.role || '').trim().toLowerCase();
+      if (userRole !== 'admin_master' && userRole !== 'moderator') {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado',
+          message: 'Apenas administradores e moderadores podem acessar as configurações'
+        });
+      }
+
+      // Buscar senha de configurações no banco
+      const { query } = require('../config/database');
+      const { sequelize } = require('../models');
+      const dialect = sequelize.getDialect();
+
+      let result;
+      if (dialect === 'sqlite') {
+        result = await query('SELECT password_hash FROM system_config_password LIMIT 1', []);
+      } else {
+        result = await query('SELECT password_hash FROM system_config_password LIMIT 1', []);
+      }
+
+      // Verificar se existe senha configurada
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Senha não configurada',
+          message: 'A senha de configurações ainda não foi definida. Um administrador deve configurá-la primeiro.'
+        });
+      }
+
+      // Verificar senha
+      const passwordHash = result.rows[0].password_hash;
+      const bcrypt = require('bcryptjs');
+      const isPasswordValid = await bcrypt.compare(password, passwordHash);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Senha incorreta',
+          message: 'Senha incorreta. Tente novamente.'
+        });
+      }
+
+      // Senha válida - retornar sucesso
+      res.json({
+        success: true,
+        message: 'Senha verificada com sucesso',
+        verified: true
+      });
+
+    } catch (error) {
+      console.error('Erro ao verificar senha de configurações:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor',
+        message: 'Erro ao verificar senha'
+      });
+    }
+  }
 }
 
 module.exports = AuthController;

@@ -19,6 +19,9 @@ router.post('/refresh', verifyToken, AuthController.refreshToken);
 // Rota para obter perfil do usuário atual (protegida)
 router.get('/profile', verifyToken, AuthController.getProfile);
 
+// Rota para verificar senha de admin para acessar configurações
+router.post('/verify-admin-password', verifyToken, AuthController.verifyAdminPassword);
+
 module.exports = router;
 
 

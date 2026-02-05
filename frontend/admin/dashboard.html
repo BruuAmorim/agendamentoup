@@ -343,8 +343,71 @@
         </section>
       </div>
 
+      <!-- Gerenciar Senha de Configurações -->
+      <section class="settings-password-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
+        <h2 class="section-title">🔐 Senha de Configurações</h2>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+          Gerencie a senha que protege o acesso às configurações do sistema. Apenas administradores podem visualizar, criar ou alterar esta senha.
+        </p>
+        
+        <div id="passwordStatusCard" style="background: var(--background); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <p id="passwordStatusText" style="margin: 0; color: var(--muted);">Carregando status...</p>
+        </div>
+
+        <form id="settingsPasswordForm" style="display: none;">
+          <div style="display: grid; gap: 20px;">
+            <div id="currentPasswordField" style="display: none;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
+                Senha Atual *
+              </label>
+              <input type="password" id="currentPasswordInput" placeholder="Digite a senha atual" 
+                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
+                Nova Senha *
+              </label>
+              <input type="password" id="newPasswordInput" placeholder="Digite a nova senha (mínimo 4 caracteres)" 
+                     minlength="4" required
+                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
+              <small style="color: var(--muted); font-size: 12px; display: block; margin-top: 5px;">
+                A senha deve ter pelo menos 4 caracteres
+              </small>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
+                Confirmar Nova Senha *
+              </label>
+              <input type="password" id="confirmPasswordInput" placeholder="Confirme a nova senha" 
+                     minlength="4" required
+                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button type="submit" class="admin-btn admin-btn-primary" id="savePasswordBtn">
+                💾 Salvar Senha
+              </button>
+              <button type="button" class="admin-btn admin-btn-secondary" id="cancelPasswordBtn">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div id="passwordActions" style="margin-top: 20px;">
+          <button type="button" class="admin-btn admin-btn-primary" id="createPasswordBtn" style="display: none;">
+            ➕ Criar Senha de Configurações
+          </button>
+          <button type="button" class="admin-btn admin-btn-primary" id="changePasswordBtn" style="display: none;">
+            🔄 Alterar Senha
+          </button>
+        </div>
+      </section>
+
       <!-- Atividades Recentes -->
-      <section class="activities-section">
+      <section class="activities-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
         <h2 class="section-title">📋 Atividades Recentes</h2>
         <ul class="recent-activities" id="recentActivities">
           <li class="activity-item">
@@ -465,6 +528,141 @@
         console.log('✅ User completo:', user);
       }
 
+      async loadPasswordStatus() {
+        try {
+          const response = await window.authManager.apiRequest('/api/settings-password');
+          
+          if (response.success) {
+            const hasPassword = response.data.hasPassword;
+            const statusText = document.getElementById('passwordStatusText');
+            const createBtn = document.getElementById('createPasswordBtn');
+            const changeBtn = document.getElementById('changePasswordBtn');
+            
+            if (hasPassword) {
+              statusText.textContent = '✅ Senha de configurações está definida.';
+              statusText.style.color = 'var(--success, #28a745)';
+              createBtn.style.display = 'none';
+              changeBtn.style.display = 'inline-block';
+            } else {
+              statusText.textContent = '⚠️ Nenhuma senha de configurações definida. Crie uma senha para proteger o acesso às configurações.';
+              statusText.style.color = 'var(--warning, #ffc107)';
+              createBtn.style.display = 'inline-block';
+              changeBtn.style.display = 'none';
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao carregar status da senha:', error);
+          const statusText = document.getElementById('passwordStatusText');
+          statusText.textContent = '❌ Erro ao carregar status da senha.';
+          statusText.style.color = 'var(--danger, #dc3545)';
+        }
+      }
+
+      bindPasswordEvents() {
+        // Botão criar senha
+        const createBtn = document.getElementById('createPasswordBtn');
+        if (createBtn) {
+          createBtn.addEventListener('click', () => {
+            document.getElementById('settingsPasswordForm').style.display = 'block';
+            document.getElementById('currentPasswordField').style.display = 'none';
+            document.getElementById('passwordActions').style.display = 'none';
+            document.getElementById('newPasswordInput').focus();
+          });
+        }
+
+        // Botão alterar senha
+        const changeBtn = document.getElementById('changePasswordBtn');
+        if (changeBtn) {
+          changeBtn.addEventListener('click', () => {
+            document.getElementById('settingsPasswordForm').style.display = 'block';
+            document.getElementById('currentPasswordField').style.display = 'block';
+            document.getElementById('passwordActions').style.display = 'none';
+            document.getElementById('currentPasswordInput').focus();
+          });
+        }
+
+        // Botão cancelar
+        const cancelBtn = document.getElementById('cancelPasswordBtn');
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', () => {
+            document.getElementById('settingsPasswordForm').style.display = 'none';
+            document.getElementById('passwordActions').style.display = 'block';
+            document.getElementById('settingsPasswordForm').reset();
+          });
+        }
+
+        // Formulário de senha
+        const passwordForm = document.getElementById('settingsPasswordForm');
+        if (passwordForm) {
+          passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.savePassword();
+          });
+        }
+      }
+
+      async savePassword() {
+        const newPassword = document.getElementById('newPasswordInput').value;
+        const confirmPassword = document.getElementById('confirmPasswordInput').value;
+        const currentPassword = document.getElementById('currentPasswordInput').value;
+
+        // Validações
+        if (!newPassword || newPassword.length < 4) {
+          alert('❌ A senha deve ter pelo menos 4 caracteres.');
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          alert('❌ As senhas não coincidem.');
+          return;
+        }
+
+        const saveBtn = document.getElementById('savePasswordBtn');
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.textContent = '💾 Salvando...';
+
+        try {
+          const hasCurrentPassword = document.getElementById('currentPasswordField').style.display !== 'none';
+          
+          let response;
+          if (hasCurrentPassword) {
+            // Atualizar senha existente
+            response = await window.authManager.apiRequest('/api/settings-password', {
+              method: 'PUT',
+              body: JSON.stringify({
+                password: newPassword,
+                currentPassword: currentPassword
+              })
+            });
+          } else {
+            // Criar nova senha
+            response = await window.authManager.apiRequest('/api/settings-password', {
+              method: 'POST',
+              body: JSON.stringify({
+                password: newPassword
+              })
+            });
+          }
+
+          if (response.success) {
+            alert('✅ Senha de configurações salva com sucesso!');
+            document.getElementById('settingsPasswordForm').style.display = 'none';
+            document.getElementById('settingsPasswordForm').reset();
+            this.loadPasswordStatus();
+            document.getElementById('passwordActions').style.display = 'block';
+          } else {
+            throw new Error(response.message || 'Erro ao salvar senha');
+          }
+        } catch (error) {
+          console.error('Erro ao salvar senha:', error);
+          alert('❌ Erro ao salvar senha: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
+        }
+      }
+
       bindEvents() {
         // Botão de logout
         const logoutBtn = document.getElementById('adminLogoutBtn');
@@ -483,6 +681,10 @@
             window.location.href = '/admin/users';
           });
         }
+
+        // Gerenciar senha de configurações
+        this.bindPasswordEvents();
+        this.loadPasswordStatus();
 
         // Ações rápidas
         const quickUsersBtn = document.getElementById('quickUsersBtn');

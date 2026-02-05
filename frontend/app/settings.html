@@ -12,6 +12,103 @@
   <link rel="stylesheet" href="../css/styles.css">
 
   <style>
+    /* Lock screen de verificação de senha */
+    .lock-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lock-screen.hidden {
+      display: none;
+    }
+
+    .lock-screen-content {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .lock-screen-content h2 {
+      margin: 0 0 20px 0;
+      color: #333;
+      font-size: 24px;
+    }
+
+    .lock-screen-content p {
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .lock-screen-content input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    .lock-screen-content input:focus {
+      outline: none;
+      border-color: #0091FF;
+    }
+
+    .lock-screen-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .lock-screen-actions button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .lock-screen-actions .btn-primary {
+      background: #0091FF;
+      color: white;
+    }
+
+    .lock-screen-actions .btn-primary:hover {
+      background: #007acc;
+    }
+
+    .lock-screen-actions .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .lock-screen-actions .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .password-error {
+      color: #dc3545;
+      font-size: 14px;
+      margin-top: -15px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .password-error.show {
+      display: block;
+    }
+
     .settings-container {
       max-width: 1200px;
       margin: 0 auto;
@@ -318,6 +415,20 @@
   </style>
 </head>
 <body>
+  <!-- Lock screen de Verificação de Senha -->
+  <div class="lock-screen" id="lockScreen">
+    <div class="lock-screen-content">
+      <h2>🔒 Verificação de Acesso</h2>
+      <p>Para acessar as configurações, por favor, informe sua senha:</p>
+      <input type="password" id="adminPasswordInput" placeholder="Digite sua senha" autocomplete="current-password">
+      <div class="password-error" id="passwordError">Senha incorreta. Tente novamente.</div>
+      <div class="lock-screen-actions">
+        <button class="btn-secondary" id="cancelPasswordBtn">Cancelar</button>
+        <button class="btn-primary" id="verifyPasswordBtn">Verificar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Background waves -->
   <div class="waves-container" id="wavesContainer">
     <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
@@ -326,7 +437,7 @@
     </svg>
   </div>
 
-  <div class="settings-container">
+  <div class="settings-container" id="settingsContainer" style="display: none;">
     <a href="agendamentos.html" class="back-link">← Voltar para Agendamentos</a>
 
     <div class="settings-header">
@@ -362,6 +473,33 @@
             <button type="button" class="add-field-btn" onclick="document.getElementById('logoUpload').click()">
               Selecionar Logo
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção Admin Master: Gerenciar senha de configurações -->
+      <div class="form-group" id="adminPasswordSection" style="display: none;">
+        <label>Senha de Acesso às Configurações</label>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 8px;">
+          <p id="adminPasswordStatus" style="margin: 0 0 12px 0; color: #666;">Carregando status...</p>
+          <div id="adminPasswordFields" style="display: none;">
+            <div id="adminCurrentPasswordGroup" style="margin-bottom: 12px; display: none;">
+              <input type="password" id="adminCurrentPasswordInput" placeholder="Senha atual">
+            </div>
+            <div style="margin-bottom: 12px;">
+              <input type="password" id="adminNewPasswordInput" placeholder="Nova senha (mínimo 4 caracteres)" minlength="4">
+            </div>
+            <div style="margin-bottom: 12px;">
+              <input type="password" id="adminConfirmPasswordInput" placeholder="Confirmar nova senha" minlength="4">
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button type="button" class="add-field-btn" id="adminSavePasswordBtn">Salvar Senha</button>
+              <button type="button" class="btn-secondary" id="adminCancelPasswordBtn" style="border: none; border-radius: 8px; padding: 10px 20px;">Cancelar</button>
+            </div>
+          </div>
+          <div id="adminPasswordActions">
+            <button type="button" class="add-field-btn" id="adminCreatePasswordBtn" style="display: none;">Criar Senha</button>
+            <button type="button" class="add-field-btn" id="adminChangePasswordBtn" style="display: none;">Alterar Senha</button>
           </div>
         </div>
       </div>
