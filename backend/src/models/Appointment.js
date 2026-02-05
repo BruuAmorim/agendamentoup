@@ -237,19 +237,31 @@ class Appointment {
       const normalizedTime = this.normalizeTime(data.appointment_time);
       console.log('📅 Appointment.create - Data/hora normalizados:', { normalizedDate, normalizedTime });
 
-      // Verificar conflito de horário
+      // Verificar conflito de horário (verificação dupla para evitar race conditions)
       console.log('📅 Appointment.create - Verificando conflito de horário...');
-      const conflict = await this.checkTimeConflict(
+      const conflict1 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
         data.duration_minutes,
         null // excludeId
       );
-      if (conflict) {
-        console.log('❌ Appointment.create - Conflito de horário detectado');
+      if (conflict1) {
+        console.log('❌ Appointment.create - Conflito de horário detectado (primeira verificação)');
         throw new Error('Horário indisponível - conflito com outro agendamento');
       }
-      console.log('✅ Appointment.create - Sem conflitos de horário');
+      
+      // Segunda verificação imediatamente antes de criar (proteção contra race condition)
+      const conflict2 = await this.checkTimeConflict(
+        normalizedDate,
+        normalizedTime,
+        data.duration_minutes,
+        null // excludeId
+      );
+      if (conflict2) {
+        console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
+        throw new Error('Horário indisponível - conflito com outro agendamento');
+      }
+      console.log('✅ Appointment.create - Sem conflitos de horário (verificação dupla)');
 
       // Gerar protocolo único
       console.log('📅 Appointment.create - Gerando protocolo único...');
@@ -592,15 +604,31 @@ class Appointment {
         const normalizedTime = this.normalizeTime(time);
         
         // Buscar todos os agendamentos da data
-        const queryText = `
-          SELECT appointment_time, duration_minutes, id
-          FROM appointments
-          WHERE appointment_date = $1
-            AND status != 'cancelled'
-            AND ($4 IS NULL OR id != $4)
-        `;
-
-        const params = [normalizedDate, normalizedTime, duration, excludeId || null];
+        // Para PostgreSQL, precisamos especificar o tipo quando o parâmetro pode ser NULL
+        // Usar apenas os parâmetros necessários na query
+        let queryText;
+        let params;
+        
+        if (excludeId) {
+          // Se há ID para excluir, incluir na query
+          queryText = `
+            SELECT appointment_time, duration_minutes, id
+            FROM appointments
+            WHERE appointment_date = $1
+              AND status != 'cancelled'
+              AND id != $2::integer
+          `;
+          params = [normalizedDate, excludeId];
+        } else {
+          // Se não há ID para excluir, query mais simples
+          queryText = `
+            SELECT appointment_time, duration_minutes, id
+            FROM appointments
+            WHERE appointment_date = $1
+              AND status != 'cancelled'
+          `;
+          params = [normalizedDate];
+        }
         console.log('🔍 Verificando conflitos no banco:', { date: normalizedDate, time: normalizedTime, duration, excludeId });
         
         try {

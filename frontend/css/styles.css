@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap");
+
 :root {
   --accent: #0099ff;
   --bg: #f4f8fb;
@@ -94,6 +96,39 @@ header {
   justify-content: center;
 }
 
+.header-layout {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-layout .header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-layout .brand-left {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.header-logo-left {
+  max-width: 160px;
+  height: auto;
+}
+
+.company-logo {
+  max-width: 140px;
+  height: auto;
+  margin-bottom: 8px;
+  display: block;
+}
+
 .header-actions {
   position: absolute;
   top: 24px;
@@ -151,8 +186,9 @@ header {
 
 .header-title span {
   color: var(--accent); /* azul */
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.5px;
+  font-family: "Playfair Display", "Times New Roman", serif;
 }
 
 /* SUBTÍTULO */

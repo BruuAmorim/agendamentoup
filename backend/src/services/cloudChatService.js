@@ -41,7 +41,7 @@ class CloudChatService {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'EvAgendamento/1.0'
+          'User-Agent': 'Aevum/1.0'
         },
         signal: AbortSignal.timeout(10000)
       });
@@ -85,7 +85,7 @@ class CloudChatService {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'EvAgendamento/1.0'
+          'User-Agent': 'Aevum/1.0'
         },
         body: JSON.stringify(payload)
       });
@@ -169,7 +169,7 @@ Seu agendamento foi cancelado:
 Se precisar reagendar, entre em contato conosco.
 
 Atenciosamente,
-Equipe EvAgendamento`;
+Equipe Aevum`;
 
     return await this.sendMessage(phone, message, {
       priority: 'normal',
@@ -217,7 +217,7 @@ Equipe EvAgendamento`;
 
     // Respostas básicas
     if (msg.includes('oi') || msg.includes('olá') || msg.includes('bom dia')) {
-      return `Olá! 👋 Sou o assistente do EvAgendamento. Como posso ajudar você hoje?`;
+      return `Olá! 👋 Sou o assistente do Aevum. Como posso ajudar você hoje?`;
     }
 
     if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('consulta')) {
@@ -354,7 +354,7 @@ class CloudChatService {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'EvAgendamento/1.0'
+          'User-Agent': 'Aevum/1.0'
         },
         signal: AbortSignal.timeout(10000)
       });
@@ -398,7 +398,7 @@ class CloudChatService {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'EvAgendamento/1.0'
+          'User-Agent': 'Aevum/1.0'
         },
         body: JSON.stringify(payload)
       });
@@ -482,7 +482,7 @@ Seu agendamento foi cancelado:
 Se precisar reagendar, entre em contato conosco.
 
 Atenciosamente,
-Equipe EvAgendamento`;
+Equipe Aevum`;
 
     return await this.sendMessage(phone, message, {
       priority: 'normal',
@@ -530,7 +530,7 @@ Equipe EvAgendamento`;
 
     // Respostas básicas
     if (msg.includes('oi') || msg.includes('olá') || msg.includes('bom dia')) {
-      return `Olá! 👋 Sou o assistente do EvAgendamento. Como posso ajudar você hoje?`;
+      return `Olá! 👋 Sou o assistente do Aevum. Como posso ajudar você hoje?`;
     }
 
     if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('consulta')) {

@@ -1,7 +1,7 @@
-// EvAgendamento - Sistema de Agendamento Inteligente
+// Aevum - Sistema de Agendamento Inteligente
 // Arquivo principal da aplicação frontend
 
-class EvAgendamento {
+class Aevum {
     constructor() {
         this.appointments = [];
         this.availableSlots = [];
@@ -9,6 +9,21 @@ class EvAgendamento {
         this.currentTheme = localStorage.getItem('theme') || 'dark';
 
         this.init();
+    }
+
+    // Função helper para formatar horário como HH:MM
+    formatTime(time) {
+        if (!time) return '00:00';
+        if (typeof time !== 'string') return '00:00';
+        
+        // Remover segundos se existirem e formatar como HH:MM
+        const parts = time.split(':');
+        if (parts.length >= 2) {
+            const hours = String(parseInt(parts[0]) || 0).padStart(2, '0');
+            const minutes = String(parseInt(parts[1]) || 0).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        return '00:00';
     }
 
     init() {
@@ -351,8 +366,40 @@ class EvAgendamento {
             const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             const dayName = dayNames[dayOfWeek];
             
-            const rules = SettingsManager.getBusinessRules();
-            const workDays = rules.workDays || {};
+            // Usar configurações do localStorage em vez de SettingsManager
+            const settingsStr = localStorage.getItem('moderator_settings') || localStorage.getItem('moderator_settings_v2');
+            let workDays = {};
+            
+            if (settingsStr) {
+                try {
+                    const settings = JSON.parse(settingsStr);
+                    // Suportar ambos os formatos
+                    if (settings.working_days) {
+                        workDays = settings.working_days.reduce((acc, day) => {
+                            acc[day] = true;
+                            return acc;
+                        }, {});
+                    } else if (settings.funcionamento?.dias) {
+                        workDays = settings.funcionamento.dias.reduce((acc, day) => {
+                            acc[day] = true;
+                            return acc;
+                        }, {});
+                    }
+                } catch (e) {
+                    console.warn('Erro ao parsear configurações:', e);
+                }
+            }
+            
+            // Se não encontrou configurações, usar padrão (segunda a sexta)
+            if (Object.keys(workDays).length === 0) {
+                workDays = {
+                    monday: true,
+                    tuesday: true,
+                    wednesday: true,
+                    thursday: true,
+                    friday: true
+                };
+            }
             
             if (workDays[dayName] !== true) {
                 container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-weight: 500;">⚠️ Não atendemos neste dia</p>';
@@ -395,13 +442,30 @@ class EvAgendamento {
         }
         
         // Primeiro, garantir que temos os agendamentos carregados para esta data
-        const dateAppointments = this.appointments.filter(apt => apt.appointment_date === date);
+        const dateAppointments = this.appointments.filter(apt => 
+            apt.appointment_date === date && apt.status !== 'cancelled'
+        );
 
         // Verificar se há conflito com agendamentos existentes
-        const requestedHour = parseInt(time.split(':')[0]);
+        // Converter horário para minutos para verificação mais precisa
+        const parseTime = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + (minutes || 0);
+        };
+        
+        const requestedMinutes = parseTime(time);
+        const duration = 60; // Duração padrão de 60 minutos
+        
         const hasConflict = dateAppointments.some(apt => {
-            const aptHour = parseInt(apt.appointment_time.split(':')[0]);
-            return aptHour === requestedHour;
+            const aptMinutes = parseTime(apt.appointment_time);
+            const aptDuration = apt.duration_minutes || 60;
+            
+            // Verificar sobreposição: dois intervalos se sobrepõem se
+            // início1 < fim2 E fim1 > início2
+            const requestedEnd = requestedMinutes + duration;
+            const aptEnd = aptMinutes + aptDuration;
+            
+            return requestedMinutes < aptEnd && requestedEnd > aptMinutes;
         });
 
         return !hasConflict;
@@ -417,10 +481,27 @@ class EvAgendamento {
     }
 
     async handleAppointmentSubmit(form) {
-        const formData = new FormData(form);
+        // Proteção contra submissões duplicadas
+        if (this._isSubmittingAppointment) {
+            console.warn('⚠️ Submissão de agendamento já em andamento, ignorando...');
+            return;
+        }
+        
+        this._isSubmittingAppointment = true;
+        
+        // Desabilitar botão de submit durante o processamento
+        const submitBtn = form.querySelector('button[type="submit"], #createAppointmentBtn');
+        const originalBtnText = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Criando...';
+        }
+        
+        try {
+            const formData = new FormData(form);
 
-        // Obter instance_id do usuário logado
-        const currentInstanceId = localStorage.getItem('currentInstanceId');
+            // Obter instance_id do usuário logado
+            const currentInstanceId = localStorage.getItem('currentInstanceId');
 
         // Coletar todos os campos do formulário (incluindo campos extras)
         const appointmentData = {
@@ -452,41 +533,40 @@ class EvAgendamento {
 
         console.log('📅 handleAppointmentSubmit - Dados coletados:', appointmentData);
 
-        // Validação básica
-        if (!appointmentData.customer_name || !appointmentData.appointment_date || !appointmentData.appointment_time) {
-            this.showToast('Preencha todos os campos obrigatórios', 'warning');
-            return;
-        }
+            // Validação básica
+            if (!appointmentData.customer_name || !appointmentData.appointment_date || !appointmentData.appointment_time) {
+                this.showToast('Preencha todos os campos obrigatórios', 'warning');
+                return;
+            }
 
-        // Garantir que os agendamentos estejam carregados para a data selecionada
-        const filterDateEl = document.getElementById('filterDate');
-        if (filterDateEl && filterDateEl.value !== appointmentData.appointment_date) {
-            filterDateEl.value = appointmentData.appointment_date;
-            await this.loadAppointments();
-        }
+            // Garantir que os agendamentos estejam carregados para a data selecionada
+            const filterDateEl = document.getElementById('filterDate');
+            if (filterDateEl && filterDateEl.value !== appointmentData.appointment_date) {
+                filterDateEl.value = appointmentData.appointment_date;
+                await this.loadAppointments();
+            }
 
-        // Garantir que appointments é um array antes de verificar disponibilidade
-        if (!Array.isArray(this.appointments)) {
-            console.warn('⚠️ this.appointments não é um array, inicializando e carregando agendamentos...');
-            this.appointments = [];
-            await this.loadAppointments();
-        }
-        
-        // Verificar disponibilidade do horário antes de tentar criar
-        if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time)) {
-            this.showToast('Horário indisponível. Este horário já está ocupado.', 'error');
-            // Recarregar disponibilidade para mostrar horários atualizados
-            this.checkAvailability();
-            return;
-        }
+            // Garantir que appointments é um array antes de verificar disponibilidade
+            if (!Array.isArray(this.appointments)) {
+                console.warn('⚠️ this.appointments não é um array, inicializando e carregando agendamentos...');
+                this.appointments = [];
+                await this.loadAppointments();
+            }
+            
+            // Verificar disponibilidade do horário antes de tentar criar
+            if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time)) {
+                this.showToast('Horário indisponível. Este horário já está ocupado.', 'error');
+                // Recarregar lista de agendamentos para mostrar estado atualizado
+                await this.loadAppointments();
+                return;
+            }
 
-        // Adicionar instance_id ao agendamento (quando a API suportar)
-        if (currentInstanceId) {
-            // appointmentData.instance_id = currentInstanceId;
-            console.log('Criando agendamento para instância:', currentInstanceId);
-        }
+            // Adicionar instance_id ao agendamento (quando a API suportar)
+            if (currentInstanceId) {
+                // appointmentData.instance_id = currentInstanceId;
+                console.log('Criando agendamento para instância:', currentInstanceId);
+            }
 
-        try {
             console.log('📤 Enviando requisição para criar agendamento...');
             const response = await API.createAppointment(appointmentData);
             console.log('📥 Resposta recebida:', response);
@@ -499,9 +579,9 @@ class EvAgendamento {
                 // Garantir atualização da lista após criar:
                 // - padroniza o filtro de data para a mesma data criada
                 // - recarrega a lista sempre
-                const filterDateEl = document.getElementById('filterDate');
-                if (filterDateEl && appointmentData.appointment_date) {
-                    filterDateEl.value = appointmentData.appointment_date; // YYYY-MM-DD
+                const filterDateEl2 = document.getElementById('filterDate');
+                if (filterDateEl2 && appointmentData.appointment_date) {
+                    filterDateEl2.value = appointmentData.appointment_date; // YYYY-MM-DD
                 }
                 await this.loadAppointments();
             } else {
@@ -522,6 +602,13 @@ class EvAgendamento {
                 errorMessage = error.response.data.message;
             }
             this.showToast(errorMessage, 'error');
+        } finally {
+            // Sempre liberar o flag e reabilitar o botão, mesmo em caso de erro
+            this._isSubmittingAppointment = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText || 'Criar Agendamento';
+            }
         }
     }
 
@@ -556,6 +643,25 @@ class EvAgendamento {
                 // Filtrar agendamentos por instance_id quando o campo existir
                 // appointments = appointments.filter(apt => apt.instance_id === currentInstanceId);
             }
+            
+            // Normalizar horários e remover duplicatas
+            const seenIds = new Set();
+            appointments = appointments
+                .filter(apt => {
+                    // Remover duplicatas por ID
+                    if (seenIds.has(apt.id)) {
+                        console.warn(`⚠️ Duplicata removida: ${apt.id} - ${apt.customer_name}`);
+                        return false;
+                    }
+                    seenIds.add(apt.id);
+                    return true;
+                })
+                .map(apt => {
+                    // Normalizar horário (remover segundos se houver)
+                    // Normalizar horário para formato HH:MM
+                    apt.appointment_time = this.formatTime(apt.appointment_time);
+                    return apt;
+                });
             
             this.appointments = appointments;
             this.displayAppointments();
@@ -637,7 +743,8 @@ class EvAgendamento {
         div.dataset.id = appointment.id;
         div.dataset.name = appointment.customer_name.toLowerCase();
 
-        const time = appointment.appointment_time;
+        // Normalizar horário para exibição (remover segundos se houver)
+        const time = this.formatTime(appointment.appointment_time);
         const phone = appointment.customer_phone || 'Sem telefone';
         const protocol = appointment.protocol || 'N/A';
 
@@ -731,7 +838,7 @@ class EvAgendamento {
         div.className = 'appointment-item';
         div.dataset.id = appointment.id;
 
-        const time = appointment.appointment_time;
+        const time = this.formatTime(appointment.appointment_time);
 
         div.innerHTML = `
             <div class="appointment-info">
@@ -877,7 +984,7 @@ class EvAgendamento {
                         <strong>Data:</strong> ${date}
                     </div>
                     <div class="detail-row">
-                        <strong>Horário:</strong> ${appointment.appointment_time}
+                        <strong>Horário:</strong> ${this.formatTime(appointment.appointment_time)}
                     </div>
                     <div class="detail-row">
                         <strong>Criado em:</strong> ${created}
@@ -1012,9 +1119,10 @@ class EvAgendamento {
     }
 
     showWelcomeMessage() {
-        setTimeout(() => {
-            this.showToast('Bem-vindo ao EvAgendamento! Sistema de agendamento inteligente.', 'info');
-        }, 1000);
+        // Removido para evitar mensagem duplicada
+        // setTimeout(() => {
+        //     this.showToast('Bem-vindo ao Aevum! Sistema de agendamento inteligente.', 'info');
+        // }, 1000);
     }
 
     // Editar agendamento
@@ -1160,53 +1268,9 @@ class EvAgendamento {
      * Mostra o botão flutuante de configurações para moderadores
      */
     showModeratorSettingsButton() {
-        // Remover botão existente se houver
+        // Desativado: manter apenas o botão de configurações no header
         this.hideModeratorSettingsButton();
-        
-        // Criar botão flutuante
-        const settingsButton = document.createElement('button');
-        settingsButton.id = 'moderatorSettingsButton';
-        settingsButton.innerHTML = '⚙️';
-        settingsButton.title = 'Configurações do Moderador';
-        settingsButton.style.cssText = `
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #0099ff, #007acc);
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 153, 255, 0.4);
-            z-index: 1000;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        // Efeitos hover
-        settingsButton.onmouseover = () => {
-            settingsButton.style.transform = 'scale(1.1)';
-            settingsButton.style.boxShadow = '0 6px 25px rgba(0, 153, 255, 0.6)';
-        };
-        settingsButton.onmouseout = () => {
-            settingsButton.style.transform = 'scale(1)';
-            settingsButton.style.boxShadow = '0 4px 20px rgba(0, 153, 255, 0.4)';
-        };
-
-        // Event listener
-        settingsButton.addEventListener('click', () => {
-            this.openModeratorSettingsModal();
-        });
-
-        // Adicionar ao DOM
-        document.body.appendChild(settingsButton);
-
-        console.log('🎛️ Botão de configurações do moderador adicionado');
+        console.log('ℹ️ Botão flutuante de configurações desativado');
     }
 
     /**
@@ -1757,18 +1821,30 @@ class EvAgendamento {
      */
     updateCompanyTitle(companyName) {
         if (companyName) {
-            document.title = `${companyName} - EvAgendamento`;
+            document.title = `${companyName} - Aevum`;
             // Atualizar também o título no header se existir
             const headerTitle = document.querySelector('.header-title span');
             if (headerTitle) {
                 headerTitle.textContent = companyName;
             }
         } else {
-            document.title = 'Sistema de Agendamentos - EvAgendamento';
+            document.title = 'Sistema de Agendamentos - Aevum';
             const headerTitle = document.querySelector('.header-title span');
             if (headerTitle) {
                 headerTitle.textContent = 'Sistema de Agendamentos';
             }
+        }
+    }
+
+    updateCompanyLogo(logoData) {
+        const logoEl = document.getElementById('companyLogo');
+        if (!logoEl) return;
+
+        if (logoData) {
+            logoEl.src = logoData;
+            logoEl.style.display = 'block';
+        } else {
+            logoEl.style.display = 'none';
         }
     }
 
@@ -1781,19 +1857,23 @@ class EvAgendamento {
             const user = window.authManager?.currentUser;
             let response;
             
-            if (user && user.role === 'user' && user.parent_user_id) {
-                // Funcionário - buscar configurações do moderador
-                response = await window.authManager.apiRequest(`/api/moderator/settings?userId=${user.parent_user_id}`);
+            if (user) {
+                // Se estiver autenticado, sempre usar settings (fonte completa)
+                const targetUserId = user.parent_user_id || user.id;
+                response = await window.authManager.apiRequest(`/api/moderator/settings?userId=${targetUserId}`);
             } else {
-                // Moderador ou público - usar company-info
+                // Público - usar company-info
                 response = await window.authManager.apiRequest('/api/moderator/company-info');
             }
             
             if (response.success && response.data) {
-                const { company_name, services } = response.data;
+                const { company_name, services, logo } = response.data;
 
                 // Atualizar título da página
-                this.updateCompanyTitle(company_name);
+                if (company_name) {
+                    this.updateCompanyTitle(company_name);
+                }
+                this.updateCompanyLogo(logo || this.getStoredCompanyLogo());
 
                 // Carregar serviços no dropdown
                 this.populateServicesDropdown(services || []);
@@ -1830,6 +1910,9 @@ class EvAgendamento {
                         slot: settings.slot_interval || 30
                     }
                 }));
+                localStorage.setItem('moderator_settings_v2', JSON.stringify(settings));
+                this.updateCompanyTitle(settings.company_name);
+                this.updateCompanyLogo(settings.logo || this.getStoredCompanyLogo());
                 
                 // Renderizar formulário dinamicamente
                 this.renderFormFields(settings);
@@ -1839,7 +1922,60 @@ class EvAgendamento {
             }
         } catch (error) {
             console.error('Erro ao carregar configurações do moderador:', error);
+            const fallback = this.getLocalSettingsFallback();
+            if (fallback) {
+                this.renderFormFields(fallback);
+                this.populateServicesDropdown(fallback.services || []);
+                this.updateCompanyTitle(fallback.company_name);
+                this.updateCompanyLogo(fallback.logo || this.getStoredCompanyLogo());
+            }
         }
+    }
+
+    getStoredCompanyLogo() {
+        try {
+            const stored = localStorage.getItem('moderator_settings');
+            if (!stored) return null;
+            const parsed = JSON.parse(stored);
+            return parsed.logo || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    getLocalSettingsFallback() {
+        try {
+            const v2 = localStorage.getItem('moderator_settings_v2');
+            if (v2) {
+                return JSON.parse(v2);
+            }
+        } catch (e) {
+            console.warn('Erro ao ler moderator_settings_v2:', e);
+        }
+
+        try {
+            const legacy = localStorage.getItem('moderator_settings');
+            if (legacy) {
+                const parsed = JSON.parse(legacy);
+                return {
+                    company_name: parsed.company_name || null,
+                    services: parsed.servicos || [],
+                    working_hours: {
+                        start: parsed.funcionamento?.inicio || '08:00',
+                        end: parsed.funcionamento?.fim || '18:00'
+                    },
+                    working_days: parsed.funcionamento?.dias || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                    campos_visiveis: parsed.campos_visiveis || ['nome', 'telefone'],
+                    campos_extras: parsed.campos_extras || [],
+                    logo: parsed.logo || null,
+                    slot_interval: parsed.funcionamento?.slot || 30
+                };
+            }
+        } catch (e) {
+            console.warn('Erro ao ler moderator_settings:', e);
+        }
+
+        return null;
     }
 
     renderFormFields(settings) {
@@ -1935,5 +2071,5 @@ class EvAgendamento {
 
 // Inicializar aplicação quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new EvAgendamento();
+    window.app = new Aevum();
 });

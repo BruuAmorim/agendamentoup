@@ -1,4 +1,4 @@
-// UI Helpers para EvAgendamento
+// UI Helpers para Aevum
 // Funções utilitárias para manipulação da interface
 
 class UIHelpers {

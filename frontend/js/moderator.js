@@ -1,5 +1,5 @@
 /**
- * Dashboard Moderador - EvAgendamento
+ * Dashboard Moderador - Aevum
  *
  * Gerencia a interface de métricas e análises para o perfil Moderador.
  * Inclui gráficos interativos e estatísticas em tempo real.

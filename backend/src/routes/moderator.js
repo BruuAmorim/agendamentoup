@@ -1,5 +1,5 @@
 /**
- * Rotas do Moderador - EvAgendamento API
+ * Rotas do Moderador - Aevum API
  *
  * Endpoints para gerenciamento de configurações da empresa
  * e estatísticas rápidas do moderador.

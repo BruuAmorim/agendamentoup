@@ -145,11 +145,14 @@
 
                 const data = await response.json();
                 // O backend retorna { success: true/false, data: ..., message: ... }
+                // Se o status não for 2xx, considerar como erro mesmo se success for true
+                const isSuccess = data.success === true && response.ok && response.status >= 200 && response.status < 300;
+                
                 return { 
-                    success: data.success !== false && response.ok, 
+                    success: isSuccess,
                     data: data.data || data,
-                    message: data.message,
-                    error: data.error
+                    message: data.message || data.error,
+                    error: data.error || (!isSuccess ? (data.message || 'Erro ao criar agendamento') : null)
                 };
             } catch (error) {
                 console.error('Erro ao criar agendamento:', error);

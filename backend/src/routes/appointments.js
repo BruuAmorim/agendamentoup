@@ -1,5 +1,5 @@
 /**
- * Rotas de Agendamentos - EvAgendamento API
+ * Rotas de Agendamentos - Aevum API
  *
  * Endpoints principais para gerenciamento de agendamentos.
  * Estes endpoints são utilizados por integrações externas (n8n).

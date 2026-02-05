@@ -1,5 +1,5 @@
 /**
- * Configuração da API para EvAgendamento
+ * Configuração da API para Aevum
  *
  * Este arquivo centraliza a configuração da URL da API,
  * detectando automaticamente se está em desenvolvimento ou produção.
@@ -30,11 +30,17 @@ const API_CONFIG = {
   getBaseUrl: () => {
     // Detectar se está rodando no Vercel
     const isVercel = window.location.hostname.includes('vercel.app');
+    
+    // Detectar se está rodando no Firebase Hosting
+    const isFirebase = window.location.hostname.includes('firebaseapp.com') || 
+                       window.location.hostname.includes('web.app') ||
+                       window.location.hostname.includes('firebaseapp');
 
-    if (isVercel) {
-      // Quando estiver no Vercel, usar a API de produção (Render)
-      console.log('🔧 Detectado Vercel - usando API de produção');
-      return 'https://evaagendamento.onrender.com/api';
+    if (isVercel || isFirebase) {
+      // Quando estiver em produção (Vercel ou Firebase), usar a API de produção
+      const productionApiUrl = 'https://agendamentoup.onrender.com/api';
+      console.log('🔧 Detectado ambiente de produção - usando API:', productionApiUrl);
+      return productionApiUrl;
     }
 
     if (API_CONFIG.isProduction()) {

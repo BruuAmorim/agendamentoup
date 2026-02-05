@@ -1,5 +1,5 @@
 /**
- * Rotas do Dashboard - EvAgendamento API
+ * Rotas do Dashboard - Aevum API
  *
  * Endpoints para métricas e análises do perfil Moderador.
  * Estes dados são utilizados no dashboard de analytics.

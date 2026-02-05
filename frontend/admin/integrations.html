@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configurar Integrações - EvAgendamento</title>
+  <title>Configurar Integrações - Aevum</title>
 
   <!-- Fonte -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -191,7 +191,7 @@
       </p>
 
       <div class="form-group">
-        <label>URL Base da API EvAgendamento</label>
+        <label>URL Base da API Aevum</label>
         <div style="display: flex; gap: 10px; align-items: center;">
           <input type="text" id="apiBaseUrl" readonly style="flex: 1; background: var(--background); border: 1px solid var(--border);">
           <button type="button" class="btn-test" id="copyApiUrlBtn" style="padding: 8px 12px; font-size: 14px;">📋 Copiar</button>
@@ -317,36 +317,41 @@
 
       async loadApiBaseUrl() {
         try {
-          // Buscar informações da API para obter a URL base
+          // Buscar URL do Ngrok do backend (configurada via variável de ambiente)
           const response = await window.authManager.apiRequest('/api/health');
-          if (response.success && response.baseUrl) {
+          if (response.success && response.ngrokUrl) {
             const apiBaseUrlInput = document.getElementById('apiBaseUrl');
             if (apiBaseUrlInput) {
-              apiBaseUrlInput.value = response.baseUrl;
+              apiBaseUrlInput.value = response.ngrokUrl;
             }
             return;
           }
         } catch (error) {
-          console.error('Erro ao carregar URL base da API:', error);
+          console.error('Erro ao carregar URL do Ngrok:', error);
         }
 
-        // Fallback: detectar automaticamente baseada na localização do frontend
+        // Fallback: tentar obter do backend via endpoint específico
+        try {
+          const ngrokResponse = await window.authManager.apiRequest('/api/integrations/ngrok-url');
+          if (ngrokResponse.success && ngrokResponse.ngrokUrl) {
+            const apiBaseUrlInput = document.getElementById('apiBaseUrl');
+            if (apiBaseUrlInput) {
+              apiBaseUrlInput.value = ngrokResponse.ngrokUrl;
+            }
+            return;
+          }
+        } catch (error) {
+          console.error('Erro ao carregar URL do Ngrok do endpoint:', error);
+        }
+
+        // Fallback final: usar URL padrão do Ngrok (se configurada)
         const apiBaseUrlInput = document.getElementById('apiBaseUrl');
         if (apiBaseUrlInput) {
-          const autoDetectedUrl = this.getAutoDetectedApiUrl();
-          apiBaseUrlInput.value = autoDetectedUrl;
+          // Tentar obter de variável de ambiente ou usar padrão
+          const defaultNgrokUrl = 'https://seu-ngrok-url.ngrok.io/api';
+          apiBaseUrlInput.value = defaultNgrokUrl;
+          apiBaseUrlInput.placeholder = 'Configure a URL do Ngrok no backend (.env)';
         }
-      }
-
-      getAutoDetectedApiUrl() {
-        // Em produção, usar a mesma origem que o frontend
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          return `${window.location.origin}/api`;
-        }
-
-        // Em desenvolvimento, usar localhost com a porta atual
-        const port = window.location.port || 3000;
-        return `http://localhost:${port}/api`;
       }
 
       loadIntegration() {

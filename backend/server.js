@@ -25,6 +25,9 @@ const settingsPasswordRoutes = require('./src/routes/settingsPasswordRoutes');
 const app = express();
 const PORT = API_CONFIG.port || 3000;
 
+// Desabilitar ETag para evitar respostas 304 sem body
+app.set('etag', false);
+
 // 3. MIDDLEWARES GLOBAIS
 app.use(helmet({
   // Permitir requisições de integrações externas (n8n, ngrok)
@@ -48,7 +51,9 @@ const corsOptions = {
       'http://localhost:5678', // n8n local
       /^https:\/\/.*\.ngrok\.io$/, // Qualquer URL ngrok
       /^https:\/\/.*\.ngrok-free\.app$/, // URLs ngrok free
-      /^https:\/\/.*\.ngrok\.app$/ // URLs ngrok alternativas
+      /^https:\/\/.*\.ngrok\.app$/, // URLs ngrok alternativas
+      /^https:\/\/.*\.firebaseapp\.com$/, // Firebase Hosting
+      /^https:\/\/.*\.web\.app$/ // Firebase Hosting (domínio customizado)
     ];
     
     // Verificar se a origem está na lista ou corresponde a um padrão
@@ -72,10 +77,16 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control']
 };
 
 app.use(cors(corsOptions));
+
+// Evitar cache nas respostas da API
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // Configuração do body-parser com limites maiores para integrações
 app.use(express.json({ 
@@ -92,7 +103,14 @@ app.use(morgan('dev'));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: process.env.API_RATE_LIMIT || 100,
-  message: 'Muitas requisições deste IP, tente novamente mais tarde.'
+  message: 'Muitas requisições deste IP, tente novamente mais tarde.',
+  skip: (req) => {
+    // Em desenvolvimento, não limitar para evitar bloqueios locais
+    if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+      return true;
+    }
+    return false;
+  }
 });
 app.use('/api/', limiter);
 
@@ -100,9 +118,10 @@ app.use('/api/', limiter);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    message: 'EvAgendamento API está funcionando',
+    message: 'Aevum API está funcionando',
     version: API_CONFIG.info.version,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ngrokUrl: process.env.NGROK_URL || null
   });
 });
 
@@ -412,6 +431,57 @@ async function startServer() {
             `;
             await query(createAppointments, []);
             console.log('✅ Tabela appointments criada/verificada (PostgreSQL)');
+            
+            // Garantir que a coluna protocol existe (para tabelas antigas)
+            try {
+              await query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS protocol VARCHAR(50)`, []);
+              // Se a coluna foi adicionada, precisamos torná-la UNIQUE e NOT NULL
+              // Mas primeiro, gerar protocolos para registros existentes que possam ter NULL
+              try {
+                await query(`
+                  UPDATE appointments 
+                  SET protocol = 'AG-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || id::TEXT) FROM 1 FOR 6))
+                  WHERE protocol IS NULL
+                `, []);
+                // Adicionar constraint UNIQUE se não existir
+                try {
+                  await query(`
+                    DO $$ 
+                    BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint 
+                        WHERE conname = 'appointments_protocol_key'
+                      ) THEN
+                        ALTER TABLE appointments ADD CONSTRAINT appointments_protocol_key UNIQUE (protocol);
+                      END IF;
+                    END $$;
+                  `, []);
+                } catch (e) {
+                  // Constraint pode já existir
+                  if (!e.message.includes('already exists')) {
+                    console.warn('⚠️ Erro ao adicionar constraint UNIQUE:', e.message);
+                  }
+                }
+                // Tornar NOT NULL
+                try {
+                  await query(`ALTER TABLE appointments ALTER COLUMN protocol SET NOT NULL`, []);
+                } catch (e) {
+                  // Pode falhar se já for NOT NULL
+                  if (!e.message.includes('column') || !e.message.includes('is already')) {
+                    console.warn('⚠️ Erro ao tornar protocol NOT NULL:', e.message);
+                  }
+                }
+              } catch (e) {
+                console.warn('⚠️ Erro ao atualizar protocolos existentes:', e.message);
+              }
+              console.log('✅ Coluna protocol verificada/criada (PostgreSQL)');
+            } catch (e) {
+              if (!e.message.includes('already exists') && !e.message.includes('duplicate')) {
+                console.warn('⚠️ Erro ao verificar/criar coluna protocol:', e.message);
+              } else {
+                console.log('✅ Coluna protocol já existe (PostgreSQL)');
+              }
+            }
           }
         } catch (appointmentsError) {
           console.error('❌ Erro ao criar tabela appointments:', appointmentsError);
@@ -477,7 +547,7 @@ async function startServer() {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log('========================================');
-      console.log('🚀 EvAgendamento API iniciada!');
+      console.log('🚀 Aevum API iniciada!');
       console.log('========================================');
       console.log(`📡 Servidor rodando na porta ${PORT}`);
       console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);

@@ -141,11 +141,33 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Erro ao criar usuário:', error);
+      
+      // Tratar erro de email duplicado
+      if (error.name === 'SequelizeUniqueConstraintError' || 
+          (error.parent && error.parent.code === '23505')) {
+        return res.status(409).json({
+          success: false,
+          error: 'Email já cadastrado',
+          message: 'Já existe um usuário com este email. Por favor, use outro email.'
+        });
+      }
+      
+      // Tratar outros erros de validação do Sequelize
+      if (error.name === 'SequelizeValidationError') {
+        const messages = error.errors.map(e => e.message).join(', ');
+        return res.status(400).json({
+          success: false,
+          error: 'Erro de validação',
+          message: messages
+        });
+      }
+      
       console.error('❌ Stack:', error.stack);
       console.error('❌ Mensagem:', error.message);
       res.status(500).json({
+        success: false,
         error: 'Erro interno do servidor',
-        message: 'Erro ao criar usuário',
+        message: 'Erro ao criar usuário. Tente novamente.',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }

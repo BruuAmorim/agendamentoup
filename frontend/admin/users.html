@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gerenciar Usuários - EvAgendamento</title>
+  <title>Gerenciar Usuários - Aevum</title>
 
   <!-- Fonte -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -155,7 +155,12 @@
     }
 
     .role-admin {
-      background: var(--primary);
+      background: #e91e63;
+      color: white;
+    }
+
+    .role-admin_master {
+      background: #e91e63;
       color: white;
     }
 
@@ -165,6 +170,11 @@
     }
 
     .role-moderator {
+      background: #6f42c1;
+      color: white;
+    }
+
+    .role-empresa {
       background: #6f42c1;
       color: white;
     }
@@ -343,8 +353,8 @@
     <div class="users-header-content">
       <h1>👥 Gerenciar Usuários</h1>
       <div class="users-actions">
-        <button class="admin-btn admin-btn-primary" id="addUserBtn" style="padding: 12px 24px; font-size: 1rem; font-weight: 600; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-          ➕ Novo Usuário
+        <button class="admin-btn admin-btn-primary" id="addUserBtn" style="width: 32px; height: 32px; padding: 0; font-size: 1.2rem; font-weight: 500; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); display: flex; align-items: center; justify-content: center; margin-left: 20px;">
+          ➕
         </button>
         <a href="/admin/dashboard" class="admin-btn admin-btn-secondary">
           ← Voltar ao Dashboard
@@ -366,8 +376,7 @@
           <select id="filterRole">
             <option value="">Todos os perfis</option>
             <option value="admin_master">Administrador</option>
-            <option value="moderator">Moderador</option>
-            <option value="user">Usuário</option>
+            <option value="moderator">Empresa</option>
           </select>
         </div>
       </div>
@@ -424,16 +433,15 @@
           <div class="form-group">
             <label>Perfil *</label>
             <select id="newUserRole" required>
-              <option value="user">Usuário Comum</option>
-              <option value="moderator">Moderador</option>
+              <option value="moderator">Empresa</option>
               <option value="admin_master">Administrador Master</option>
             </select>
           </div>
         </form>
       </div>
-      <div class="modal-footer">
-        <button class="admin-btn admin-btn-secondary" id="cancelNewUserBtn">Cancelar</button>
-        <button class="admin-btn admin-btn-primary" id="saveNewUserBtn">Criar Usuário</button>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 20px; border-top: 1px solid var(--border);">
+        <button class="admin-btn admin-btn-secondary" id="cancelNewUserBtn" style="display: inline-block;">Cancelar</button>
+        <button class="admin-btn admin-btn-primary" id="saveNewUserBtn" style="display: inline-block;">Salvar</button>
       </div>
     </div>
   </div>
@@ -472,7 +480,7 @@
             <select id="employeeUserSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px;">
               <option value="">Selecione um usuário comum...</option>
             </select>
-            <small style="color: var(--muted); font-size: 0.85rem;">Apenas usuários com perfil "Usuário" podem ser funcionários</small>
+            <small style="color: var(--muted); font-size: 0.85rem;">Funcionalidade de funcionários removida</small>
           </div>
           <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
             <button class="admin-btn admin-btn-secondary" id="cancelAddEmployeeBtn" style="padding: 8px 16px;">Cancelar</button>
@@ -511,8 +519,7 @@
           <div class="form-group">
             <label>Perfil *</label>
             <select id="editUserRole" required>
-              <option value="user">Usuário Comum</option>
-              <option value="moderator">Moderador</option>
+              <option value="moderator">Empresa</option>
               <option value="admin_master">Administrador Master</option>
             </select>
           </div>
@@ -520,12 +527,6 @@
             <label>
               <input type="checkbox" id="editUserActive"> Usuário ativo
             </label>
-          </div>
-          <!-- Campo de limite de funcionários (apenas para moderadores) -->
-          <div class="form-group" id="employeeLimitGroup" style="display: none;">
-            <label>Limite de Funcionários *</label>
-            <input type="number" id="editEmployeeLimit" placeholder="Quantidade máxima de funcionários" min="1" max="100">
-            <small style="color: var(--muted); font-size: 0.85rem;">Número máximo de funcionários que este moderador pode adicionar</small>
           </div>
         </form>
       </div>
@@ -682,26 +683,12 @@
           });
         }
 
-        // Mostrar/ocultar campo de limite quando mudar o role
-        const editUserRole = document.getElementById('editUserRole');
-        if (editUserRole) {
-          editUserRole.addEventListener('change', (e) => {
-            const employeeLimitGroup = document.getElementById('employeeLimitGroup');
-            if (e.target.value === 'moderator') {
-              employeeLimitGroup.style.display = 'block';
-            } else {
-              employeeLimitGroup.style.display = 'none';
-            }
-          });
-        }
       }
 
       async manageEmployees(moderatorId) {
-        const moderator = this.users.find(u => u.id === moderatorId);
-        if (!moderator || moderator.role !== 'moderator') {
-          this.showToast('Apenas moderadores podem ter funcionários', 'error');
-          return;
-        }
+        // Funcionalidade removida - empresas não podem mais gerenciar funcionários
+        this.showToast('Funcionalidade de funcionários foi removida do sistema', 'error');
+        return;
 
         // Preencher informações do moderador
         document.getElementById('moderatorName').textContent = moderator.name;
@@ -794,16 +781,13 @@
           const currentEmployees = employeesResponse.success ? employeesResponse.data : [];
           const employeeIds = currentEmployees.map(e => e.id);
           
-          // Filtrar apenas usuários comuns que não são funcionários
-          const availableUsers = allUsers.filter(u => 
-            u.role === 'user' && !employeeIds.includes(u.id)
-          );
+          // Funcionalidade de funcionários removida - não há mais usuários comuns
+          const availableUsers = [];
 
           const select = document.getElementById('employeeUserSelect');
           const saveAddEmployeeBtn = document.getElementById('saveAddEmployeeBtn');
           
-          select.innerHTML = '<option value="">Selecione um usuário comum...</option>' +
-            availableUsers.map(u => `<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
+          select.innerHTML = '<option value="">Nenhum usuário disponível (funcionalidade removida)</option>';
           
           // Desabilitar botão se não houver usuários disponíveis
           if (saveAddEmployeeBtn) {
@@ -916,7 +900,14 @@
         const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
         const roleFilter = document.getElementById('filterRole').value;
 
+        // Filtrar apenas usuários com roles válidos (admin_master ou moderator)
+        // Remover usuários com role 'user' (perfil removido)
         this.filteredUsers = this.users.filter(user => {
+          // Ignorar usuários com role 'user' (perfil removido)
+          if (user.role === 'user') {
+            return false;
+          }
+          
           const matchesSearch = user.name.toLowerCase().includes(searchTerm) ||
                                user.email.toLowerCase().includes(searchTerm);
           const matchesRole = !roleFilter || user.role === roleFilter;
@@ -946,8 +937,8 @@
             <td>${user.name}</td>
             <td>${user.email}</td>
             <td>
-              <span class="user-role role-${user.role}">
-                ${user.role === 'admin_master' ? 'Admin' : user.role === 'moderator' ? 'Moderador' : 'Usuário'}
+              <span class="user-role role-${user.role === 'moderator' ? 'empresa' : user.role}">
+                ${user.role === 'admin_master' ? 'Administrador' : user.role === 'moderator' ? 'Empresa' : 'Desconhecido'}
               </span>
             </td>
             <td>
@@ -961,11 +952,6 @@
                 <button class="user-action-btn btn-edit" onclick="userManagement.editUser(${user.id})" title="Editar usuário">
                   ✏️ Editar
                 </button>
-                ${user.role === 'moderator' ?
-                  `<button class="user-action-btn btn-employees" onclick="userManagement.manageEmployees(${user.id})" title="Gerenciar funcionários" style="background: #6f42c1; color: white;">
-                    👥 Funcionários
-                  </button>` : ''
-                }
                 ${user.isActive ?
                   `<button class="user-action-btn btn-deactivate" onclick="userManagement.toggleUserStatus(${user.id}, false)" title="Desativar usuário">
                     🚫 Desativar
@@ -1043,27 +1029,6 @@
         document.getElementById('editUserRole').value = user.role;
         document.getElementById('editUserActive').checked = user.isActive;
 
-        // Se for moderador, carregar limite de funcionários
-        const employeeLimitGroup = document.getElementById('employeeLimitGroup');
-        const employeeLimitInput = document.getElementById('editEmployeeLimit');
-        
-        if (user.role === 'moderator') {
-          employeeLimitGroup.style.display = 'block';
-          // Buscar configurações do moderador para obter o limite atual
-          try {
-            const settingsResponse = await window.authManager.apiRequest(`/api/moderator/settings?userId=${user.id}`);
-            if (settingsResponse.success && settingsResponse.data) {
-              employeeLimitInput.value = settingsResponse.data.employee_limit || 10;
-            } else {
-              employeeLimitInput.value = 10; // Valor padrão
-            }
-          } catch (error) {
-            console.error('Erro ao carregar limite de funcionários:', error);
-            employeeLimitInput.value = 10;
-          }
-        } else {
-          employeeLimitGroup.style.display = 'none';
-        }
 
         // Abrir modal
         const modal = document.getElementById('editUserModal');
@@ -1097,14 +1062,6 @@
 
         const updateData = { name, email, role, isActive };
         if (password) updateData.password = password;
-
-        // Se for moderador, incluir limite de funcionários
-        if (role === 'moderator') {
-          const employeeLimit = parseInt(document.getElementById('editEmployeeLimit').value);
-          if (!isNaN(employeeLimit) && employeeLimit > 0) {
-            updateData.employee_limit = employeeLimit;
-          }
-        }
 
         try {
           const response = await window.authManager.apiRequest(`/api/users/${id}`, {

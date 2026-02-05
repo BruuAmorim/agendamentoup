@@ -12,6 +12,7 @@ router.use(requireAdminMaster);
 router.get('/', IntegrationController.getIntegration);
 router.put('/', IntegrationController.updateIntegration);
 router.post('/test', IntegrationController.testWebhook);
+router.get('/ngrok-url', IntegrationController.getNgrokUrl);
 
 module.exports = router;
 

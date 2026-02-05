@@ -25,7 +25,7 @@ const CONFIG = {
 
     // Configurações do Sistema
     system: {
-        title: "EvAgendamento - Sistema de Agendamento Inteligente",
+        title: "Aevum - Sistema de Agendamento Inteligente",
         tagline: "Sistema de Agendamento Inteligente"
     }
 };

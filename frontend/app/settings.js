@@ -375,6 +375,8 @@ class SettingsManager {
     this.hasChanges = false;
     this.isPasswordVerified = false;
     this.cachedSettings = null;
+    this.isLoading = false; // Flag para evitar múltiplas requisições simultâneas
+    this.settingsLoaded = false; // Flag para evitar recarregar múltiplas vezes
     
     // Inicializar componentes
     this.generalSettings = new GeneralSettings(this);
@@ -388,15 +390,39 @@ class SettingsManager {
   async init() {
     // Verificar autenticação
     if (!window.authManager) {
-      window.location.href = '../css/index.html';
+      console.error('❌ AuthManager não encontrado');
+      setTimeout(() => {
+        if (!window.authManager) {
+          window.location.href = '../index.html';
+        }
+      }, 2000);
       return;
     }
 
     const user = window.authManager.currentUser;
-    if (!user || (user.role !== 'moderator' && user.role !== 'admin_master' && !(user.role === 'user' && user.parent_user_id))) {
+    if (!user) {
+      console.error('❌ Usuário não encontrado');
+      window.location.href = '../index.html';
+      return;
+    }
+    
+    // Verificar permissões (moderator, admin_master, ou user com parent_user_id)
+    const hasAccess = user.role === 'moderator' || 
+                      user.role === 'admin_master' || 
+                      (user.role === 'user' && user.parent_user_id) ||
+                      user.role === 'empresa'; // Suportar novo nome de role
+    
+    if (!hasAccess) {
+      console.error('❌ Acesso negado. Role:', user.role);
       window.location.href = 'agendamentos.html';
       return;
     }
+    
+    console.log('✅ Inicializando SettingsManager para usuário:', user.role);
+
+    // SEMPRE limpar verificação de senha ao carregar a página (F5 ou refresh)
+    // Isso garante que a senha seja sempre solicitada
+    sessionStorage.removeItem('settings_password_verified');
 
     // Verificar senha antes de habilitar o acesso
     await this.checkPasswordAccess();
@@ -635,17 +661,34 @@ class SettingsManager {
   }
 
   async loadSettings() {
-    const data = await this.fetchSettingsOnce();
-    if (data) {
-      this.generalSettings.applySettings(data);
-      this.formBuilder.applySettings(data);
-      this.serviceManager.applySettings(data);
-      this.scheduleConfig.applySettings(data);
+    // Evitar múltiplas requisições simultâneas
+    if (this.isLoading) {
+      console.log('⚠️ Carregamento já em andamento, ignorando...');
+      return;
     }
+    
+    if (this.settingsLoaded) {
+      console.log('✅ Configurações já carregadas, usando cache');
+      return;
+    }
+    
+    this.isLoading = true;
+    try {
+      const data = await this.fetchSettingsOnce();
+      if (data) {
+        this.generalSettings.applySettings(data);
+        this.formBuilder.applySettings(data);
+        this.serviceManager.applySettings(data);
+        this.scheduleConfig.applySettings(data);
+      }
 
-    this.cachedSettings = this.collectAllSettings();
-    this.hasChanges = false;
-    this.updateSaveButton();
+      this.cachedSettings = this.collectAllSettings();
+      this.hasChanges = false;
+      this.updateSaveButton();
+      this.settingsLoaded = true;
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   collectAllSettings() {
@@ -669,6 +712,11 @@ class SettingsManager {
     }
 
     const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn && saveBtn.disabled) {
+      console.log('⚠️ Salvamento já em andamento, ignorando...');
+      return;
+    }
+
     if (saveBtn) {
       saveBtn.disabled = true;
       saveBtn.textContent = '💾 Salvando...';
@@ -677,26 +725,35 @@ class SettingsManager {
     try {
       const settings = this.collectAllSettings();
       const user = window.authManager.currentUser;
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+      
       const userId = user.parent_user_id || user.id;
 
       // Preparar dados para o backend
       const backendData = {
-        company_name: settings.company_name,
-        services: settings.services,
-        working_hours: settings.working_hours,
-        working_days: settings.working_days,
-        campos_visiveis: settings.campos_visiveis,
-        campos_extras: settings.campos_extras,
-        logo: settings.logo,
-        slot_interval: settings.slot_interval
+        company_name: settings.company_name || null,
+        services: settings.services || [],
+        working_hours: settings.working_hours || { start: '09:00', end: '18:00' },
+        working_days: settings.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        campos_visiveis: settings.campos_visiveis || ['nome', 'telefone'],
+        campos_extras: settings.campos_extras || [],
+        logo: settings.logo || null,
+        slot_interval: settings.slot_interval || 30
       };
 
+      console.log('📤 Enviando configurações para o backend:', backendData);
+      console.log('📤 URL:', `${window.authManager.apiBaseUrl}/api/moderator/settings`);
+      
       const response = await window.authManager.apiRequest('/api/moderator/settings', {
         method: 'PUT',
         body: JSON.stringify(backendData)
       });
 
-      if (response.success) {
+      console.log('📥 Resposta do backend:', response);
+
+      if (response && response.success) {
         this.hasChanges = false;
         this.updateSaveButton();
         this.cachedSettings = settings;
@@ -898,16 +955,88 @@ class SettingsManager {
   }
 
   async fetchSettingsOnce() {
-    try {
-      const user = window.authManager.currentUser;
-      const userId = user.parent_user_id || user.id;
-      const response = await window.authManager.apiRequest(`/api/moderator/settings?userId=${userId}`);
-      if (response.success && response.data) {
-        return response.data;
-      }
-    } catch (error) {
-      console.error('Erro ao carregar configurações:', error);
+    // Cache da requisição para evitar múltiplas chamadas
+    if (this._fetchPromise) {
+      console.log('📡 Requisição já em andamento, aguardando...');
+      return await this._fetchPromise;
     }
+    
+    this._fetchPromise = (async () => {
+      try {
+        if (!window.authManager || !window.authManager.currentUser) {
+          console.error('❌ AuthManager ou usuário não disponível');
+          return this.getLocalSettingsFallback();
+        }
+        
+        const user = window.authManager.currentUser;
+        const userId = user.parent_user_id || user.id;
+        
+        console.log('📡 Buscando configurações para userId:', userId);
+        const response = await window.authManager.apiRequest(`/api/moderator/settings?userId=${userId}`);
+        
+        console.log('📥 Resposta recebida:', response);
+        
+        if (response && response.success && response.data) {
+          console.log('✅ Configurações carregadas:', response.data);
+          return response.data;
+        } else {
+          console.warn('⚠️ Resposta sem dados válidos, usando fallback');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar configurações:', error);
+        console.error('❌ Stack:', error.stack);
+      } finally {
+        // Limpar promise após 1 segundo para permitir nova requisição se necessário
+        setTimeout(() => {
+          this._fetchPromise = null;
+        }, 1000);
+      }
+      
+      const fallback = this.getLocalSettingsFallback();
+      if (fallback) {
+        console.log('📦 Usando configurações do localStorage:', fallback);
+        return fallback;
+      }
+      
+      console.log('⚠️ Nenhuma configuração encontrada, usando padrões');
+      return null;
+    })();
+    
+    return await this._fetchPromise;
+  }
+
+  getLocalSettingsFallback() {
+    try {
+      const v2 = localStorage.getItem('moderator_settings_v2');
+      if (v2) {
+        return JSON.parse(v2);
+      }
+    } catch (e) {
+      console.warn('Erro ao ler moderator_settings_v2:', e);
+    }
+
+    try {
+      const legacy = localStorage.getItem('moderator_settings');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        return {
+          company_name: parsed.company_name || null,
+          services: parsed.servicos || [],
+          working_hours: {
+            start: parsed.funcionamento?.inicio || '08:00',
+            end: parsed.funcionamento?.fim || '18:00'
+          },
+          working_days: parsed.funcionamento?.dias || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+          campos_visiveis: parsed.campos_visiveis || ['nome', 'telefone'],
+          campos_extras: parsed.campos_extras || [],
+          logo: parsed.logo || null,
+          slot_interval: parsed.funcionamento?.slot || 30
+        };
+      }
+    } catch (e) {
+      console.warn('Erro ao ler moderator_settings:', e);
+    }
+
     return null;
   }
 }

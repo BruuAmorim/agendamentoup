@@ -86,6 +86,30 @@ class IntegrationController {
   }
 
   /**
+   * Obter URL do Ngrok configurada
+   */
+  static async getNgrokUrl(req, res) {
+    try {
+      const ngrokUrl = process.env.NGROK_URL || null;
+      
+      res.json({
+        success: true,
+        ngrokUrl: ngrokUrl,
+        message: ngrokUrl 
+          ? 'URL do Ngrok configurada' 
+          : 'URL do Ngrok não configurada. Configure a variável NGROK_URL no arquivo .env'
+      });
+    } catch (error) {
+      console.error('Erro ao obter URL do Ngrok:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor',
+        message: 'Erro ao obter URL do Ngrok'
+      });
+    }
+  }
+
+  /**
    * Testar conexão com webhook n8n
    */
   static async testWebhook(req, res) {
@@ -104,7 +128,7 @@ class IntegrationController {
       const testPayload = {
         event: 'test_connection',
         timestamp: new Date().toISOString(),
-        source: 'EvAgendamento',
+        source: 'Aevum',
         message: 'Teste de conexão com webhook n8n'
       };
 

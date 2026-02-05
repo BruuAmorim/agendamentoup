@@ -60,7 +60,7 @@ const API_CONFIG = {
   },
 
   info: {
-    name: 'EvAgendamento API',
+    name: 'Aevum API',
     version: '2.2.0'
   }
 };

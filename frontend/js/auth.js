@@ -18,7 +18,7 @@ window.fetch = function(...args) {
     return originalFetch.apply(this, args);
 };
 
-// Sistema de Autenticação EvAgendamento
+// Sistema de Autenticação Aevum
 class AuthManager {
     constructor() {
         this.currentUser = null;
@@ -30,12 +30,17 @@ class AuthManager {
 
     // Método para obter URL da API dinamicamente
     getApiBaseUrl() {
-        // Se estiver no Vercel, usar API de produção
-        if (window.location.hostname.includes('vercel.app')) {
-            return 'https://evaagendamento.onrender.com';
+        const hostname = window.location.hostname;
+        
+        // Se estiver em produção (Vercel, Firebase, etc), usar API de produção
+        if (hostname.includes('vercel.app') || 
+            hostname.includes('firebaseapp.com') || 
+            hostname.includes('web.app') ||
+            hostname.includes('firebaseapp')) {
+            return 'https://agendamentoup.onrender.com';
         }
 
-        // Caso contrário, usar localhost
+        // Caso contrário, usar localhost (desenvolvimento)
         return 'http://localhost:3000';
     }
 
@@ -94,6 +99,7 @@ class AuthManager {
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
         localStorage.removeItem('userRole');
+        // Limpar verificação de senha das configurações
         sessionStorage.removeItem('settings_password_verified');
     }
 
@@ -214,7 +220,7 @@ class AuthManager {
             if (settingsBtn) settingsBtn.style.display = 'none';
             if (usersBtn) usersBtn.style.display = 'none';
             if (adminLogoutBtn) adminLogoutBtn.style.display = 'none';
-            if (title) title.textContent = 'EvAgendamento';
+            if (title) title.textContent = 'Aevum';
         }
     }
 

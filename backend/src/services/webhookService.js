@@ -1,4 +1,3 @@
-const { Integration } = require('../models');
 const axios = require('axios');
 
 /**
@@ -11,9 +10,19 @@ class WebhookService {
    */
   static async triggerWebhook(event, data) {
     try {
-      const integration = await Integration.findOne({ 
-        where: { name: 'n8n', isActive: true } 
-      });
+      // Tentar buscar integração, mas não falhar se não existir
+      let integration = null;
+      try {
+        const { Integration } = require('../models');
+        if (Integration && typeof Integration.findOne === 'function') {
+          integration = await Integration.findOne({ 
+            where: { name: 'n8n', isActive: true } 
+          });
+        }
+      } catch (modelError) {
+        // Modelo não disponível ou não configurado - não é erro crítico
+        console.warn('⚠️ Modelo Integration não disponível, webhook não será disparado');
+      }
 
       if (!integration || !integration.webhookUrl) {
         // Webhook não configurado ou inativo - não é erro, apenas não dispara
@@ -23,7 +32,7 @@ class WebhookService {
       const payload = {
         event: event,
         timestamp: new Date().toISOString(),
-        source: 'EvAgendamento',
+        source: 'Aevum',
         data: data
       };
 

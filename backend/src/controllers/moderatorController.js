@@ -158,7 +158,8 @@ class ModeratorController {
       console.log('🔍 getSettings - Buscando configurações para user_id:', targetUserId);
       
       const settingsQuery = `
-        SELECT company_name, services, working_hours, working_days, employee_limit, created_at, updated_at
+        SELECT company_name, services, working_hours, working_days, employee_limit, created_at, updated_at,
+               campos_visiveis, campos_extras, logo, slot_interval
         FROM moderator_settings
         WHERE user_id = $1
       `;
@@ -177,7 +178,11 @@ class ModeratorController {
               services: [],
               working_hours: { start: '09:00', end: '18:00' },
               working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-              employee_limit: 10
+              employee_limit: 10,
+              campos_visiveis: ['nome', 'telefone'],
+              campos_extras: [],
+              logo: null,
+              slot_interval: 30
             }
           });
         }
@@ -191,7 +196,11 @@ class ModeratorController {
         services: [],
         working_hours: { start: '09:00', end: '18:00' },
         working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-        employee_limit: 10
+        employee_limit: 10,
+        campos_visiveis: ['nome', 'telefone'],
+        campos_extras: [],
+        logo: null,
+        slot_interval: 30
       };
 
       if (result.rows.length > 0) {
@@ -449,16 +458,25 @@ class ModeratorController {
       } else {
         // Criar nova configuração
         console.log('📝 updateSettings - Criando nova configuração...');
+        // Preparar campos adicionais
+        const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
+        const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
+        const slotInterval = slot_interval && !isNaN(slot_interval) ? parseInt(slot_interval) : 30;
+
         const insertQuery = `
-          INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
         await query(insertQuery, [
           user.id, 
           company_name, 
           JSON.stringify(services),
           JSON.stringify(validWorkingHours),
-          JSON.stringify(validWorkingDays)
+          JSON.stringify(validWorkingDays),
+          camposVisiveis,
+          camposExtras,
+          logo || null,
+          slotInterval
         ]);
         
         // Buscar dados inseridos (usar SELECT separado para garantir compatibilidade com SQLite)
