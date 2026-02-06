@@ -577,8 +577,8 @@ class SettingsManager {
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
       saveBtn.style.display = 'block';
-      // Habilitar botão apenas se senha verificada
-      saveBtn.disabled = !this.isPasswordVerified;
+      // Atualizar estado do botão (considera senha verificada E mudanças)
+      this.updateSaveButton();
     }
     
     // Habilitar/desabilitar campos baseado na verificação
@@ -639,13 +639,36 @@ class SettingsManager {
     // Salvar configurações - só funciona se senha verificada
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
-        if (this.isPasswordVerified) {
-          this.saveSettings();
-        } else {
+      // Remover event listeners anteriores para evitar duplicação
+      const newSaveBtn = saveBtn.cloneNode(true);
+      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+      
+      newSaveBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔘 Botão Salvar clicado');
+        console.log('🔘 Estado:', {
+          isPasswordVerified: this.isPasswordVerified,
+          hasChanges: this.hasChanges,
+          disabled: newSaveBtn.disabled
+        });
+        
+        if (!this.isPasswordVerified) {
           alert('⚠️ Por favor, verifique sua senha primeiro.');
+          return;
         }
+        
+        if (!this.hasChanges) {
+          alert('ℹ️ Nenhuma alteração para salvar.');
+          return;
+        }
+        
+        this.saveSettings();
       });
+      
+      console.log('✅ Event listener do botão Salvar anexado');
+    } else {
+      console.error('❌ Botão saveSettingsBtn não encontrado!');
     }
 
     // Logout - sempre funciona
@@ -746,10 +769,15 @@ class SettingsManager {
   }
 
   detectChanges() {
+    console.log('🔍 detectChanges - Iniciando detecção de mudanças...');
+    
     // Nome da empresa
     const companyName = document.getElementById('companyName');
     if (companyName) {
-      companyName.addEventListener('input', () => this.markChanged());
+      companyName.addEventListener('input', () => {
+        console.log('📝 Mudança detectada no nome da empresa');
+        this.markChanged();
+      });
     }
 
     // Campos visíveis
@@ -780,7 +808,13 @@ class SettingsManager {
   updateSaveButton() {
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
-      saveBtn.disabled = !this.hasChanges;
+      // Habilitar apenas se senha verificada E houver mudanças
+      saveBtn.disabled = !this.isPasswordVerified || !this.hasChanges;
+      console.log('🔘 updateSaveButton - Estado:', {
+        isPasswordVerified: this.isPasswordVerified,
+        hasChanges: this.hasChanges,
+        disabled: saveBtn.disabled
+      });
     }
   }
 
@@ -878,6 +912,7 @@ class SettingsManager {
       console.log('📥 Resposta do backend:', response);
 
       if (response && response.success) {
+        console.log('✅ Configurações salvas com sucesso!');
         this.hasChanges = false;
         this.updateSaveButton();
         this.cachedSettings = settings;

@@ -154,11 +154,28 @@ class AppointmentController {
       }
 
       console.log('📅 Dados processados:', appointmentData);
+      
+      // Identificar empresa do usuário logado (se disponível)
+      let companyUserId = null;
+      if (req.user) {
+        // Se o usuário é empresa, usar seu próprio ID
+        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+          companyUserId = req.user.id;
+          console.log('📅 Empresa identificada:', companyUserId);
+        }
+        // Se for funcionário, usar parent_user_id
+        else if (req.user.role === 'user' && req.user.parent_user_id) {
+          companyUserId = req.user.parent_user_id;
+          console.log('📅 Empresa identificada via funcionário:', companyUserId);
+        }
+      }
+      
       console.log('📅 Chamando Appointment.create...');
       
       let appointment;
       try {
-        appointment = await Appointment.create(appointmentData);
+        // Passar userId da empresa para validação usar configurações corretas
+        appointment = await Appointment.create(appointmentData, companyUserId);
         console.log('✅ Agendamento criado com sucesso!');
       } catch (createError) {
         console.error('❌ Erro ao criar agendamento:', createError);

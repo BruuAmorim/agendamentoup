@@ -120,16 +120,47 @@ class Appointment {
   }
 
   // Buscar configurações da empresa (working_hours e working_days)
-  static async getCompanySettings() {
+  // Se userId for fornecido, busca configurações específicas dessa empresa
+  // Caso contrário, busca a primeira empresa disponível (compatibilidade)
+  static async getCompanySettings(userId = null) {
     try {
       const { query } = require('../config/database');
-      const settingsQuery = `
-        SELECT working_hours, working_days
-        FROM moderator_settings
-        WHERE user_id IN (SELECT id FROM users WHERE role = 'empresa')
-        LIMIT 1
-      `;
-      const result = await query(settingsQuery, []);
+      const { sequelize } = require('../config/database');
+      const dialect = sequelize.getDialect();
+      
+      let settingsQuery;
+      let params = [];
+      
+      if (userId) {
+        // Buscar configurações específicas da empresa
+        if (dialect === 'sqlite') {
+          settingsQuery = `
+            SELECT working_hours, working_days
+            FROM moderator_settings
+            WHERE user_id = ?
+            LIMIT 1
+          `;
+          params = [userId];
+        } else {
+          settingsQuery = `
+            SELECT working_hours, working_days
+            FROM moderator_settings
+            WHERE user_id = $1
+            LIMIT 1
+          `;
+          params = [userId];
+        }
+      } else {
+        // Buscar primeira empresa disponível (compatibilidade)
+        settingsQuery = `
+          SELECT working_hours, working_days
+          FROM moderator_settings
+          WHERE user_id IN (SELECT id FROM users WHERE role = 'empresa')
+          LIMIT 1
+        `;
+      }
+      
+      const result = await query(settingsQuery, params);
       
       if (result.rows.length > 0) {
         const row = result.rows[0];
@@ -152,19 +183,31 @@ class Appointment {
           }
         }
         
+        // Validar estrutura
+        if (!workingHours || typeof workingHours !== 'object' || !workingHours.start || !workingHours.end) {
+          console.warn('⚠️ working_hours inválido, usando padrão');
+          workingHours = { start: '09:00', end: '18:00' };
+        }
+        if (!workingDays || !Array.isArray(workingDays) || workingDays.length === 0) {
+          console.warn('⚠️ working_days inválido, usando padrão');
+          workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        }
+        
+        console.log('✅ Configurações da empresa carregadas:', { workingHours, workingDays, userId });
         return {
-          working_hours: workingHours || { start: '09:00', end: '18:00' },
-          working_days: workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+          working_hours: workingHours,
+          working_days: workingDays
         };
       }
       
       // Retornar valores padrão se não encontrar
+      console.warn('⚠️ Nenhuma configuração encontrada, usando padrões');
       return {
         working_hours: { start: '09:00', end: '18:00' },
         working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
       };
     } catch (error) {
-      console.warn('Erro ao buscar configurações da empresa, usando padrões:', error);
+      console.warn('❌ Erro ao buscar configurações da empresa, usando padrões:', error);
       return {
         working_hours: { start: '09:00', end: '18:00' },
         working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -197,8 +240,17 @@ class Appointment {
     const [endHours, endMinutes] = settings.working_hours.end.split(':').map(Number);
     const endMinutesTotal = endHours * 60 + endMinutes;
     
+    // Validar que o horário está dentro do expediente
+    // O horário deve estar >= início E < fim (não pode ser igual ao fim)
     if (appointmentMinutes < startMinutesTotal || appointmentMinutes >= endMinutesTotal) {
       errors.push(`Horário fora do expediente. Atendemos das ${settings.working_hours.start} às ${settings.working_hours.end}.`);
+      console.log('❌ validateWorkingHours - Horário fora do expediente:', {
+        appointmentTime,
+        appointmentMinutes,
+        startMinutesTotal,
+        endMinutesTotal,
+        workingHours: settings.working_hours
+      });
     }
     
     return errors;
@@ -219,7 +271,8 @@ class Appointment {
   }
 
   // Validar dados do agendamento
-  static async validate(data) {
+  // userId opcional: ID da empresa para buscar configurações específicas
+  static async validate(data, userId = null) {
     const errors = [];
 
     if (!data.customer_name || data.customer_name.trim().length < 2) {
@@ -245,8 +298,8 @@ class Appointment {
     if (!data.appointment_time) {
       errors.push('Horário do agendamento é obrigatório');
     } else {
-      // Validar horário de expediente
-      const settings = await this.getCompanySettings();
+      // Validar horário de expediente - buscar configurações da empresa específica
+      const settings = await this.getCompanySettings(userId);
       const workingHoursErrors = this.validateWorkingHours(
         data.appointment_date,
         data.appointment_time,
@@ -333,15 +386,23 @@ class Appointment {
   }
 
   // Criar novo agendamento
-  static async create(data) {
+  // userId opcional: ID da empresa para buscar configurações específicas
+  static async create(data, userId = null) {
     try {
       console.log('📅 Appointment.create - Iniciando com dados:', data);
+      if (userId) {
+        console.log('📅 Appointment.create - Validando para empresa:', userId);
+      }
       
-      const validationErrors = await this.validate(data);
+      // Validar ANTES de qualquer coisa - se houver erro, NÃO criar
+      const validationErrors = await this.validate(data, userId);
       if (validationErrors.length > 0) {
-        console.log('❌ Appointment.create - Erros de validação:', validationErrors);
+        console.log('❌ Appointment.create - Erros de validação detectados:', validationErrors);
+        console.log('❌ Appointment.create - BLOQUEANDO criação do agendamento');
         throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
       }
+      
+      console.log('✅ Appointment.create - Validação passou, prosseguindo com criação...');
 
       // Normalizar data/hora para evitar conflitos falsos por formatação
       const normalizedDate = this.normalizeDate(data.appointment_date);
