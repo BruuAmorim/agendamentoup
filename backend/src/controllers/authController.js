@@ -383,16 +383,31 @@ class AuthController {
         });
       }
 
-      // Buscar senha de configurações no banco
+      // Determinar user_id da empresa
+      // Se for empresa/moderator, usar o próprio id; se for admin, usar o user_id do corpo da requisição
+      let companyUserId;
+      if (userRole === 'empresa' || userRole === 'moderator') {
+        companyUserId = req.user.id;
+      } else if (userRole === 'admin_master' && req.body.userId) {
+        companyUserId = req.body.userId;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'ID da empresa não fornecido',
+          message: 'É necessário fornecer o ID da empresa (userId) para administradores'
+        });
+      }
+
+      // Buscar senha de configurações no banco para a empresa específica
       const { query } = require('../config/database');
       const { sequelize } = require('../models');
       const dialect = sequelize.getDialect();
 
       let result;
       if (dialect === 'sqlite') {
-        result = await query('SELECT password_hash FROM system_config_password LIMIT 1', []);
+        result = await query('SELECT password_hash FROM system_config_password WHERE user_id = ?', [companyUserId]);
       } else {
-        result = await query('SELECT password_hash FROM system_config_password LIMIT 1', []);
+        result = await query('SELECT password_hash FROM system_config_password WHERE user_id = $1', [companyUserId]);
       }
 
       // Verificar se existe senha configurada
@@ -400,7 +415,7 @@ class AuthController {
         return res.status(404).json({
           success: false,
           error: 'Senha não configurada',
-          message: 'A senha de configurações ainda não foi definida. Um administrador deve configurá-la primeiro.'
+          message: 'A senha de configurações ainda não foi definida para esta empresa. Um administrador deve configurá-la primeiro.'
         });
       }
 

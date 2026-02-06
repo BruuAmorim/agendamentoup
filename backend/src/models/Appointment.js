@@ -119,8 +119,107 @@ class Appointment {
     this.cancellation_reason = data.cancellation_reason;
   }
 
+  // Buscar configurações da empresa (working_hours e working_days)
+  static async getCompanySettings() {
+    try {
+      const { query } = require('../config/database');
+      const settingsQuery = `
+        SELECT working_hours, working_days
+        FROM moderator_settings
+        WHERE user_id IN (SELECT id FROM users WHERE role = 'empresa')
+        LIMIT 1
+      `;
+      const result = await query(settingsQuery, []);
+      
+      if (result.rows.length > 0) {
+        const row = result.rows[0];
+        let workingHours = row.working_hours;
+        let workingDays = row.working_days;
+        
+        // Parse JSON se necessário
+        if (typeof workingHours === 'string') {
+          try {
+            workingHours = JSON.parse(workingHours);
+          } catch (e) {
+            console.warn('Erro ao parsear working_hours:', e);
+          }
+        }
+        if (typeof workingDays === 'string') {
+          try {
+            workingDays = JSON.parse(workingDays);
+          } catch (e) {
+            console.warn('Erro ao parsear working_days:', e);
+          }
+        }
+        
+        return {
+          working_hours: workingHours || { start: '09:00', end: '18:00' },
+          working_days: workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        };
+      }
+      
+      // Retornar valores padrão se não encontrar
+      return {
+        working_hours: { start: '09:00', end: '18:00' },
+        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+      };
+    } catch (error) {
+      console.warn('Erro ao buscar configurações da empresa, usando padrões:', error);
+      return {
+        working_hours: { start: '09:00', end: '18:00' },
+        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+      };
+    }
+  }
+
+  // Validar horário de expediente
+  static validateWorkingHours(appointmentDate, appointmentTime, settings) {
+    const errors = [];
+    
+    // Verificar dia da semana
+    const dateObj = new Date(appointmentDate + 'T00:00:00');
+    const dayOfWeek = dateObj.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[dayOfWeek];
+    
+    if (!settings.working_days.includes(dayName)) {
+      errors.push(`Não atendemos aos ${this.getDayNamePT(dayName)}. Por favor, escolha outro dia.`);
+      return errors;
+    }
+    
+    // Verificar horário de funcionamento
+    const [timeHours, timeMinutes] = appointmentTime.split(':').map(Number);
+    const appointmentMinutes = timeHours * 60 + timeMinutes;
+    
+    const [startHours, startMinutes] = settings.working_hours.start.split(':').map(Number);
+    const startMinutesTotal = startHours * 60 + startMinutes;
+    
+    const [endHours, endMinutes] = settings.working_hours.end.split(':').map(Number);
+    const endMinutesTotal = endHours * 60 + endMinutes;
+    
+    if (appointmentMinutes < startMinutesTotal || appointmentMinutes >= endMinutesTotal) {
+      errors.push(`Horário fora do expediente. Atendemos das ${settings.working_hours.start} às ${settings.working_hours.end}.`);
+    }
+    
+    return errors;
+  }
+
+  // Helper para nome do dia em português
+  static getDayNamePT(dayName) {
+    const days = {
+      'sunday': 'domingos',
+      'monday': 'segundas-feiras',
+      'tuesday': 'terças-feiras',
+      'wednesday': 'quartas-feiras',
+      'thursday': 'quintas-feiras',
+      'friday': 'sextas-feiras',
+      'saturday': 'sábados'
+    };
+    return days[dayName] || dayName;
+  }
+
   // Validar dados do agendamento
-  static validate(data) {
+  static async validate(data) {
     const errors = [];
 
     if (!data.customer_name || data.customer_name.trim().length < 2) {
@@ -145,6 +244,15 @@ class Appointment {
 
     if (!data.appointment_time) {
       errors.push('Horário do agendamento é obrigatório');
+    } else {
+      // Validar horário de expediente
+      const settings = await this.getCompanySettings();
+      const workingHoursErrors = this.validateWorkingHours(
+        data.appointment_date,
+        data.appointment_time,
+        settings
+      );
+      errors.push(...workingHoursErrors);
     }
 
     if (data.duration_minutes && (data.duration_minutes < 15 || data.duration_minutes > 480)) {
@@ -229,7 +337,7 @@ class Appointment {
     try {
       console.log('📅 Appointment.create - Iniciando com dados:', data);
       
-      const validationErrors = this.validate(data);
+      const validationErrors = await this.validate(data);
       if (validationErrors.length > 0) {
         console.log('❌ Appointment.create - Erros de validação:', validationErrors);
         throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
@@ -240,8 +348,10 @@ class Appointment {
       const normalizedTime = this.normalizeTime(data.appointment_time);
       console.log('📅 Appointment.create - Data/hora normalizados:', { normalizedDate, normalizedTime });
 
-      // Verificar conflito de horário (verificação dupla para evitar race conditions)
+      // Verificar conflito de horário (verificação tripla para evitar race conditions)
       console.log('📅 Appointment.create - Verificando conflito de horário...');
+      
+      // Primeira verificação
       const conflict1 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
@@ -253,7 +363,7 @@ class Appointment {
         throw new Error('Horário indisponível - conflito com outro agendamento');
       }
       
-      // Segunda verificação imediatamente antes de criar (proteção contra race condition)
+      // Segunda verificação (proteção contra race condition)
       const conflict2 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
@@ -264,7 +374,20 @@ class Appointment {
         console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
         throw new Error('Horário indisponível - conflito com outro agendamento');
       }
-      console.log('✅ Appointment.create - Sem conflitos de horário (verificação dupla)');
+      
+      // Terceira verificação imediatamente antes de inserir no banco (máxima proteção)
+      const conflict3 = await this.checkTimeConflict(
+        normalizedDate,
+        normalizedTime,
+        data.duration_minutes,
+        null // excludeId
+      );
+      if (conflict3) {
+        console.log('❌ Appointment.create - Conflito de horário detectado (terceira verificação)');
+        throw new Error('Horário indisponível - conflito com outro agendamento');
+      }
+      
+      console.log('✅ Appointment.create - Sem conflitos de horário (verificação tripla)');
 
       // Gerar protocolo único
       console.log('📅 Appointment.create - Gerando protocolo único...');
@@ -364,7 +487,98 @@ class Appointment {
         ];
 
         console.log('📅 Appointment.create - Executando INSERT no banco...');
-        const result = await query(queryText, values);
+        let result;
+        try {
+          result = await query(queryText, values);
+        } catch (dbError) {
+          // Se a coluna não existir, tentar criar e executar novamente
+          if (dbError.message && (dbError.message.includes('does not exist') || dbError.message.includes('no such column'))) {
+            console.warn('⚠️ Coluna não encontrada, tentando criar...', dbError.message);
+            try {
+              const { sequelize } = require('../config/database');
+              const dialect = sequelize.getDialect();
+              console.log('🔍 Dialect detectado:', dialect);
+              
+              // Verificar se é PostgreSQL ou SQLite
+              const isPostgres = dialect === 'postgres' || dialect === 'postgresql';
+              const isSQLite = dialect === 'sqlite';
+              
+              // Criar todas as colunas que podem estar faltando
+              const columnsToAdd = [];
+              
+              // Detectar qual coluna está faltando pela mensagem de erro
+              const missingColumn = dbError.message.match(/column "(\w+)" of relation/);
+              const columnName = missingColumn ? missingColumn[1] : null;
+              
+              console.log('🔍 Coluna faltando detectada:', columnName);
+              
+              if (isPostgres) {
+                // Para PostgreSQL, usar IF NOT EXISTS
+                if (!columnName || columnName === 'customer_cpf') {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
+                }
+                if (!columnName || columnName === 'service_type') {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_type VARCHAR(100)');
+                }
+                if (!columnName || columnName === 'extra_fields') {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS extra_fields JSONB');
+                }
+              } else if (isSQLite) {
+                // Para SQLite, verificar se existe antes de adicionar
+                const tableInfo = await query("PRAGMA table_info(appointments)", []);
+                const existingColumns = tableInfo.rows.map(col => col.name);
+                
+                if (!existingColumns.includes('customer_cpf')) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN customer_cpf TEXT');
+                }
+                if (!existingColumns.includes('service_type')) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN service_type TEXT');
+                }
+                if (!existingColumns.includes('extra_fields')) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN extra_fields TEXT');
+                }
+              } else {
+                // Fallback: tentar criar todas as colunas
+                console.log('⚠️ Dialect não reconhecido, tentando criar todas as colunas...');
+                if (isPostgres) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_type VARCHAR(100)');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS extra_fields JSONB');
+                } else {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN customer_cpf TEXT');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN service_type TEXT');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN extra_fields TEXT');
+                }
+              }
+              
+              // Executar todas as alterações
+              for (const alterQuery of columnsToAdd) {
+                try {
+                  await query(alterQuery, []);
+                  console.log('✅ Coluna criada/verificada:', alterQuery);
+                } catch (alterError) {
+                  // Ignorar erro se coluna já existe
+                  if (!alterError.message.includes('already exists') && 
+                      !alterError.message.includes('duplicate column') &&
+                      !alterError.message.includes('duplicate key')) {
+                    console.warn('⚠️ Erro ao criar coluna (pode já existir):', alterError.message);
+                  } else {
+                    console.log('ℹ️ Coluna já existe, ignorando...');
+                  }
+                }
+              }
+              
+              console.log('✅ Colunas criadas/verificadas, tentando inserir novamente...');
+              result = await query(queryText, values);
+            } catch (migrationError) {
+              console.error('❌ Erro ao criar colunas:', migrationError);
+              console.error('❌ Stack:', migrationError.stack);
+              throw new Error(`Erro ao criar colunas necessárias: ${migrationError.message}`);
+            }
+          } else {
+            throw dbError;
+          }
+        }
         
         // Para SQLite, fazer SELECT separado se necessário (RETURNING não funciona)
         const { sequelize } = require('../config/database');

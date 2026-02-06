@@ -517,7 +517,24 @@ class SettingsManager {
     }
 
     try {
+      // Determinar userId para verificação de senha
+      // Se for empresa/moderator, usar o próprio id; se for admin, precisa do userId
+      const user = window.authManager.currentUser;
+      let userId = null;
+      if (user.role === 'empresa' || user.role === 'moderator') {
+        userId = user.id;
+      } else if (user.role === 'admin_master') {
+        // Admin precisa especificar qual empresa está configurando
+        // Por enquanto, usar o próprio id (pode ser ajustado depois se necessário)
+        userId = user.id;
+      }
+
       const response = await window.authManager.apiRequest('/api/auth/verify-admin-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          password: password,
+          userId: userId
+        })
         method: 'POST',
         body: JSON.stringify({ password })
       });
@@ -919,7 +936,21 @@ class SettingsManager {
 
   async fetchPasswordStatus() {
     try {
-      const response = await window.authManager.apiRequest('/api/settings-password');
+      const user = window.authManager.currentUser;
+      if (!user) return true;
+      
+      // Determinar companyId: se for empresa/moderator, usar próprio id; se for admin, não precisa verificar
+      let companyId = null;
+      if (user.role === 'empresa' || user.role === 'moderator') {
+        companyId = user.id;
+      } else if (user.role === 'admin_master') {
+        // Admin não precisa verificar senha de empresa específica aqui
+        return false; // Sempre pedir senha para admin
+      }
+      
+      if (!companyId) return true;
+      
+      const response = await window.authManager.apiRequest(`/api/settings-password?companyId=${companyId}`);
       if (response.success) {
         return !!response.data.hasPassword;
       }

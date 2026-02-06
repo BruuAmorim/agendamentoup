@@ -10,20 +10,30 @@ class SettingsPasswordController {
   /**
    * GET /api/settings-password
    * Obter status da senha (apenas admin_master)
-   * Retorna se existe senha configurada, mas não retorna a senha
+   * Retorna se existe senha configurada para a empresa, mas não retorna a senha
    */
   static async getPasswordStatus(req, res) {
     try {
-      console.log('🔍 getPasswordStatus - Verificando status da senha de configurações');
+      const companyId = req.query.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID da empresa não fornecido',
+          message: 'É necessário fornecer o ID da empresa (companyId)'
+        });
+      }
+
+      console.log('🔍 getPasswordStatus - Verificando status da senha de configurações para empresa:', companyId);
 
       // Obter dialect do sequelize
       const dialect = sequelize.getDialect();
       
       let result;
       if (dialect === 'sqlite') {
-        result = await query('SELECT id, created_at, updated_at FROM system_config_password LIMIT 1', []);
+        result = await query('SELECT id, created_at, updated_at FROM system_config_password WHERE user_id = ?', [companyId]);
       } else {
-        result = await query('SELECT id, created_at, updated_at FROM system_config_password LIMIT 1', []);
+        result = await query('SELECT id, created_at, updated_at FROM system_config_password WHERE user_id = $1', [companyId]);
       }
 
       const hasPassword = result.rows && result.rows.length > 0;
@@ -49,13 +59,19 @@ class SettingsPasswordController {
 
   /**
    * POST /api/settings-password
-   * Criar senha de configurações (apenas admin_master)
+   * Criar senha de configurações para uma empresa (apenas admin_master)
    */
   static async createPassword(req, res) {
     try {
-      console.log('🔐 createPassword - Criando senha de configurações');
+      const { password, companyId } = req.body;
 
-      const { password } = req.body;
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID da empresa não fornecido',
+          message: 'É necessário fornecer o ID da empresa (companyId)'
+        });
+      }
 
       if (!password || password.length < 4) {
         return res.status(400).json({
@@ -65,22 +81,35 @@ class SettingsPasswordController {
         });
       }
 
+      // Verificar se a empresa existe e é do tipo empresa/moderator
+      const { User } = require('../models');
+      const company = await User.findByPk(companyId);
+      if (!company || (company.role !== 'empresa' && company.role !== 'moderator')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Empresa inválida',
+          message: 'A empresa especificada não existe ou não é uma empresa válida'
+        });
+      }
+
+      console.log('🔐 createPassword - Criando senha de configurações para empresa:', companyId);
+
       // Obter dialect do sequelize
       const dialect = sequelize.getDialect();
       
-      // Verificar se já existe senha
+      // Verificar se já existe senha para esta empresa
       let checkResult;
       if (dialect === 'sqlite') {
-        checkResult = await query('SELECT id FROM system_config_password LIMIT 1', []);
+        checkResult = await query('SELECT id FROM system_config_password WHERE user_id = ?', [companyId]);
       } else {
-        checkResult = await query('SELECT id FROM system_config_password LIMIT 1', []);
+        checkResult = await query('SELECT id FROM system_config_password WHERE user_id = $1', [companyId]);
       }
 
       if (checkResult.rows && checkResult.rows.length > 0) {
         return res.status(400).json({
           success: false,
           error: 'Senha já existe',
-          message: 'Já existe uma senha configurada. Use PUT para alterá-la.'
+          message: 'Já existe uma senha configurada para esta empresa. Use PUT para alterá-la.'
         });
       }
 
@@ -90,12 +119,12 @@ class SettingsPasswordController {
 
       // Inserir senha
       if (dialect === 'sqlite') {
-        await query('INSERT INTO system_config_password (password_hash) VALUES (?)', [passwordHash]);
+        await query('INSERT INTO system_config_password (user_id, password_hash) VALUES (?, ?)', [companyId, passwordHash]);
       } else {
-        await query('INSERT INTO system_config_password (password_hash) VALUES ($1)', [passwordHash]);
+        await query('INSERT INTO system_config_password (user_id, password_hash) VALUES ($1, $2)', [companyId, passwordHash]);
       }
 
-      console.log('✅ Senha de configurações criada com sucesso');
+      console.log('✅ Senha de configurações criada com sucesso para empresa:', companyId);
 
       res.json({
         success: true,
@@ -114,13 +143,19 @@ class SettingsPasswordController {
 
   /**
    * PUT /api/settings-password
-   * Atualizar senha de configurações (apenas admin_master)
+   * Atualizar senha de configurações para uma empresa (apenas admin_master)
    */
   static async updatePassword(req, res) {
     try {
-      console.log('🔐 updatePassword - Atualizando senha de configurações');
+      const { password, currentPassword, companyId } = req.body;
 
-      const { password, currentPassword } = req.body;
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID da empresa não fornecido',
+          message: 'É necessário fornecer o ID da empresa (companyId)'
+        });
+      }
 
       if (!password || password.length < 4) {
         return res.status(400).json({
@@ -130,15 +165,28 @@ class SettingsPasswordController {
         });
       }
 
+      // Verificar se a empresa existe e é do tipo empresa/moderator
+      const { User } = require('../models');
+      const company = await User.findByPk(companyId);
+      if (!company || (company.role !== 'empresa' && company.role !== 'moderator')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Empresa inválida',
+          message: 'A empresa especificada não existe ou não é uma empresa válida'
+        });
+      }
+
+      console.log('🔐 updatePassword - Atualizando senha de configurações para empresa:', companyId);
+
       // Obter dialect do sequelize
       const dialect = sequelize.getDialect();
       
-      // Verificar se existe senha atual
+      // Verificar se existe senha atual para esta empresa
       let checkResult;
       if (dialect === 'sqlite') {
-        checkResult = await query('SELECT id, password_hash FROM system_config_password LIMIT 1', []);
+        checkResult = await query('SELECT id, password_hash FROM system_config_password WHERE user_id = ?', [companyId]);
       } else {
-        checkResult = await query('SELECT id, password_hash FROM system_config_password LIMIT 1', []);
+        checkResult = await query('SELECT id, password_hash FROM system_config_password WHERE user_id = $1', [companyId]);
       }
 
       // Se existe senha, verificar senha atual
@@ -171,21 +219,21 @@ class SettingsPasswordController {
       if (checkResult.rows && checkResult.rows.length > 0) {
         // Atualizar senha existente
         if (dialect === 'sqlite') {
-          await query('UPDATE system_config_password SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-            [passwordHash, checkResult.rows[0].id]);
+          await query('UPDATE system_config_password SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?', 
+            [passwordHash, companyId]);
         } else {
-          await query('UPDATE system_config_password SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', 
-            [passwordHash, checkResult.rows[0].id]);
+          await query('UPDATE system_config_password SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2', 
+            [passwordHash, companyId]);
         }
-        console.log('✅ Senha de configurações atualizada com sucesso');
+        console.log('✅ Senha de configurações atualizada com sucesso para empresa:', companyId);
       } else {
         // Criar nova senha
         if (dialect === 'sqlite') {
-          await query('INSERT INTO system_config_password (password_hash) VALUES (?)', [passwordHash]);
+          await query('INSERT INTO system_config_password (user_id, password_hash) VALUES (?, ?)', [companyId, passwordHash]);
         } else {
-          await query('INSERT INTO system_config_password (password_hash) VALUES ($1)', [passwordHash]);
+          await query('INSERT INTO system_config_password (user_id, password_hash) VALUES ($1, $2)', [companyId, passwordHash]);
         }
-        console.log('✅ Senha de configurações criada com sucesso');
+        console.log('✅ Senha de configurações criada com sucesso para empresa:', companyId);
       }
 
       res.json({

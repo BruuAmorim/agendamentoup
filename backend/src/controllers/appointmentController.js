@@ -156,9 +156,41 @@ class AppointmentController {
       console.log('📅 Dados processados:', appointmentData);
       console.log('📅 Chamando Appointment.create...');
       
-      const appointment = await Appointment.create(appointmentData);
-      
-      console.log('✅ Agendamento criado com sucesso!');
+      let appointment;
+      try {
+        appointment = await Appointment.create(appointmentData);
+        console.log('✅ Agendamento criado com sucesso!');
+      } catch (createError) {
+        console.error('❌ Erro ao criar agendamento:', createError);
+        
+        // Tratar erros específicos
+        if (createError.message && createError.message.includes('Horário indisponível')) {
+          return res.status(409).json({
+            success: false,
+            error: 'Horário indisponível',
+            message: createError.message
+          });
+        }
+        
+        if (createError.message && createError.message.includes('fora do expediente')) {
+          return res.status(400).json({
+            success: false,
+            error: 'Horário fora do expediente',
+            message: createError.message
+          });
+        }
+        
+        if (createError.message && createError.message.includes('Não atendemos')) {
+          return res.status(400).json({
+            success: false,
+            error: 'Dia não disponível',
+            message: createError.message
+          });
+        }
+        
+        // Re-lançar outros erros
+        throw createError;
+      }
       console.log('✅ ID:', appointment.id);
       console.log('✅ Protocolo:', appointment.protocol);
       console.log('✅ Cliente:', appointment.customer_name);
@@ -196,14 +228,25 @@ class AppointmentController {
 
       // Tratar erros de validação com status 400
       if (error.message.includes('Dados inválidos') ||
-          error.message.includes('Horário indisponível') ||
           error.message.includes('obrigatório') ||
-          error.message.includes('inválido')) {
+          error.message.includes('inválido') ||
+          error.message.includes('fora do expediente') ||
+          error.message.includes('Não atendemos')) {
         return res.status(400).json({
           success: false,
           error: 'Dados inválidos',
           message: error.message,
           received_data: req.body
+        });
+      }
+      
+      // Tratar conflito de horário com status 409
+      if (error.message.includes('Horário indisponível') ||
+          error.message.includes('conflito')) {
+        return res.status(409).json({
+          success: false,
+          error: 'Horário indisponível',
+          message: error.message
         });
       }
 

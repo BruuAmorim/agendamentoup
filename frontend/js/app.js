@@ -984,11 +984,70 @@ class Aevum {
         }
     }
 
+    createModalIfNotExists() {
+        // Verificar se o modal já existe
+        if (document.getElementById('appointmentModal')) {
+            return;
+        }
+
+        // Criar estrutura do modal
+        const modalHTML = `
+            <div id="appointmentModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px; margin: 50px auto; background: white; border-radius: 12px; padding: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                    <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; color: var(--text);">Detalhes do Agendamento</h3>
+                        <button class="modal-close" onclick="window.aevum.closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                    </div>
+                    <div id="modalBody" class="modal-body" style="padding: 20px; max-height: 500px; overflow-y: auto;"></div>
+                    <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button onclick="window.aevum.closeModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Adicionar ao body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Adicionar estilos se não existirem
+        if (!document.getElementById('modalStyles')) {
+            const style = document.createElement('style');
+            style.id = 'modalStyles';
+            style.textContent = `
+                .modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    z-index: 1000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .modal.show {
+                    display: flex;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
     openAppointmentModal(appointment, editMode = false) {
         this.selectedAppointment = appointment;
 
+        // Criar modal se não existir
+        this.createModalIfNotExists();
+
         const modal = document.getElementById('appointmentModal');
         const modalBody = document.getElementById('modalBody');
+
+        if (!modal || !modalBody) {
+            console.error('❌ Não foi possível criar o modal');
+            this.showToast('Erro ao abrir detalhes do agendamento', 'error');
+            return;
+        }
 
         modalBody.innerHTML = this.createAppointmentModalContent(appointment, editMode);
         modal.classList.add('show');
