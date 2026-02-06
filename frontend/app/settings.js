@@ -535,8 +535,6 @@ class SettingsManager {
           password: password,
           userId: userId
         })
-        method: 'POST',
-        body: JSON.stringify({ password })
       });
 
       if (response.success) {

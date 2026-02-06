@@ -373,13 +373,13 @@ class AuthController {
         });
       }
 
-      // Verificar se é admin ou moderator
+      // Verificar se é admin ou empresa
       const userRole = String(req.user.role || '').trim().toLowerCase();
-      if (userRole !== 'admin_master' && userRole !== 'moderator') {
+      if (userRole !== 'admin_master' && userRole !== 'empresa' && userRole !== 'moderator') {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Apenas administradores e moderadores podem acessar as configurações'
+          message: 'Apenas administradores e empresas podem acessar as configurações'
         });
       }
 
