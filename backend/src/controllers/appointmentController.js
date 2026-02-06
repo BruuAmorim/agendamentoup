@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const WebhookService = require('../services/webhookService');
+const LogService = require('../services/logService');
 
 // Controller para operações de agendamento
 class AppointmentController {
@@ -163,6 +164,11 @@ class AppointmentController {
       console.log('✅ Cliente:', appointment.customer_name);
       console.log('✅ Data/Hora:', appointment.appointment_date, appointment.appointment_time);
 
+      // Registrar log
+      if (req.user) {
+        await LogService.logAppointmentCreation(req.user, appointment.toJSON(), req);
+      }
+
       // Disparar webhook para n8n (assíncrono, não bloqueia a resposta)
       WebhookService.onAppointmentCreated(appointment).catch(err => {
         console.error('⚠️ Erro ao disparar webhook de criação:', err);
@@ -226,7 +232,20 @@ class AppointmentController {
         });
       }
 
+      const oldData = appointment.toJSON();
       const updatedAppointment = await appointment.update(updateData);
+      const newData = updatedAppointment.toJSON();
+
+      // Registrar log
+      if (req.user) {
+        const changes = {};
+        Object.keys(updateData).forEach(key => {
+          if (oldData[key] !== newData[key]) {
+            changes[key] = { from: oldData[key], to: newData[key] };
+          }
+        });
+        await LogService.logAppointmentUpdate(req.user, newData, changes, req);
+      }
 
       // Disparar webhook para n8n (assíncrono, não bloqueia a resposta)
       WebhookService.onAppointmentUpdated(updatedAppointment).catch(err => {
@@ -318,8 +337,14 @@ class AppointmentController {
         });
       }
 
+      const appointmentData = appointment.toJSON();
       const appointmentId = appointment.id;
       await appointment.delete();
+
+      // Registrar log
+      if (req.user) {
+        await LogService.logAppointmentDeletion(req.user, appointmentData, req);
+      }
 
       // Disparar webhook para n8n (assíncrono, não bloqueia a resposta)
       WebhookService.onAppointmentDeleted(appointmentId).catch(err => {

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const LogService = require('../services/logService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -121,6 +122,13 @@ class AuthController {
       console.log('✅ Login bem-sucedido!');
       console.log('📤 Enviando resposta com role:', user.role);
 
+      // Registrar log de login
+      await LogService.logLogin({
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }, req);
+
       // Retornar dados do usuário e token
       // GARANTIR que role seja string e exatamente 'admin_master', 'moderator' ou 'user'
       const userRole = String(user.role || 'user').trim();
@@ -182,6 +190,15 @@ class AuthController {
    */
   static async logout(req, res) {
     try {
+      // Registrar log de logout
+      if (req.user) {
+        await LogService.logLogout({
+          id: req.user.id,
+          name: req.user.name,
+          email: req.user.email
+        }, req);
+      }
+
       // Como JWT é stateless, o logout é feito apenas no cliente
       // Aqui podemos implementar uma blacklist de tokens se necessário
       res.json({

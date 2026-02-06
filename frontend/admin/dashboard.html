@@ -343,6 +343,73 @@
         </section>
       </div>
 
+      <!-- Logs do Sistema -->
+      <section class="logs-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
+        <h2 class="section-title">📋 Logs do Sistema</h2>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+          Visualize todas as ações realizadas na plataforma. Logs de criação, atualização, exclusão e outras operações importantes.
+        </p>
+        
+        <!-- Filtros -->
+        <div style="background: var(--background); padding: 20px; border-radius: 8px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Ação</label>
+            <select id="filterAction" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
+              <option value="">Todas</option>
+              <option value="create_user">Criar Usuário</option>
+              <option value="update_user">Atualizar Usuário</option>
+              <option value="delete_user">Deletar Usuário</option>
+              <option value="create_appointment">Criar Agendamento</option>
+              <option value="update_appointment">Atualizar Agendamento</option>
+              <option value="delete_appointment">Deletar Agendamento</option>
+              <option value="update_settings">Atualizar Configurações</option>
+              <option value="change_password">Alterar Senha</option>
+              <option value="login">Login</option>
+              <option value="logout">Logout</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Tipo de Entidade</label>
+            <select id="filterEntityType" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
+              <option value="">Todos</option>
+              <option value="user">Usuário</option>
+              <option value="appointment">Agendamento</option>
+              <option value="settings">Configurações</option>
+              <option value="auth">Autenticação</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Data Inicial</label>
+            <input type="date" id="filterStartDate" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Data Final</label>
+            <input type="date" id="filterEndDate" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Buscar</label>
+            <input type="text" id="filterSearch" placeholder="Descrição, nome ou email..." style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
+          </div>
+          <div style="display: flex; align-items: flex-end;">
+            <button type="button" id="applyFiltersBtn" class="admin-btn admin-btn-primary" style="width: 100%;">
+              🔍 Filtrar
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de Logs -->
+        <div id="logsContainer" style="background: var(--background); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto;">
+          <div id="logsList">
+            <p style="text-align: center; color: var(--muted);">Carregando logs...</p>
+          </div>
+        </div>
+
+        <!-- Paginação -->
+        <div id="logsPagination" style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+          <!-- Paginação será inserida aqui -->
+        </div>
+      </section>
+
       <!-- Gerenciar Senha de Configurações -->
       <section class="settings-password-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
         <h2 class="section-title">🔐 Senha de Configurações</h2>
@@ -444,6 +511,8 @@
     // Dashboard Administrativo
     class AdminDashboard {
       constructor() {
+        this.currentPage = 1;
+        this.currentFilters = {};
         this.init();
       }
 
@@ -706,6 +775,197 @@
             window.location.href = '/admin/integrations';
           });
         }
+
+        // Filtros de logs
+        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        if (applyFiltersBtn) {
+          applyFiltersBtn.addEventListener('click', () => {
+            this.currentPage = 1;
+            this.loadLogs();
+          });
+        }
+
+        // Carregar logs ao inicializar
+        this.loadLogs();
+      }
+
+      async loadLogs() {
+        try {
+          const logsList = document.getElementById('logsList');
+          if (!logsList) return;
+
+          logsList.innerHTML = '<p style="text-align: center; color: var(--muted);">Carregando logs...</p>';
+
+          // Coletar filtros
+          const filters = {
+            page: this.currentPage,
+            limit: 20,
+            action: document.getElementById('filterAction')?.value || '',
+            entity_type: document.getElementById('filterEntityType')?.value || '',
+            start_date: document.getElementById('filterStartDate')?.value || '',
+            end_date: document.getElementById('filterEndDate')?.value || '',
+            search: document.getElementById('filterSearch')?.value || ''
+          };
+
+          // Remover filtros vazios
+          Object.keys(filters).forEach(key => {
+            if (filters[key] === '' && key !== 'page' && key !== 'limit') {
+              delete filters[key];
+            }
+          });
+
+          // Construir query string
+          const queryString = new URLSearchParams(filters).toString();
+          const response = await window.authManager.apiRequest(`/api/logs?${queryString}`);
+
+          if (response.success && response.data) {
+            const { logs, pagination } = response.data;
+            
+            if (logs.length === 0) {
+              logsList.innerHTML = '<p style="text-align: center; color: var(--muted);">Nenhum log encontrado.</p>';
+              document.getElementById('logsPagination').innerHTML = '';
+              return;
+            }
+
+            // Renderizar logs
+            logsList.innerHTML = logs.map(log => {
+              const actionIcons = {
+                'create_user': '➕',
+                'update_user': '✏️',
+                'delete_user': '🗑️',
+                'create_appointment': '📅',
+                'update_appointment': '✏️',
+                'delete_appointment': '🗑️',
+                'update_settings': '⚙️',
+                'change_password': '🔐',
+                'login': '🔓',
+                'logout': '🔒'
+              };
+
+              const actionLabels = {
+                'create_user': 'Criar Usuário',
+                'update_user': 'Atualizar Usuário',
+                'delete_user': 'Deletar Usuário',
+                'create_appointment': 'Criar Agendamento',
+                'update_appointment': 'Atualizar Agendamento',
+                'delete_appointment': 'Deletar Agendamento',
+                'update_settings': 'Atualizar Configurações',
+                'change_password': 'Alterar Senha',
+                'login': 'Login',
+                'logout': 'Logout'
+              };
+
+              const icon = actionIcons[log.action] || '📝';
+              const label = actionLabels[log.action] || log.action;
+              const date = new Date(log.created_at);
+              const timeAgo = this.getTimeAgo(date);
+
+              let detailsHtml = '';
+              if (log.details && typeof log.details === 'object') {
+                detailsHtml = `<div style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; font-size: 12px; color: var(--muted);">
+                  <strong>Detalhes:</strong> <pre style="margin: 5px 0; white-space: pre-wrap;">${JSON.stringify(log.details, null, 2)}</pre>
+                </div>`;
+              }
+
+              return `
+                <div style="padding: 15px; border-bottom: 1px solid var(--border); transition: background 0.2s;" 
+                     onmouseover="this.style.background='rgba(0,0,0,0.02)'" 
+                     onmouseout="this.style.background='transparent'">
+                  <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+                    <div style="flex: 1;">
+                      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                        <span style="font-size: 20px;">${icon}</span>
+                        <strong style="color: var(--text);">${label}</strong>
+                        <span style="padding: 2px 8px; background: rgba(0,145,255,0.1); color: #0091FF; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                          ${log.entity_type}
+                        </span>
+                      </div>
+                      <p style="margin: 5px 0; color: var(--muted); font-size: 14px;">${log.description}</p>
+                      ${detailsHtml}
+                      <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+                        <span>👤 ${log.user_name || log.user_email || 'Sistema'}</span>
+                        ${log.ip_address ? ` • 🌐 ${log.ip_address}` : ''}
+                      </div>
+                    </div>
+                    <div style="text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap;">
+                      ${timeAgo}
+                      <div style="margin-top: 5px; font-size: 11px;">
+                        ${date.toLocaleString('pt-BR')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            // Renderizar paginação
+            this.renderPagination(pagination);
+          } else {
+            logsList.innerHTML = '<p style="text-align: center; color: var(--danger);">Erro ao carregar logs.</p>';
+          }
+        } catch (error) {
+          console.error('Erro ao carregar logs:', error);
+          const logsList = document.getElementById('logsList');
+          if (logsList) {
+            logsList.innerHTML = '<p style="text-align: center; color: var(--danger);">Erro ao carregar logs. Tente novamente.</p>';
+          }
+        }
+      }
+
+      renderPagination(pagination) {
+        const paginationEl = document.getElementById('logsPagination');
+        if (!paginationEl || pagination.totalPages <= 1) {
+          if (paginationEl) paginationEl.innerHTML = '';
+          return;
+        }
+
+        let html = '';
+        
+        // Botão anterior
+        if (pagination.page > 1) {
+          html += `<button class="admin-btn admin-btn-secondary" onclick="adminDashboard.goToPage(${pagination.page - 1})">← Anterior</button>`;
+        }
+
+        // Páginas
+        for (let i = 1; i <= pagination.totalPages; i++) {
+          if (i === 1 || i === pagination.totalPages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `<button class="admin-btn ${i === pagination.page ? 'admin-btn-primary' : 'admin-btn-secondary'}" 
+                            onclick="adminDashboard.goToPage(${i})">${i}</button>`;
+          } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += `<span style="padding: 8px;">...</span>`;
+          }
+        }
+
+        // Botão próximo
+        if (pagination.page < pagination.totalPages) {
+          html += `<button class="admin-btn admin-btn-secondary" onclick="adminDashboard.goToPage(${pagination.page + 1})">Próximo →</button>`;
+        }
+
+        paginationEl.innerHTML = html;
+      }
+
+      goToPage(page) {
+        this.currentPage = page;
+        this.loadLogs();
+        // Scroll para o topo dos logs
+        const logsContainer = document.getElementById('logsContainer');
+        if (logsContainer) {
+          logsContainer.scrollTop = 0;
+        }
+      }
+
+      getTimeAgo(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (days > 0) return `${days}d atrás`;
+        if (hours > 0) return `${hours}h atrás`;
+        if (minutes > 0) return `${minutes}min atrás`;
+        return 'Agora';
       }
 
       async loadDashboardData() {
@@ -741,9 +1001,11 @@
     }
 
     // Inicializar dashboard quando DOM estiver pronto
+    let adminDashboard;
     document.addEventListener('DOMContentLoaded', async () => {
       // Inicializar diretamente - checkAdminAccess vai verificar o acesso
-      new AdminDashboard();
+      adminDashboard = new AdminDashboard();
+      window.adminDashboard = adminDashboard; // Tornar acessível globalmente
     });
   </script>
 </body>

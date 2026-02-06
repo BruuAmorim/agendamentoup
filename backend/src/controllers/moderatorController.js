@@ -1,4 +1,5 @@
 const { query } = require('../config/database');
+const LogService = require('../services/logService');
 
 /**
  * Controller para funcionalidades do perfil Moderador
@@ -463,18 +464,23 @@ class ModeratorController {
           if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
         }
         
+        const settingsData = {
+          company_name: row.company_name || null,
+          services: parsedServices || [],
+          working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
+          working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+          campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
+          campos_extras: parsedCamposExtras || [],
+          logo: row.logo || null,
+          slot_interval: row.slot_interval || 30
+        };
+
+        // Registrar log
+        await LogService.logSettingsUpdate(user, settingsData, req);
+
         return res.json({
           success: true,
-          data: {
-            company_name: row.company_name || null,
-            services: parsedServices || [],
-            working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
-            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-            campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
-            campos_extras: parsedCamposExtras || [],
-            logo: row.logo || null,
-            slot_interval: row.slot_interval || 30
-          },
+          data: settingsData,
           message: 'Configurações atualizadas com sucesso'
         });
 
@@ -557,18 +563,23 @@ class ModeratorController {
           if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
         }
         
+        const settingsData = {
+          company_name: row.company_name || null,
+          services: parsedServices || [],
+          working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
+          working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+          campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
+          campos_extras: parsedCamposExtras || [],
+          logo: row.logo || null,
+          slot_interval: row.slot_interval || 30
+        };
+
+        // Registrar log
+        await LogService.logSettingsUpdate(user, settingsData, req);
+
         return res.json({
           success: true,
-          data: {
-            company_name: row.company_name || null,
-            services: parsedServices || [],
-            working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
-            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-            campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
-            campos_extras: parsedCamposExtras || [],
-            logo: row.logo || null,
-            slot_interval: row.slot_interval || 30
-          },
+          data: settingsData,
           message: 'Configurações criadas com sucesso'
         });
       }

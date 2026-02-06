@@ -1,4 +1,5 @@
 const { User } = require('../models');
+const LogService = require('../services/logService');
 
 /**
  * Controller de Gerenciamento de Usuários
@@ -135,6 +136,11 @@ class UserController {
         updatedAt: newUser.updatedAt
       };
 
+      // Registrar log
+      if (req.user) {
+        await LogService.logUserCreation(req.user, newUser, req);
+      }
+
       res.status(201).json({
         success: true,
         message: 'Usuário criado com sucesso',
@@ -235,8 +241,28 @@ class UserController {
         }
       }
 
+      // Salvar dados antigos para log
+      const oldData = {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      };
+
       // Atualizar usuário
       await user.update(updateData);
+      await user.reload();
+
+      // Registrar log
+      if (req.user) {
+        const changes = {};
+        Object.keys(updateData).forEach(key => {
+          if (oldData[key] !== user[key]) {
+            changes[key] = { from: oldData[key], to: user[key] };
+          }
+        });
+        await LogService.logUserUpdate(req.user, user, changes, req);
+      }
 
       // Retornar usuário atualizado
       const userResponse = {
@@ -325,11 +351,24 @@ class UserController {
         }
       }
 
+      // Salvar dados antes de deletar para log
+      const deletedUserData = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      };
+
       // Exclusão permanente do banco de dados
       console.log('🗑️ Tentando deletar usuário do banco...');
       await user.destroy({ force: true });
 
       console.log('✅ Usuário deletado com sucesso:', id);
+
+      // Registrar log
+      if (req.user) {
+        await LogService.logUserDeletion(req.user, deletedUserData, req);
+      }
 
       res.json({
         success: true,
@@ -373,6 +412,12 @@ class UserController {
 
       // Soft delete - desativar usuário
       await user.update({ isActive: false });
+      await user.reload();
+
+      // Registrar log
+      if (req.user) {
+        await LogService.logUserUpdate(req.user, user, { isActive: { from: true, to: false } }, req);
+      }
 
       res.json({
         success: true,

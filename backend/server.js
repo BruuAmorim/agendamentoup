@@ -21,6 +21,7 @@ const n8nRoutes = require('./src/routes/n8nRoutes');
 const dashboardRoutes = require('./src/routes/dashboard');
 const moderatorRoutes = require('./src/routes/moderator');
 const settingsPasswordRoutes = require('./src/routes/settingsPasswordRoutes');
+const logRoutes = require('./src/routes/logRoutes');
 
 const app = express();
 const PORT = API_CONFIG.port || 3000;
@@ -133,6 +134,7 @@ app.use('/api/n8n', n8nRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/moderator', moderatorRoutes);
 app.use('/api/settings-password', settingsPasswordRoutes);
+app.use('/api/logs', logRoutes);
 
 // Rota de fallback para 404
 app.use((req, res) => {
