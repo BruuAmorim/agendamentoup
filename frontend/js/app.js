@@ -635,7 +635,28 @@ class Aevum {
                 // Se não foi sucesso, mostrar mensagem de erro
                 const errorMsg = response?.message || response?.error || response?.details || 'Erro ao criar agendamento';
                 console.error('❌ Erro na resposta:', errorMsg);
-                this.showToast(errorMsg, 'error');
+                
+                // Se for erro de horário fora do expediente, mostrar mensagem mais informativa
+                if (errorMsg.includes('fora do expediente') || errorMsg.includes('Horário fora')) {
+                    // Extrair horário de funcionamento da mensagem ou buscar das configurações
+                    const settingsStr = localStorage.getItem('empresa_settings_v2') || localStorage.getItem('moderator_settings_v2');
+                    let workingHours = '09:00 às 18:00'; // padrão
+                    
+                    if (settingsStr) {
+                        try {
+                            const settings = JSON.parse(settingsStr);
+                            if (settings.working_hours) {
+                                workingHours = `${settings.working_hours.start || '09:00'} às ${settings.working_hours.end || '18:00'}`;
+                            }
+                        } catch (e) {
+                            console.warn('Erro ao parsear configurações:', e);
+                        }
+                    }
+                    
+                    this.showToast(`Horário fora do expediente. Atendemos das ${workingHours}. Por favor, escolha outro horário.`, 'error');
+                } else {
+                    this.showToast(errorMsg, 'error');
+                }
             }
 
         } catch (error) {
@@ -648,7 +669,28 @@ class Aevum {
             } else if (error.response && error.response.data && error.response.data.message) {
                 errorMessage = error.response.data.message;
             }
-            this.showToast(errorMessage, 'error');
+            
+            // Se for erro de horário fora do expediente, mostrar mensagem mais informativa
+            if (errorMessage.includes('fora do expediente') || errorMessage.includes('Horário fora')) {
+                // Extrair horário de funcionamento da mensagem ou buscar das configurações
+                const settingsStr = localStorage.getItem('empresa_settings_v2') || localStorage.getItem('moderator_settings_v2');
+                let workingHours = '09:00 às 18:00'; // padrão
+                
+                if (settingsStr) {
+                    try {
+                        const settings = JSON.parse(settingsStr);
+                        if (settings.working_hours) {
+                            workingHours = `${settings.working_hours.start || '09:00'} às ${settings.working_hours.end || '18:00'}`;
+                        }
+                    } catch (e) {
+                        console.warn('Erro ao parsear configurações:', e);
+                    }
+                }
+                
+                this.showToast(`Horário fora do expediente. Atendemos das ${workingHours}. Por favor, escolha outro horário.`, 'error');
+            } else {
+                this.showToast(errorMessage, 'error');
+            }
         } finally {
             // Sempre liberar o flag e reabilitar o botão, mesmo em caso de erro
             this._isSubmittingAppointment = false;
