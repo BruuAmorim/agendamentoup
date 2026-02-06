@@ -535,32 +535,38 @@ class Aevum {
             // Obter instance_id do usuário logado
             const currentInstanceId = localStorage.getItem('currentInstanceId');
 
-        // Coletar todos os campos do formulário (incluindo campos extras)
+        // Coletar todos os campos do formulário (incluindo campos extras e CPF)
         const appointmentData = {
             customer_name: formData.get('customer_name') || formData.get('customer_name'),
             customer_phone: formData.get('customer_phone') || null,
             customer_email: formData.get('customer_email') || null,
+            customer_cpf: formData.get('customer_cpf') || null,
             service_type: formData.get('service_type') || null,
             appointment_date: formData.get('appointment_date'),
             appointment_time: formData.get('appointment_time'),
             duration_minutes: 60, // duração fixa de 1 hora
-            notes: '' // sem observações
+            notes: formData.get('notes') || '' // observações do formulário
         };
 
-        // Coletar campos extras se existirem
+        // Coletar campos extras se existirem e salvar como JSON
         const extraFields = {};
         formData.forEach((value, key) => {
-            if (key.startsWith('extra_')) {
-                extraFields[key] = value;
+            if (key.startsWith('extra_') && value && value.trim()) {
+                const fieldName = key.replace('extra_', '');
+                extraFields[fieldName] = value.trim();
             }
         });
         
-        // Adicionar campos extras às notas se houver
+        // Adicionar campos extras como JSON separado (não apenas nas notas)
         if (Object.keys(extraFields).length > 0) {
+            appointmentData.extra_fields = JSON.stringify(extraFields);
+            // Também adicionar nas notas para compatibilidade
             const extraNotes = Object.entries(extraFields)
-                .map(([key, val]) => `${key.replace('extra_', '')}: ${val}`)
+                .map(([key, val]) => `${key}: ${val}`)
                 .join('; ');
-            appointmentData.notes = extraNotes;
+            appointmentData.notes = appointmentData.notes 
+                ? `${appointmentData.notes}\n${extraNotes}` 
+                : extraNotes;
         }
 
         console.log('📅 handleAppointmentSubmit - Dados coletados:', appointmentData);
@@ -586,10 +592,19 @@ class Aevum {
             }
             
             // Verificar disponibilidade do horário antes de tentar criar
+            // Recarregar agendamentos para garantir dados atualizados antes da verificação
+            await this.loadAppointments();
+            
             if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time)) {
                 this.showToast('Horário indisponível. Este horário já está ocupado.', 'error');
-                // Recarregar lista de agendamentos para mostrar estado atualizado
+                // Recarregar lista novamente para mostrar estado atualizado
                 await this.loadAppointments();
+                // Resetar flag de submissão
+                this._isSubmittingAppointment = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
                 return;
             }
 
@@ -762,8 +777,17 @@ class Aevum {
             return;
         }
 
-        // Renderizar agendamentos na nova lista
-        this.appointments.forEach(appointment => {
+        // Ordenar agendamentos cronologicamente (por data e horário)
+        const sortedAppointments = [...this.appointments].sort((a, b) => {
+            // Primeiro ordenar por data
+            const dateCompare = a.appointment_date.localeCompare(b.appointment_date);
+            if (dateCompare !== 0) return dateCompare;
+            // Se mesma data, ordenar por horário
+            return a.appointment_time.localeCompare(b.appointment_time);
+        });
+
+        // Renderizar agendamentos ordenados
+        sortedAppointments.forEach(appointment => {
             const listItem = this.createAppointmentListItem(appointment);
             listaContainer.appendChild(listItem);
         });
@@ -977,14 +1001,44 @@ class Aevum {
 
     createAppointmentModalContent(appointment, editMode) {
         const date = new Date(appointment.appointment_date).toLocaleDateString('pt-BR');
-        const created = new Date(appointment.created_at).toLocaleString('pt-BR');
+        const created = appointment.created_at 
+            ? new Date(appointment.created_at).toLocaleString('pt-BR')
+            : 'Não disponível';
+        const updated = appointment.updated_at 
+            ? new Date(appointment.updated_at).toLocaleString('pt-BR')
+            : 'Não disponível';
+
+        // Parse campos extras se existirem
+        let extraFieldsHtml = '';
+        if (appointment.extra_fields) {
+            try {
+                const extraFields = typeof appointment.extra_fields === 'string' 
+                    ? JSON.parse(appointment.extra_fields) 
+                    : appointment.extra_fields;
+                
+                if (extraFields && Object.keys(extraFields).length > 0) {
+                    extraFieldsHtml = '<div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">';
+                    extraFieldsHtml += '<h4 style="margin: 0 0 15px 0; color: var(--text); font-size: 1.1rem;">📝 Campos Extras</h4>';
+                    Object.entries(extraFields).forEach(([key, value]) => {
+                        extraFieldsHtml += `
+                            <div class="detail-row">
+                                <strong>${key}:</strong> ${value || 'Não informado'}
+                            </div>
+                        `;
+                    });
+                    extraFieldsHtml += '</div>';
+                }
+            } catch (e) {
+                console.warn('Erro ao parsear campos extras:', e);
+            }
+        }
 
         if (editMode) {
             return `
                 <form id="editAppointmentForm">
                     <div class="form-group">
-                        <label for="edit_customer_name">Nome do Cliente</label>
-                        <input type="text" id="edit_customer_name" name="customer_name" value="${appointment.customer_name}" required>
+                        <label for="edit_customer_name">Nome do Cliente *</label>
+                        <input type="text" id="edit_customer_name" name="customer_name" value="${appointment.customer_name || ''}" required>
                     </div>
 
                     <div class="form-group">
@@ -993,33 +1047,105 @@ class Aevum {
                     </div>
 
                     <div class="form-group">
-                        <label for="edit_appointment_date">Data</label>
+                        <label for="edit_customer_email">E-mail</label>
+                        <input type="email" id="edit_customer_email" name="customer_email" value="${appointment.customer_email || ''}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_customer_cpf">CPF</label>
+                        <input type="text" id="edit_customer_cpf" name="customer_cpf" value="${appointment.customer_cpf || ''}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_service_type">Serviço</label>
+                        <input type="text" id="edit_service_type" name="service_type" value="${appointment.service_type || ''}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_appointment_date">Data *</label>
                         <input type="date" id="edit_appointment_date" name="appointment_date" value="${appointment.appointment_date}" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="edit_appointment_time">Horário</label>
+                        <label for="edit_appointment_time">Horário *</label>
                         <input type="time" id="edit_appointment_time" name="appointment_time" value="${appointment.appointment_time}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_notes">Observações</label>
+                        <textarea id="edit_notes" name="notes" rows="3">${appointment.notes || ''}</textarea>
                     </div>
                 </form>
             `;
         } else {
             return `
-                <div class="appointment-details">
-                    <div class="detail-row">
-                        <strong>Cliente:</strong> ${appointment.customer_name}
+                <div class="appointment-details" style="max-height: 500px; overflow-y: auto;">
+                    <div class="detail-section">
+                        <h4 style="margin: 0 0 15px 0; color: var(--text); font-size: 1.1rem;">👤 Dados do Cliente</h4>
+                        <div class="detail-row">
+                            <strong>Nome:</strong> ${appointment.customer_name || 'Não informado'}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Telefone:</strong> ${appointment.customer_phone || 'Não informado'}
+                        </div>
+                        ${appointment.customer_email ? `
+                        <div class="detail-row">
+                            <strong>E-mail:</strong> ${appointment.customer_email}
+                        </div>
+                        ` : ''}
+                        ${appointment.customer_cpf ? `
+                        <div class="detail-row">
+                            <strong>CPF:</strong> ${appointment.customer_cpf}
+                        </div>
+                        ` : ''}
                     </div>
-                    <div class="detail-row">
-                        <strong>Telefone:</strong> ${appointment.customer_phone || 'Não informado'}
+
+                    <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <h4 style="margin: 0 0 15px 0; color: var(--text); font-size: 1.1rem;">📅 Dados do Agendamento</h4>
+                        <div class="detail-row">
+                            <strong>Protocolo:</strong> ${appointment.protocol || 'N/A'}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Data:</strong> ${date}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Horário:</strong> ${this.formatTime(appointment.appointment_time)}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Duração:</strong> ${appointment.duration_minutes || 60} minutos
+                        </div>
+                        ${appointment.service_type ? `
+                        <div class="detail-row">
+                            <strong>Serviço:</strong> ${appointment.service_type}
+                        </div>
+                        ` : ''}
+                        ${appointment.notes ? `
+                        <div class="detail-row">
+                            <strong>Observações:</strong> ${appointment.notes}
+                        </div>
+                        ` : ''}
                     </div>
-                    <div class="detail-row">
-                        <strong>Data:</strong> ${date}
-                    </div>
-                    <div class="detail-row">
-                        <strong>Horário:</strong> ${this.formatTime(appointment.appointment_time)}
-                    </div>
-                    <div class="detail-row">
-                        <strong>Criado em:</strong> ${created}
+
+                    ${extraFieldsHtml}
+
+                    <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <h4 style="margin: 0 0 15px 0; color: var(--text); font-size: 1.1rem;">ℹ️ Informações do Sistema</h4>
+                        <div class="detail-row">
+                            <strong>Status:</strong> 
+                            <span style="padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; 
+                                background: ${appointment.status === 'confirmed' ? '#28a745' : appointment.status === 'cancelled' ? '#dc3545' : '#ffc107'};
+                                color: white;">
+                                ${appointment.status === 'confirmed' ? 'Confirmado' : appointment.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                            </span>
+                        </div>
+                        <div class="detail-row">
+                            <strong>Criado em:</strong> ${created}
+                        </div>
+                        ${appointment.updated_at && appointment.updated_at !== appointment.created_at ? `
+                        <div class="detail-row">
+                            <strong>Atualizado em:</strong> ${updated}
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             `;

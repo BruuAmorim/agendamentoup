@@ -105,10 +105,13 @@ class Appointment {
     this.customer_name = data.customer_name;
     this.customer_email = data.customer_email;
     this.customer_phone = data.customer_phone;
+    this.customer_cpf = data.customer_cpf || null;
+    this.service_type = data.service_type || null;
     this.appointment_date = data.appointment_date;
     this.appointment_time = data.appointment_time;
     this.duration_minutes = data.duration_minutes || 60;
     this.notes = data.notes;
+    this.extra_fields = data.extra_fields || null; // JSON com campos extras
     this.status = data.status || 'pending';
     this.created_at = data.created_at || new Date();
     this.updated_at = data.updated_at || new Date();
@@ -307,10 +310,13 @@ class Appointment {
                   customer_name TEXT NOT NULL,
                   customer_email TEXT,
                   customer_phone TEXT,
+                  customer_cpf TEXT,
+                  service_type TEXT,
                   appointment_date TEXT NOT NULL,
                   appointment_time TEXT NOT NULL,
                   duration_minutes INTEGER DEFAULT 60,
                   notes TEXT,
+                  extra_fields TEXT,
                   status TEXT DEFAULT 'pending',
                   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -332,10 +338,10 @@ class Appointment {
 
         const queryText = `
           INSERT INTO appointments (
-            id, protocol, customer_name, customer_email, customer_phone,
+            id, protocol, customer_name, customer_email, customer_phone, customer_cpf, service_type,
             appointment_date, appointment_time, duration_minutes,
-            notes, status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            notes, extra_fields, status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING *
         `;
 
@@ -345,10 +351,13 @@ class Appointment {
           appointment.customer_name,
           appointment.customer_email || null,
           appointment.customer_phone || null,
+          appointment.customer_cpf || null,
+          appointment.service_type || null,
           appointment.appointment_date,
           appointment.appointment_time,
           appointment.duration_minutes,
           appointment.notes || null,
+          appointment.extra_fields || null,
           appointment.status,
           appointment.created_at,
           appointment.updated_at
@@ -616,7 +625,7 @@ class Appointment {
             FROM appointments
             WHERE appointment_date = $1
               AND status != 'cancelled'
-              AND id != $2::integer
+              AND id != $2
           `;
           params = [normalizedDate, excludeId];
         } else {
@@ -884,10 +893,13 @@ class Appointment {
       customer_name: this.customer_name,
       customer_email: this.customer_email,
       customer_phone: this.customer_phone,
+      customer_cpf: this.customer_cpf,
+      service_type: this.service_type,
       appointment_date: this.appointment_date,
       appointment_time: this.appointment_time,
       duration_minutes: this.duration_minutes,
       notes: this.notes,
+      extra_fields: this.extra_fields,
       status: this.status,
       created_at: this.created_at,
       updated_at: this.updated_at,
