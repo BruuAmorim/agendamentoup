@@ -121,7 +121,7 @@ class FormBuilder {
       const fieldHtml = `
         <div class="extra-field-item" data-field-id="${fieldId}">
           <input type="text" value="${field}" class="extra-field-name" placeholder="Nome do campo">
-          <button type="button" onclick="settingsManager.formBuilder.removeExtraField('${fieldId}')">🗑️</button>
+          <button type="button" class="remove-extra-field-btn">🗑️</button>
         </div>
       `;
       list.insertAdjacentHTML('beforeend', fieldHtml);
@@ -136,7 +136,7 @@ class FormBuilder {
     const fieldHtml = `
       <div class="extra-field-item" data-field-id="${fieldId}">
         <input type="text" placeholder="Nome do campo (ex: Observações)" class="extra-field-name">
-        <button type="button" onclick="settingsManager.formBuilder.removeExtraField('${fieldId}')">🗑️</button>
+        <button type="button" class="remove-extra-field-btn">🗑️</button>
       </div>
     `;
     list.insertAdjacentHTML('beforeend', fieldHtml);
@@ -209,7 +209,7 @@ class ServiceManager {
       const serviceHtml = `
         <div class="service-item" data-service-id="${serviceId}">
           <input type="text" value="${service}" class="service-name" placeholder="Nome do serviço">
-          <button type="button" onclick="settingsManager.serviceManager.removeService('${serviceId}')">🗑️</button>
+          <button type="button" class="remove-service-btn">🗑️</button>
         </div>
       `;
       list.insertAdjacentHTML('beforeend', serviceHtml);
@@ -224,7 +224,7 @@ class ServiceManager {
     const serviceHtml = `
       <div class="service-item" data-service-id="${serviceId}">
         <input type="text" placeholder="Nome do serviço" class="service-name">
-        <button type="button" onclick="settingsManager.serviceManager.removeService('${serviceId}')">🗑️</button>
+        <button type="button" class="remove-service-btn">🗑️</button>
       </div>
     `;
     list.insertAdjacentHTML('beforeend', serviceHtml);
@@ -264,10 +264,10 @@ class ScheduleConfig {
   constructor(settingsManager) {
     this.settingsManager = settingsManager;
     this.data = {
-      dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      inicio: '08:00',
-      fim: '18:00',
-      slot: 30
+        dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        inicio: '08:00',
+        fim: '18:00',
+        slot: 30
     };
   }
 
@@ -406,18 +406,19 @@ class SettingsManager {
       return;
     }
     
-    // Verificar permissões (moderator, admin_master, ou user com parent_user_id)
-    const hasAccess = user.role === 'moderator' || 
+    // Verificar permissões (empresa, admin_master, ou user com parent_user_id)
+    // Manter compatibilidade com 'moderator' para dados antigos
+    const hasAccess = user.role === 'empresa' || 
+                      user.role === 'moderator' || // Compatibilidade
                       user.role === 'admin_master' || 
-                      (user.role === 'user' && user.parent_user_id) ||
-                      user.role === 'empresa'; // Suportar novo nome de role
+                      (user.role === 'user' && user.parent_user_id);
     
     if (!hasAccess) {
       console.error('❌ Acesso negado. Role:', user.role);
       window.location.href = 'agendamentos.html';
       return;
     }
-    
+
     console.log('✅ Inicializando SettingsManager para usuário:', user.role);
 
     // SEMPRE limpar verificação de senha ao carregar a página (F5 ou refresh)
@@ -427,12 +428,18 @@ class SettingsManager {
     // Verificar senha antes de habilitar o acesso
     await this.checkPasswordAccess();
 
-    if (this.isPasswordVerified) {
-      // Bind eventos
-      this.bindEvents();
-      
-      // Carregar configurações
+    // Sempre anexar eventos básicos (tabs, navegação)
+    // Mas só permitir edição após verificação de senha
+    this.bindEvents();
+    
+    // Desabilitar campos inicialmente se senha não verificada
+    if (!this.isPasswordVerified) {
+      this.toggleFieldsEnabled(false);
+      console.log('⚠️ Aguardando verificação de senha para carregar configurações');
+    } else {
+      // Carregar configurações apenas se senha verificada
       await this.loadSettings();
+      this.toggleFieldsEnabled(true);
     }
   }
 
@@ -521,6 +528,9 @@ class SettingsManager {
         
         // Esconder lock screen e mostrar conteúdo
         this.hideLockScreen();
+        
+        // Carregar configurações após verificação
+        await this.loadSettings();
       } else {
         if (errorDiv) {
           errorDiv.textContent = response.message || 'Senha incorreta. Tente novamente.';
@@ -552,7 +562,33 @@ class SettingsManager {
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
       saveBtn.style.display = 'block';
+      // Habilitar botão apenas se senha verificada
+      saveBtn.disabled = !this.isPasswordVerified;
     }
+    
+    // Habilitar/desabilitar campos baseado na verificação
+    this.toggleFieldsEnabled(this.isPasswordVerified);
+  }
+
+  toggleFieldsEnabled(enabled) {
+    // Habilitar/desabilitar todos os inputs e textareas
+    const inputs = document.querySelectorAll('#settingsContainer input, #settingsContainer textarea, #settingsContainer select');
+    inputs.forEach(input => {
+      if (input.id !== 'adminPasswordInput' && 
+          input.id !== 'adminCurrentPasswordInput' && 
+          input.id !== 'adminNewPasswordInput' && 
+          input.id !== 'adminConfirmPasswordInput') {
+        input.disabled = !enabled;
+      }
+    });
+
+    // Habilitar/desabilitar botões de ação (exceto logout e admin)
+    const actionButtons = document.querySelectorAll('.add-field-btn, .remove-extra-field-btn, .remove-service-btn');
+    actionButtons.forEach(btn => {
+      if (!btn.id || (!btn.id.includes('admin') && btn.id !== 'logoutBtn')) {
+        btn.disabled = !enabled;
+      }
+    });
   }
 
   cancelPassword() {
@@ -565,10 +601,13 @@ class SettingsManager {
   }
 
   bindEvents() {
-    // Tabs
+    // Tabs - sempre funcionam
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        this.switchTab(e.target.dataset.tab);
+        const tabName = e.target.dataset.tab || e.target.closest('.tab-btn')?.dataset.tab;
+        if (tabName) {
+          this.switchTab(tabName);
+        }
       });
     });
 
@@ -576,19 +615,25 @@ class SettingsManager {
     const logoUpload = document.getElementById('logoUpload');
     if (logoUpload) {
       logoUpload.addEventListener('change', (e) => {
-        if (e.target.files[0]) {
+        if (e.target.files[0] && this.isPasswordVerified) {
           this.generalSettings.handleLogoUpload(e.target.files[0]);
         }
       });
     }
 
-    // Salvar configurações
+    // Salvar configurações - só funciona se senha verificada
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => this.saveSettings());
+      saveBtn.addEventListener('click', () => {
+        if (this.isPasswordVerified) {
+          this.saveSettings();
+        } else {
+          alert('⚠️ Por favor, verifique sua senha primeiro.');
+        }
+      });
     }
 
-    // Logout
+    // Logout - sempre funciona
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', () => {
@@ -598,27 +643,91 @@ class SettingsManager {
       });
     }
 
-    // Detectar mudanças
-    this.detectChanges();
+    // Detectar mudanças - só se senha verificada
+    if (this.isPasswordVerified) {
+      this.detectChanges();
+    }
 
     // Seção admin master para senha
     this.initAdminPasswordSection();
+
+    // Event delegation para botões dinâmicos (campos extras e serviços)
+    // Isso garante que funcionem mesmo se adicionados depois
+    const handleDynamicButtonClick = (e) => {
+      // Botões de remover campo extra
+      if (e.target.classList.contains('remove-extra-field-btn') || 
+          (e.target.closest('[data-field-id]') && e.target.textContent.includes('🗑️'))) {
+        const fieldItem = e.target.closest('[data-field-id]');
+        if (fieldItem) {
+          const fieldId = fieldItem.dataset.fieldId;
+          if (this.isPasswordVerified && this.formBuilder) {
+            this.formBuilder.removeExtraField(fieldId);
+          } else if (!this.isPasswordVerified) {
+            alert('⚠️ Por favor, verifique sua senha primeiro.');
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+      
+      // Botões de remover serviço
+      if (e.target.classList.contains('remove-service-btn') ||
+          (e.target.closest('[data-service-id]') && e.target.textContent.includes('🗑️'))) {
+        const serviceItem = e.target.closest('[data-service-id]');
+        if (serviceItem) {
+          const serviceId = serviceItem.dataset.serviceId;
+          if (this.isPasswordVerified && this.serviceManager) {
+            this.serviceManager.removeService(serviceId);
+          } else if (!this.isPasswordVerified) {
+            alert('⚠️ Por favor, verifique sua senha primeiro.');
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+    };
+
+    // Usar o mesmo elemento para evitar múltiplos listeners
+    const settingsContainer = document.getElementById('settingsContainer');
+    if (settingsContainer) {
+      settingsContainer.addEventListener('click', handleDynamicButtonClick.bind(this));
+    } else {
+      // Fallback para document se container não existir ainda
+      document.addEventListener('click', handleDynamicButtonClick.bind(this));
+    }
   }
 
   switchTab(tabName) {
-    // Atualizar botões
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.remove('active');
-      if (btn.dataset.tab === tabName) {
-        btn.classList.add('active');
-      }
-    });
+    if (!tabName) {
+      console.warn('⚠️ Nome da tab não fornecido');
+      return;
+    }
 
-    // Atualizar conteúdo
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    try {
+      // Atualizar botões
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+          btn.classList.add('active');
+        }
+      });
+
+      // Atualizar conteúdo
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      const targetTab = document.getElementById(`${tabName}-tab`);
+      if (targetTab) {
+        targetTab.classList.add('active');
+      } else {
+        console.error(`❌ Tab ${tabName}-tab não encontrada`);
+      }
+    } catch (error) {
+      console.error('Erro ao trocar tab:', error);
+    }
   }
 
   detectChanges() {
@@ -666,7 +775,7 @@ class SettingsManager {
       console.log('⚠️ Carregamento já em andamento, ignorando...');
       return;
     }
-    
+
     if (this.settingsLoaded) {
       console.log('✅ Configurações já carregadas, usando cache');
       return;
@@ -745,7 +854,7 @@ class SettingsManager {
 
       console.log('📤 Enviando configurações para o backend:', backendData);
       console.log('📤 URL:', `${window.authManager.apiBaseUrl}/api/moderator/settings`);
-      
+
       const response = await window.authManager.apiRequest('/api/moderator/settings', {
         method: 'PUT',
         body: JSON.stringify(backendData)
@@ -762,8 +871,17 @@ class SettingsManager {
         localStorage.setItem('moderator_settings', JSON.stringify(this.buildLegacyLocalSettings(settings)));
         localStorage.setItem('moderator_settings_v2', JSON.stringify(settings));
         
-        // Disparar evento para atualizar a tela de agendamentos
+        // Disparar eventos para atualizar a tela de agendamentos
         window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: settings }));
+        window.dispatchEvent(new CustomEvent('companySettingsUpdated', { detail: settings }));
+        
+        // Forçar recarregamento das configurações na tela de agendamentos
+        if (window.app && typeof window.app.loadModeratorSettings === 'function') {
+          setTimeout(() => {
+            window.app.loadModeratorSettings();
+            window.app.loadCompanyInfo();
+          }, 500);
+        }
         
         alert('✅ Configurações salvas com sucesso!');
         
@@ -1044,27 +1162,45 @@ class SettingsManager {
 // Inicializar quando o DOM estiver pronto
 let settingsManager;
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('📋 DOM carregado, inicializando SettingsManager...');
+  
   const maxAttempts = 30;
   let attempts = 0;
   let initialized = false;
 
   const tryInit = () => {
     if (initialized || window.settingsManager) {
-      initialized = true;
+      if (!initialized) {
+        console.log('✅ SettingsManager já existe, usando instância existente');
+        initialized = true;
+      }
       return;
     }
 
     if (window.authManager) {
-      settingsManager = new SettingsManager();
-      window.settingsManager = settingsManager;
-      initialized = true;
-      return;
+      console.log('✅ AuthManager encontrado, criando SettingsManager...');
+      try {
+        settingsManager = new SettingsManager();
+        window.settingsManager = settingsManager;
+        initialized = true;
+        console.log('✅ SettingsManager inicializado com sucesso');
+        return;
+      } catch (error) {
+        console.error('❌ Erro ao criar SettingsManager:', error);
+        alert('Erro ao inicializar configurações. Recarregue a página.');
+        return;
+      }
     }
 
     attempts += 1;
     if (attempts >= maxAttempts) {
-      console.error('AuthManager não carregou a tempo. Recarregue a página.');
+      console.error('❌ AuthManager não carregou a tempo após', maxAttempts, 'tentativas. Recarregue a página.');
+      alert('Erro ao carregar sistema de autenticação. Recarregue a página.');
       return;
+    }
+
+    if (attempts % 5 === 0) {
+      console.log(`⏳ Aguardando AuthManager... (tentativa ${attempts}/${maxAttempts})`);
     }
 
     setTimeout(tryInit, 200);
@@ -1073,16 +1209,54 @@ document.addEventListener('DOMContentLoaded', () => {
   tryInit();
 });
 
-// Funções globais para os botões
+// Funções globais para os botões - com fallback robusto
 function addExtraField() {
-  if (window.settingsManager && window.settingsManager.isPasswordVerified) {
-    window.settingsManager.formBuilder.addExtraField();
+  try {
+    if (window.settingsManager) {
+      if (window.settingsManager.isPasswordVerified) {
+        if (window.settingsManager.formBuilder) {
+          window.settingsManager.formBuilder.addExtraField();
+          return;
+        }
+      } else {
+        alert('⚠️ Por favor, verifique sua senha primeiro para adicionar campos.');
+        return;
+      }
+    }
+    console.warn('⚠️ SettingsManager não disponível ainda. Tentando novamente...');
+    setTimeout(() => {
+      if (window.settingsManager && window.settingsManager.isPasswordVerified) {
+        addExtraField();
+      }
+    }, 500);
+  } catch (error) {
+    console.error('Erro ao adicionar campo extra:', error);
+    alert('❌ Erro ao adicionar campo. Tente novamente.');
   }
 }
 
 function addService() {
-  if (window.settingsManager && window.settingsManager.isPasswordVerified) {
-    window.settingsManager.serviceManager.addService();
+  try {
+    if (window.settingsManager) {
+      if (window.settingsManager.isPasswordVerified) {
+        if (window.settingsManager.serviceManager) {
+          window.settingsManager.serviceManager.addService();
+          return;
+        }
+      } else {
+        alert('⚠️ Por favor, verifique sua senha primeiro para adicionar serviços.');
+        return;
+      }
+    }
+    console.warn('⚠️ SettingsManager não disponível ainda. Tentando novamente...');
+    setTimeout(() => {
+      if (window.settingsManager && window.settingsManager.isPasswordVerified) {
+        addService();
+      }
+    }, 500);
+  } catch (error) {
+    console.error('Erro ao adicionar serviço:', error);
+    alert('❌ Erro ao adicionar serviço. Tente novamente.');
   }
 }
 

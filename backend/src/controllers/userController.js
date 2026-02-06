@@ -78,11 +78,12 @@ class UserController {
         });
       }
 
-      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
+      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
+      if (role && !['admin_master', 'moderator', 'empresa', 'user'].includes(role)) {
         console.log('❌ DEBUG - Role inválida:', role); // DEBUG
         return res.status(400).json({
           error: 'Role inválido',
-          message: 'Role deve ser admin_master, moderator ou user'
+          message: 'Role deve ser admin_master, empresa, moderator ou user'
         });
       }
 
@@ -99,7 +100,8 @@ class UserController {
       }
 
       // Garantir que a role seja válida e definida
-      const validRoles = ['admin_master', 'moderator', 'user'];
+      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
+      const validRoles = ['admin_master', 'moderator', 'empresa', 'user'];
       const userRole = role && validRoles.includes(role) ? role : 'user';
 
       console.log('🔍 DEBUG - Role final:', userRole); // DEBUG
@@ -190,10 +192,11 @@ class UserController {
       }
 
       // Validações
-      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
+      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
+      if (role && !['admin_master', 'moderator', 'empresa', 'user'].includes(role)) {
         return res.status(400).json({
           error: 'Role inválido',
-          message: 'Role deve ser admin_master, moderator ou user'
+          message: 'Role deve ser admin_master, empresa, moderator ou user'
         });
       }
 
@@ -218,8 +221,8 @@ class UserController {
       if (role) updateData.role = role;
       if (typeof isActive === 'boolean') updateData.isActive = isActive;
       
-      // Se for moderador e tiver employee_limit, atualizar nas configurações
-      if (role === 'moderator' && req.body.employee_limit !== undefined) {
+      // Se for empresa/moderador e tiver employee_limit, atualizar nas configurações
+      if ((role === 'empresa' || role === 'moderator') && req.body.employee_limit !== undefined) {
         const { query } = require('../config/database');
         const employeeLimit = parseInt(req.body.employee_limit);
         if (!isNaN(employeeLimit) && employeeLimit > 0) {
@@ -294,8 +297,8 @@ class UserController {
         });
       }
 
-      // Se for moderador, remover funcionários vinculados primeiro
-      if (user.role === 'moderator') {
+      // Se for empresa/moderador, remover funcionários vinculados primeiro
+      if (user.role === 'empresa' || user.role === 'moderator') {
         try {
           const { query } = require('../config/database');
           const deleteEmployeesQuery = 'DELETE FROM employees WHERE moderator_id = $1';
@@ -483,10 +486,11 @@ class UserController {
       console.log('🔍 addModeratorEmployee - Input:', { moderatorId: id, userId: user_id });
 
       const moderator = await User.findByPk(id);
-      if (!moderator || moderator.role !== 'moderator') {
+      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
+      if (!moderator || (moderator.role !== 'empresa' && moderator.role !== 'moderator')) {
         return res.status(400).json({
           error: 'Usuário inválido',
-          message: 'O usuário especificado não é um moderador'
+          message: 'O usuário especificado não é uma empresa'
         });
       }
 

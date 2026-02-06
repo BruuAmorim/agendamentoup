@@ -49,13 +49,45 @@ class Aevum {
         this.loadCompanyInfo();
         // Listener para atualizar quando configurações forem salvas
         window.addEventListener('companySettingsUpdated', (event) => {
-            console.log('🔄 Configurações da empresa atualizadas, recarregando...');
+            console.log('🔄 Configurações da empresa atualizadas, recarregando...', event.detail);
+            // Atualizar imediatamente se tiver dados
+            if (event.detail) {
+                const settings = event.detail;
+                this.populateServicesDropdown(settings.services || []);
+                this.updateCompanyTitle(settings.company_name);
+                this.updateCompanyLogo(settings.logo || this.getStoredCompanyLogo());
+            }
+            // Também recarregar do servidor
             this.loadCompanyInfo();
+            this.loadModeratorSettings();
         });
         
         // Listener para atualizar quando configurações forem salvas na página de settings
         window.addEventListener('settingsUpdated', (event) => {
-            console.log('🔄 Configurações atualizadas, recarregando formulário...');
+            console.log('🔄 Configurações atualizadas, recarregando formulário...', event.detail);
+            // Salvar no localStorage imediatamente
+            if (event.detail) {
+                const settings = event.detail;
+                localStorage.setItem('moderator_settings', JSON.stringify({
+                    campos_visiveis: settings.campos_visiveis || ['nome', 'telefone'],
+                    campos_extras: settings.campos_extras || [],
+                    servicos: settings.services || [],
+                    funcionamento: {
+                        dias: settings.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                        inicio: settings.working_hours?.start || '08:00',
+                        fim: settings.working_hours?.end || '18:00',
+                        slot: settings.slot_interval || 30
+                    }
+                }));
+                localStorage.setItem('moderator_settings_v2', JSON.stringify(settings));
+                
+                // Atualizar interface imediatamente
+                this.renderFormFields(settings);
+                this.populateServicesDropdown(settings.services || []);
+                this.updateCompanyTitle(settings.company_name);
+                this.updateCompanyLogo(settings.logo || this.getStoredCompanyLogo());
+            }
+            // Também recarregar do servidor para garantir sincronização
             this.loadModeratorSettings();
         });
         
@@ -1212,15 +1244,16 @@ class Aevum {
         const role = user.role;
         console.log('👤 Verificando acesso - Role:', role, 'User completo:', user);
         
-        // Verificar se é moderador (não funcionário)
-        // Funcionários são usuários com role 'user' e parent_user_id (vinculados a um moderador)
+        // Verificar se é empresa (não funcionário)
+        // Funcionários são usuários com role 'user' e parent_user_id (vinculados a uma empresa)
+        // Manter compatibilidade com 'moderator' para dados antigos
         const isEmployee = role === 'user' && user.parent_user_id;
-        const isModerator = role === 'moderator';
+        const isCompany = role === 'empresa' || role === 'moderator'; // Compatibilidade
         
-        console.log('🔍 Verificação:', { isModerator, isEmployee, role, parent_user_id: user.parent_user_id });
+        console.log('🔍 Verificação:', { isCompany, isEmployee, role, parent_user_id: user.parent_user_id });
         
-        if (isModerator && !isEmployee) {
-            console.log('✅ Mostrando botão de configurações para moderador');
+        if (isCompany && !isEmployee) {
+            console.log('✅ Mostrando botão de configurações para empresa');
             this.showModeratorSettingsButton();
             this.showSettingsLink();
         } else if (isEmployee) {
@@ -1228,7 +1261,7 @@ class Aevum {
             this.hideModeratorSettingsButton();
             this.hideSettingsLink();
         } else {
-            console.log('ℹ️ Usuário não é moderador nem funcionário - Role:', role);
+            console.log('ℹ️ Usuário não é empresa nem funcionário - Role:', role);
             this.hideModeratorSettingsButton();
             this.hideSettingsLink();
         }

@@ -14,7 +14,7 @@ class ModeratorController {
     try {
       console.log('📊 getStats - Iniciando para usuário:', req.user?.id, req.user?.role);
 
-      // Verificar se usuário é moderador ou funcionário (funcionários podem ver stats do moderador)
+      // Verificar se usuário é empresa ou funcionário (funcionários podem ver stats da empresa)
       const user = req.user;
       if (!user) {
         return res.status(401).json({
@@ -24,15 +24,15 @@ class ModeratorController {
         });
       }
       
-      // Se for funcionário, usar o parent_user_id; se for moderador, usar o próprio id
+      // Se for funcionário, usar o parent_user_id; se for empresa/moderador, usar o próprio id
       const targetUserId = (user.role === 'user' && user.parent_user_id) ? user.parent_user_id : 
-                          (user.role === 'moderator' ? user.id : null);
+                          (user.role === 'empresa' || user.role === 'moderator' ? user.id : null);
       
       if (!targetUserId) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Esta funcionalidade é restrita a moderadores e funcionários'
+          message: 'Esta funcionalidade é restrita a empresas e funcionários'
         });
       }
 
@@ -137,21 +137,22 @@ class ModeratorController {
         });
       }
 
-      // Se for funcionário, usar o parent_user_id; se for moderador, usar o próprio id
+      // Se for funcionário, usar o parent_user_id; se for empresa, usar o próprio id
       // Admin pode passar userId na query string
+      // Manter compatibilidade com 'moderator' para dados antigos
       let targetUserId;
       if (req.query.userId) {
         targetUserId = parseInt(req.query.userId);
       } else if (user.role === 'user' && user.parent_user_id) {
-        // Funcionário - buscar configurações do moderador
+        // Funcionário - buscar configurações da empresa
         targetUserId = user.parent_user_id;
-      } else if (user.role === 'moderator') {
+      } else if (user.role === 'empresa' || user.role === 'moderator') {
         targetUserId = user.id;
       } else {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Esta funcionalidade é restrita a moderadores e funcionários'
+          message: 'Esta funcionalidade é restrita a empresas e funcionários'
         });
       }
 
@@ -277,13 +278,14 @@ class ModeratorController {
         });
       }
       
-      // Apenas moderadores podem atualizar configurações (não funcionários)
-      if (user.role !== 'moderator') {
+      // Apenas empresas podem atualizar configurações (não funcionários)
+      // Manter compatibilidade com 'moderator' para dados antigos
+      if (user.role !== 'empresa' && user.role !== 'moderator') {
         console.log('❌ updateSettings - Acesso negado:', { userId: user?.id, role: user?.role });
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Apenas moderadores podem atualizar configurações'
+          message: 'Apenas empresas podem atualizar configurações'
         });
       }
 
@@ -444,13 +446,34 @@ class ModeratorController {
           if (!Array.isArray(parsedWorkingDays)) parsedWorkingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         }
         
+        // Parse campos_visiveis e campos_extras se necessário
+        let parsedCamposVisiveis = row.campos_visiveis;
+        let parsedCamposExtras = row.campos_extras;
+        
+        try {
+          if (typeof parsedCamposVisiveis === 'string' && parsedCamposVisiveis.trim()) {
+            parsedCamposVisiveis = JSON.parse(parsedCamposVisiveis);
+          }
+          if (typeof parsedCamposExtras === 'string' && parsedCamposExtras.trim()) {
+            parsedCamposExtras = JSON.parse(parsedCamposExtras);
+          }
+        } catch (e) {
+          console.warn('⚠️ Erro ao fazer parse dos campos:', e.message);
+          if (!Array.isArray(parsedCamposVisiveis)) parsedCamposVisiveis = ['nome', 'telefone'];
+          if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
+        }
+        
         return res.json({
           success: true,
           data: {
             company_name: row.company_name || null,
             services: parsedServices || [],
             working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
-            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+            campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
+            campos_extras: parsedCamposExtras || [],
+            logo: row.logo || null,
+            slot_interval: row.slot_interval || 30
           },
           message: 'Configurações atualizadas com sucesso'
         });
@@ -517,13 +540,34 @@ class ModeratorController {
           if (!Array.isArray(parsedWorkingDays)) parsedWorkingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         }
         
+        // Parse campos_visiveis e campos_extras se necessário
+        let parsedCamposVisiveis = row.campos_visiveis;
+        let parsedCamposExtras = row.campos_extras;
+        
+        try {
+          if (typeof parsedCamposVisiveis === 'string' && parsedCamposVisiveis.trim()) {
+            parsedCamposVisiveis = JSON.parse(parsedCamposVisiveis);
+          }
+          if (typeof parsedCamposExtras === 'string' && parsedCamposExtras.trim()) {
+            parsedCamposExtras = JSON.parse(parsedCamposExtras);
+          }
+        } catch (e) {
+          console.warn('⚠️ Erro ao fazer parse dos campos:', e.message);
+          if (!Array.isArray(parsedCamposVisiveis)) parsedCamposVisiveis = ['nome', 'telefone'];
+          if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
+        }
+        
         return res.json({
           success: true,
           data: {
             company_name: row.company_name || null,
             services: parsedServices || [],
             working_hours: parsedWorkingHours || { start: '09:00', end: '18:00' },
-            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+            working_days: parsedWorkingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+            campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
+            campos_extras: parsedCamposExtras || [],
+            logo: row.logo || null,
+            slot_interval: row.slot_interval || 30
           },
           message: 'Configurações criadas com sucesso'
         });
@@ -578,7 +622,7 @@ class ModeratorController {
           SELECT ms.company_name, ms.services
           FROM moderator_settings ms
           JOIN users u ON ms.user_id = u.id
-          WHERE u.role = 'moderator' AND u."isActive" = true
+          WHERE (u.role = 'empresa' OR u.role = 'moderator') AND u."isActive" = true
           LIMIT 1
         `;
 
@@ -617,11 +661,12 @@ class ModeratorController {
   async getEmployees(req, res) {
     try {
       const user = req.user;
-      if (!user || user.role !== 'moderator') {
+      // Manter compatibilidade com 'moderator' para dados antigos
+      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Esta funcionalidade é restrita a moderadores'
+          message: 'Esta funcionalidade é restrita a empresas'
         });
       }
 
@@ -655,11 +700,12 @@ class ModeratorController {
   async addEmployee(req, res) {
     try {
       const user = req.user;
-      if (!user || user.role !== 'moderator') {
+      // Manter compatibilidade com 'moderator' para dados antigos
+      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Esta funcionalidade é restrita a moderadores'
+          message: 'Esta funcionalidade é restrita a empresas'
         });
       }
 
@@ -747,11 +793,12 @@ class ModeratorController {
   async removeEmployee(req, res) {
     try {
       const user = req.user;
-      if (!user || user.role !== 'moderator') {
+      // Manter compatibilidade com 'moderator' para dados antigos
+      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'Esta funcionalidade é restrita a moderadores'
+          message: 'Esta funcionalidade é restrita a empresas'
         });
       }
 

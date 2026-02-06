@@ -10,8 +10,8 @@ const router = express.Router();
 const moderatorController = require('../controllers/moderatorController');
 const { verifyToken, requireRole } = require('../middleware/auth');
 
-// Middleware específico para moderadores
-const requireModerator = requireRole(['moderator']);
+// Middleware específico para moderadores e empresas
+const requireModerator = requireRole(['moderator', 'empresa']);
 
 /**
  * @api {get} /moderator/stats Estatísticas rápidas
