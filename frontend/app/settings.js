@@ -917,21 +917,25 @@ class SettingsManager {
         this.updateSaveButton();
         this.cachedSettings = settings;
         
-        // Salvar também no localStorage para uso imediato
+        // RF04 - Salvar também no localStorage para uso imediato
         localStorage.setItem('moderator_settings', JSON.stringify(this.buildLegacyLocalSettings(settings)));
         localStorage.setItem('moderator_settings_v2', JSON.stringify(settings));
+        localStorage.setItem('empresa_settings_v2', JSON.stringify(settings)); // Compatibilidade
         
-        // Disparar eventos para atualizar a tela de agendamentos
+        // RF04 - Disparar eventos para atualizar a tela de agendamentos
         window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: settings }));
         window.dispatchEvent(new CustomEvent('companySettingsUpdated', { detail: settings }));
         
-        // Forçar recarregamento das configurações na tela de agendamentos
+        // RF04 - Forçar recarregamento das configurações na tela de agendamentos
         if (window.app && typeof window.app.loadModeratorSettings === 'function') {
           setTimeout(() => {
             window.app.loadModeratorSettings();
             window.app.loadCompanyInfo();
           }, 500);
         }
+        
+        // RF04 - Recarregar configurações na própria página para garantir sincronização
+        await this.loadSettings();
         
         alert('✅ Configurações salvas com sucesso!');
         

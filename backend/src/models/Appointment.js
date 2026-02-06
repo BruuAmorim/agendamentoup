@@ -421,7 +421,7 @@ class Appointment {
       );
       if (conflict1) {
         console.log('❌ Appointment.create - Conflito de horário detectado (primeira verificação)');
-        throw new Error('Horário indisponível - conflito com outro agendamento');
+        throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
       
       // Segunda verificação (proteção contra race condition)
@@ -433,7 +433,7 @@ class Appointment {
       );
       if (conflict2) {
         console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
-        throw new Error('Horário indisponível - conflito com outro agendamento');
+        throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
       
       // Terceira verificação imediatamente antes de inserir no banco (máxima proteção)
@@ -445,7 +445,7 @@ class Appointment {
       );
       if (conflict3) {
         console.log('❌ Appointment.create - Conflito de horário detectado (terceira verificação)');
-        throw new Error('Horário indisponível - conflito com outro agendamento');
+        throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
       
       console.log('✅ Appointment.create - Sem conflitos de horário (verificação tripla)');
@@ -953,13 +953,15 @@ class Appointment {
   }
 
   // Atualizar agendamento
-  async update(data) {
-    const validationErrors = Appointment.validate({ ...this, ...data });
+  // userId opcional: ID da empresa para buscar configurações específicas (RF02)
+  async update(data, userId = null) {
+    // RF02 - Validar dados antes de atualizar (incluindo horário de expediente)
+    const validationErrors = await Appointment.validate({ ...this, ...data }, userId);
     if (validationErrors.length > 0) {
       throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
     }
 
-    // Se está mudando data/hora, verificar conflitos
+    // RF02 - Se está mudando data/hora, verificar conflitos ANTES de atualizar
     if ((data.appointment_date && data.appointment_date !== this.appointment_date) ||
         (data.appointment_time && data.appointment_time !== this.appointment_time) ||
         (data.duration_minutes && data.duration_minutes !== this.duration_minutes)) {
@@ -968,10 +970,20 @@ class Appointment {
       const newTime = Appointment.normalizeTime(data.appointment_time || this.appointment_time);
       const newDuration = data.duration_minutes || this.duration_minutes;
 
+      console.log('🔄 Appointment.update - Verificando conflito para reagendamento:', {
+        newDate,
+        newTime,
+        newDuration,
+        excludeId: this.id
+      });
+
       const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id);
       if (conflict) {
-        throw new Error('Novo horário indisponível - conflito com outro agendamento');
+        console.log('❌ Appointment.update - Conflito detectado no reagendamento');
+        throw new Error(`Já existe um agendamento cadastrado para a data ${newDate} no horário ${newTime}. Por favor, escolha outro horário.`);
       }
+      
+      console.log('✅ Appointment.update - Sem conflitos, prosseguindo com atualização');
     }
 
     // Atualizar campos

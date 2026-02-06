@@ -293,7 +293,19 @@ class AppointmentController {
       }
 
       const oldData = appointment.toJSON();
-      const updatedAppointment = await appointment.update(updateData);
+      
+      // Identificar empresa do usuário logado (se disponível) para validação (RF02)
+      let companyUserId = null;
+      if (req.user) {
+        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+          companyUserId = req.user.id;
+        } else if (req.user.role === 'user' && req.user.parent_user_id) {
+          companyUserId = req.user.parent_user_id;
+        }
+      }
+      
+      // RF02 - Atualizar com validação de conflito e horário de expediente
+      const updatedAppointment = await appointment.update(updateData, companyUserId);
       const newData = updatedAppointment.toJSON();
 
       // Registrar log
@@ -321,8 +333,20 @@ class AppointmentController {
     } catch (error) {
       console.error('Erro ao atualizar agendamento:', error);
 
+      // RF02 - Tratar conflito de horário no reagendamento
+      if (error.message.includes('Já existe um agendamento') || 
+          error.message.includes('conflito') ||
+          error.message.includes('indisponível')) {
+        return res.status(409).json({
+          success: false,
+          error: 'Conflito de horário',
+          message: error.message
+        });
+      }
+      
       if (error.message.includes('Dados inválidos') ||
-          error.message.includes('Novo horário indisponível')) {
+          error.message.includes('fora do expediente') ||
+          error.message.includes('Não atendemos')) {
         return res.status(400).json({
           success: false,
           error: 'Dados inválidos',

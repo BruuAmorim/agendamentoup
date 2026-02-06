@@ -596,7 +596,7 @@ class Aevum {
             await this.loadAppointments();
             
             if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time)) {
-                this.showToast('Horário indisponível. Este horário já está ocupado.', 'error');
+                this.showToast(`Já existe um agendamento cadastrado para a data ${appointmentData.appointment_date} no horário ${appointmentData.appointment_time}. Por favor, escolha outro horário.`, 'error');
                 // Recarregar lista novamente para mostrar estado atualizado
                 await this.loadAppointments();
                 // Resetar flag de submissão
@@ -636,8 +636,12 @@ class Aevum {
                 const errorMsg = response?.message || response?.error || response?.details || 'Erro ao criar agendamento';
                 console.error('❌ Erro na resposta:', errorMsg);
                 
+                // RF01 - Mensagem específica para conflito de horário
+                if (errorMsg.includes('Já existe um agendamento') || errorMsg.includes('conflito') || errorMsg.includes('indisponível')) {
+                    this.showToast(errorMsg, 'error');
+                }
                 // Se for erro de horário fora do expediente, mostrar mensagem mais informativa
-                if (errorMsg.includes('fora do expediente') || errorMsg.includes('Horário fora')) {
+                else if (errorMsg.includes('fora do expediente') || errorMsg.includes('Horário fora')) {
                     // Extrair horário de funcionamento da mensagem ou buscar das configurações
                     const settingsStr = localStorage.getItem('empresa_settings_v2') || localStorage.getItem('moderator_settings_v2');
                     let workingHours = '09:00 às 18:00'; // padrão
@@ -1179,6 +1183,7 @@ class Aevum {
                 </form>
             `;
         } else {
+            // RF03 - Exibir TODOS os campos do agendamento (sempre exibir, mesmo se vazio)
             return `
                 <div class="appointment-details" style="max-height: 500px; overflow-y: auto;">
                     <div class="detail-section">
@@ -1189,16 +1194,12 @@ class Aevum {
                         <div class="detail-row">
                             <strong>Telefone:</strong> ${appointment.customer_phone || 'Não informado'}
                         </div>
-                        ${appointment.customer_email ? `
                         <div class="detail-row">
-                            <strong>E-mail:</strong> ${appointment.customer_email}
+                            <strong>E-mail:</strong> ${appointment.customer_email || 'Não informado'}
                         </div>
-                        ` : ''}
-                        ${appointment.customer_cpf ? `
                         <div class="detail-row">
-                            <strong>CPF:</strong> ${appointment.customer_cpf}
+                            <strong>CPF:</strong> ${appointment.customer_cpf || 'Não informado'}
                         </div>
-                        ` : ''}
                     </div>
 
                     <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
@@ -1213,18 +1214,14 @@ class Aevum {
                             <strong>Horário:</strong> ${this.formatTime(appointment.appointment_time)}
                         </div>
                         <div class="detail-row">
+                            <strong>Serviço:</strong> ${appointment.service_type || 'Não informado'}
+                        </div>
+                        <div class="detail-row">
                             <strong>Duração:</strong> ${appointment.duration_minutes || 60} minutos
                         </div>
-                        ${appointment.service_type ? `
                         <div class="detail-row">
-                            <strong>Serviço:</strong> ${appointment.service_type}
+                            <strong>Observações:</strong> ${appointment.notes || 'Nenhuma observação'}
                         </div>
-                        ` : ''}
-                        ${appointment.notes ? `
-                        <div class="detail-row">
-                            <strong>Observações:</strong> ${appointment.notes}
-                        </div>
-                        ` : ''}
                     </div>
 
                     ${extraFieldsHtml}
