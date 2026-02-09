@@ -151,6 +151,23 @@
           </div>
 
           <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="editCustomerEmail" name="customer_email">
+          </div>
+
+          <div class="form-group">
+            <label>CPF</label>
+            <input type="text" id="editCustomerCpf" name="customer_cpf">
+          </div>
+
+          <div class="form-group">
+            <label>Serviço</label>
+            <select id="editServiceType" name="service_type">
+              <option value="">Selecione um serviço</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>Data *</label>
             <input type="date" id="editAppointmentDate" name="appointment_date" required>
           </div>
@@ -158,6 +175,11 @@
           <div class="form-group">
             <label>Horário *</label>
             <input type="time" id="editAppointmentTime" name="appointment_time" required>
+          </div>
+
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="editNotes" name="notes" rows="3"></textarea>
           </div>
         </form>
       </div>

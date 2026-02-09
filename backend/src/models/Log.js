@@ -84,3 +84,4 @@ module.exports = (sequelize) => {
   return Log;
 };
 
+

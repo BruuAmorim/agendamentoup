@@ -100,3 +100,4 @@ setupLogsTable()
     process.exit(1);
   });
 
+

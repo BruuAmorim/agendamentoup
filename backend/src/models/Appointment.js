@@ -1011,9 +1011,10 @@ class Appointment {
       const queryText = `
         UPDATE appointments SET
           customer_name = $1, customer_email = $2, customer_phone = $3,
-          appointment_date = $4, appointment_time = $5, duration_minutes = $6,
-          notes = $7, status = $8, updated_at = $9
-        WHERE id = $10
+          customer_cpf = $4, service_type = $5,
+          appointment_date = $6, appointment_time = $7, duration_minutes = $8,
+          notes = $9, extra_fields = $10, status = $11, updated_at = $12
+        WHERE id = $13
         RETURNING *
       `;
 
@@ -1021,10 +1022,13 @@ class Appointment {
         this.customer_name || null,
         this.customer_email || null,
         this.customer_phone || null,
+        this.customer_cpf || null,
+        this.service_type || null,
         this.appointment_date,
         this.appointment_time,
         this.duration_minutes || 60,
         this.notes || null,
+        this.extra_fields || null,
         this.status || 'pending',
         this.updated_at || new Date(),
         this.id

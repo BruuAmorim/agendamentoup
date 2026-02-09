@@ -993,8 +993,48 @@ class Aevum {
         // Preencher campos do modal
         document.getElementById('editCustomerName').value = appointment.customer_name || '';
         document.getElementById('editCustomerPhone').value = appointment.customer_phone || '';
+        document.getElementById('editCustomerEmail').value = appointment.customer_email || '';
+        document.getElementById('editCustomerCpf').value = appointment.customer_cpf || '';
         document.getElementById('editAppointmentDate').value = appointment.appointment_date || '';
-        document.getElementById('editAppointmentTime').value = appointment.appointment_time || '';
+        document.getElementById('editAppointmentTime').value = this.formatTime(appointment.appointment_time) || '';
+        document.getElementById('editNotes').value = appointment.notes || '';
+
+        // Preencher serviço
+        const serviceSelect = document.getElementById('editServiceType');
+        if (serviceSelect) {
+            // Limpar opções existentes (exceto a primeira)
+            while (serviceSelect.options.length > 1) {
+                serviceSelect.remove(1);
+            }
+            
+            // Carregar serviços das configurações
+            const settingsStr = localStorage.getItem('moderator_settings_v2') || localStorage.getItem('moderator_settings');
+            if (settingsStr) {
+                try {
+                    const settings = JSON.parse(settingsStr);
+                    const services = settings.services || [];
+                    services.forEach(service => {
+                        const option = document.createElement('option');
+                        option.value = service;
+                        option.textContent = service;
+                        serviceSelect.appendChild(option);
+                    });
+                } catch (e) {
+                    console.warn('Erro ao parsear configurações:', e);
+                }
+            }
+            
+            // Selecionar o serviço do agendamento
+            if (appointment.service_type) {
+                serviceSelect.value = appointment.service_type;
+            }
+        }
+
+        // Armazenar ID do agendamento no formulário
+        const form = document.getElementById('editAppointmentForm');
+        if (form) {
+            form.dataset.appointmentId = appointment.id;
+        }
 
         // Abrir modal
         const modal = document.getElementById('editAppointmentModal');
@@ -1274,43 +1314,67 @@ class Aevum {
 
     async saveEditAppointment() {
         const form = document.getElementById('editAppointmentForm');
-        const appointmentId = form?.dataset.appointmentId;
+        if (!form) {
+            this.showToast('Erro: Formulário de edição não encontrado', 'error');
+            return;
+        }
+
+        // Obter ID do agendamento (pode estar no dataset do form ou no selectedAppointment)
+        let appointmentId = form.dataset.appointmentId;
+        if (!appointmentId && this.selectedAppointment) {
+            appointmentId = this.selectedAppointment.id;
+        }
 
         if (!appointmentId) {
             this.showToast('Erro: ID do agendamento não encontrado', 'error');
             return;
         }
 
+        // Coletar todos os campos do formulário
+        const formData = new FormData(form);
         const updateData = {
-            customer_name: document.getElementById('editCustomerName').value,
-            customer_phone: document.getElementById('editCustomerPhone').value,
-            appointment_date: document.getElementById('editAppointmentDate').value,
-            appointment_time: document.getElementById('editAppointmentTime').value,
+            customer_name: formData.get('customer_name') || document.getElementById('editCustomerName').value,
+            customer_phone: formData.get('customer_phone') || document.getElementById('editCustomerPhone').value || null,
+            customer_email: formData.get('customer_email') || document.getElementById('editCustomerEmail').value || null,
+            customer_cpf: formData.get('customer_cpf') || document.getElementById('editCustomerCpf').value || null,
+            service_type: formData.get('service_type') || document.getElementById('editServiceType').value || null,
+            appointment_date: formData.get('appointment_date') || document.getElementById('editAppointmentDate').value,
+            appointment_time: formData.get('appointment_time') || document.getElementById('editAppointmentTime').value,
+            notes: formData.get('notes') || document.getElementById('editNotes').value || null,
             duration_minutes: 60 // manter duração padrão
         };
 
-        try {
-            const response = await fetch(`http://localhost:3000/api/appointments/${appointmentId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                },
-                body: JSON.stringify(updateData)
-            });
+        // Coletar campos extras se existirem
+        const extraFields = {};
+        formData.forEach((value, key) => {
+            if (key.startsWith('extra_') && value && value.trim()) {
+                const fieldName = key.replace('extra_', '');
+                extraFields[fieldName] = value.trim();
+            }
+        });
+        
+        if (Object.keys(extraFields).length > 0) {
+            updateData.extra_fields = JSON.stringify(extraFields);
+        }
 
-            if (response.ok) {
+        console.log('📝 Salvando edição do agendamento:', { appointmentId, updateData });
+
+        try {
+            const response = await API.updateAppointment(appointmentId, updateData);
+            
+            if (response.success) {
                 this.showToast('Agendamento atualizado com sucesso!', 'success');
                 this.closeEditModal();
                 // Atualizar lista em tempo real
                 await this.loadAppointments();
             } else {
-                const errorData = await response.json();
-                this.showToast(errorData.message || 'Erro ao atualizar agendamento', 'error');
+                const errorMsg = response.error || response.message || 'Erro ao atualizar agendamento';
+                this.showToast(errorMsg, 'error');
             }
         } catch (error) {
             console.error('Erro ao atualizar agendamento:', error);
-            this.showToast('Erro ao atualizar agendamento', 'error');
+            const errorMsg = error.message || 'Erro ao atualizar agendamento';
+            this.showToast(errorMsg, 'error');
         }
     }
 
@@ -1389,17 +1453,8 @@ class Aevum {
             return;
         }
 
-        // Preencher modal de edição
-        document.getElementById('editCustomerName').value = appointment.customer_name;
-        document.getElementById('editCustomerPhone').value = appointment.customer_phone || '';
-        document.getElementById('editAppointmentDate').value = appointment.appointment_date;
-        document.getElementById('editAppointmentTime').value = appointment.appointment_time;
-
-        // Armazenar ID do agendamento sendo editado
-        document.getElementById('editAppointmentForm').dataset.appointmentId = appointmentId;
-
-        // Abrir modal de edição
-        document.getElementById('editAppointmentModal').classList.add('show');
+        // Usar a função openEditAppointmentModal que já preenche todos os campos
+        this.openEditAppointmentModal(appointment);
     }
 
     // Excluir agendamento

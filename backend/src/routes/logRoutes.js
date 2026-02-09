@@ -47,3 +47,4 @@ router.get('/:id', logController.getLogById);
 
 module.exports = router;
 
+

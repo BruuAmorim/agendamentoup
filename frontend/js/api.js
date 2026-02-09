@@ -170,7 +170,16 @@
                 });
 
                 const data = await response.json();
-                return { success: response.ok, data };
+                
+                // Verificar se a resposta indica sucesso
+                const isSuccess = data.success === true && response.ok && response.status >= 200 && response.status < 300;
+                
+                return { 
+                    success: isSuccess,
+                    data: data.data || data,
+                    message: data.message || data.error,
+                    error: data.error || (!isSuccess ? (data.message || 'Erro ao atualizar agendamento') : null)
+                };
             } catch (error) {
                 console.error('Erro ao atualizar agendamento:', error);
                 return { success: false, error: error.message };
