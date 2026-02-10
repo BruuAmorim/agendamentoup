@@ -8,6 +8,12 @@
   <!-- Fonte -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <!-- jsPDF para exportação em PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <!-- SheetJS para exportação em Excel formatado -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <!-- CSS -->
   <link rel="stylesheet" href="../css/styles.css">
 </head>
@@ -111,7 +117,13 @@
             </div>
           </div>
 
-          <h3>📋 Agendamentos do Dia</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0;">📋 Agendamentos do Dia</h3>
+            <div style="display: flex; gap: 10px;">
+              <button type="button" class="btn-secondary" id="exportExcelBtn" style="padding: 8px 16px; font-size: 14px;">📊 Excel</button>
+              <button type="button" class="btn-secondary" id="exportPdfBtn" style="padding: 8px 16px; font-size: 14px;">📄 PDF</button>
+            </div>
+          </div>
 
           <div class="form-group" style="margin-top: 16px;">
             <input type="text" id="filtro-nome" placeholder="🔍 Buscar cliente neste dia..." style="margin-bottom: 0;">
@@ -130,6 +142,22 @@
 
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Modal de Visualização de Detalhes -->
+  <div id="detailsAppointmentModal" class="modal">
+    <div class="modal-content edit-modal">
+      <div class="modal-header">
+        <h3>📋 Detalhes do Agendamento</h3>
+        <button class="modal-close" id="detailsModalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="detailsModalBody">
+        <!-- Conteúdo será preenchido dinamicamente -->
+      </div>
+      <div class="modal-footer">
+        <button id="detailsModalBack" class="btn-primary">Voltar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal de Edição de Agendamento -->
   <div id="editAppointmentModal" class="modal">
@@ -287,7 +315,7 @@
       gap: 5px;
     }
 
-    .btn-edit, .btn-delete {
+    .btn-details, .btn-edit, .btn-delete {
       background: none;
       border: none;
       cursor: pointer;
@@ -295,6 +323,14 @@
       border-radius: 4px;
       font-size: 14px;
       transition: background-color 0.2s;
+    }
+
+    .btn-details {
+      color: #0099ff;
+    }
+
+    .btn-details:hover {
+      background-color: rgba(0, 153, 255, 0.1);
     }
 
     .btn-edit:hover {

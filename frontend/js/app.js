@@ -156,7 +156,9 @@ class Aevum {
 
         const editModalCancel = document.getElementById('editModalCancel');
         if (editModalCancel) {
-            editModalCancel.addEventListener('click', () => {
+            editModalCancel.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.closeEditModal();
             });
         }
@@ -165,6 +167,37 @@ class Aevum {
         if (editModalSave) {
             editModalSave.addEventListener('click', () => {
                 this.saveEditAppointment();
+            });
+        }
+
+        // Modal de detalhes
+        const detailsModalClose = document.getElementById('detailsModalClose');
+        if (detailsModalClose) {
+            detailsModalClose.addEventListener('click', () => {
+                this.closeDetailsModal();
+            });
+        }
+
+        const detailsModalBack = document.getElementById('detailsModalBack');
+        if (detailsModalBack) {
+            detailsModalBack.addEventListener('click', () => {
+                this.closeDetailsModal();
+            });
+        }
+
+        // Botão de exportar planilha Excel
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', () => {
+                this.exportAppointmentsToExcel();
+            });
+        }
+
+        // Botão de exportar PDF
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        if (exportPdfBtn) {
+            exportPdfBtn.addEventListener('click', () => {
+                this.exportAppointmentsToPdf();
             });
         }
 
@@ -189,6 +222,11 @@ class Aevum {
 
             if (e.target === editModal) {
                 this.closeEditModal();
+            }
+
+            const detailsModal = document.getElementById('detailsAppointmentModal');
+            if (detailsModal && e.target === detailsModal) {
+                this.closeDetailsModal();
             }
 
             if (settingsModal && e.target === settingsModal) {
@@ -857,14 +895,24 @@ class Aevum {
                 <div class="appointment-list-phone">${phone}</div>
             </div>
             <div class="appointment-list-actions">
+                <button class="btn-details" data-id="${appointment.id}" title="Detalhes">🔍</button>
                 <button class="btn-edit" data-id="${appointment.id}" title="Editar">✏️</button>
                 <button class="btn-delete" data-id="${appointment.id}" title="Excluir">🗑️</button>
             </div>
         `;
 
         // Prevenir propagação do clique nos botões
+        const detailsBtn = div.querySelector('.btn-details');
         const editBtn = div.querySelector('.btn-edit');
         const deleteBtn = div.querySelector('.btn-delete');
+
+        detailsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const fullAppointment = this.appointments.find(apt => apt.id === appointment.id);
+            if (fullAppointment) {
+                this.openDetailsModal(fullAppointment);
+            }
+        });
 
         editBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -878,7 +926,9 @@ class Aevum {
 
         // Adicionar evento de clique no item (exceto nos botões)
         div.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('btn-edit') && !e.target.classList.contains('btn-delete')) {
+            if (!e.target.classList.contains('btn-details') && 
+                !e.target.classList.contains('btn-edit') && 
+                !e.target.classList.contains('btn-delete')) {
                 const fullAppointment = this.appointments.find(apt => apt.id === appointment.id);
                 if (fullAppointment) {
                     this.openAppointmentModal(fullAppointment);
@@ -1308,8 +1358,420 @@ class Aevum {
 
     closeEditModal() {
         const modal = document.getElementById('editAppointmentModal');
-        modal.classList.remove('show');
+        if (modal) {
+            modal.classList.remove('show');
+        }
         this.selectedAppointment = null;
+    }
+
+    openDetailsModal(appointment) {
+        this.selectedAppointment = appointment;
+        const modal = document.getElementById('detailsAppointmentModal');
+        const modalBody = document.getElementById('detailsModalBody');
+
+        if (!modal || !modalBody) {
+            console.error('❌ Modal de detalhes não encontrado');
+            this.showToast('Erro ao abrir detalhes do agendamento', 'error');
+            return;
+        }
+
+        modalBody.innerHTML = this.createAppointmentModalContent(appointment, false);
+        modal.classList.add('show');
+    }
+
+    closeDetailsModal() {
+        const modal = document.getElementById('detailsAppointmentModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        this.selectedAppointment = null;
+    }
+
+    exportAppointmentsToExcel() {
+        const filterDate = document.getElementById('filterDate')?.value;
+        
+        if (!filterDate) {
+            this.showToast('Selecione uma data primeiro para exportar os agendamentos', 'warning');
+            return;
+        }
+
+        if (!this.appointments || this.appointments.length === 0) {
+            this.showToast('Não há agendamentos para exportar nesta data', 'warning');
+            return;
+        }
+
+        // Verificar se XLSX está disponível
+        if (typeof XLSX === 'undefined') {
+            // Fallback para CSV se XLSX não estiver disponível
+            this.exportAppointmentsToCsv();
+            return;
+        }
+
+        try {
+            // Criar workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Preparar dados (mesmo formato do PDF)
+            const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
+            const data = this.appointments.map(apt => [
+                String(apt.customer_name || ''),
+                String(apt.customer_phone || ''),
+                String(apt.protocol || ''),
+                apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+                this.formatTime(apt.appointment_time) || ''
+            ]);
+
+            // Formatar data
+            const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
+
+            // Criar worksheet com estrutura igual ao PDF
+            const wsData = [
+                ['Agendamentos do Dia'],  // Linha 1: Título
+                [`Data: ${dateFormatted}`],  // Linha 2: Data
+                [],  // Linha 3: Vazia
+                headers,  // Linha 4: Cabeçalhos
+                ...data  // Linhas seguintes: Dados
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Definir larguras das colunas (mesmas proporções do PDF)
+            ws['!cols'] = [
+                { wch: 30 },  // Nome do Cliente (40%)
+                { wch: 18 },  // Telefone (25%)
+                { wch: 12 },  // Protocolo (15%)
+                { wch: 12 },  // Data (10%)
+                { wch: 10 }   // Hora (10%)
+            ];
+
+            // Mesclar células do título (linha 1)
+            if (!ws['!merges']) ws['!merges'] = [];
+            ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+            
+            // Mesclar células da data (linha 2)
+            ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+
+            // Formatação do título (linha 1)
+            const titleCell = ws['A1'];
+            if (titleCell) {
+                titleCell.s = {
+                    font: { bold: true, sz: 16 },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
+
+            // Formatação da data (linha 2)
+            const dateCell = ws['A2'];
+            if (dateCell) {
+                dateCell.s = {
+                    font: { sz: 12 },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
+
+            // Formatação do cabeçalho (linha 4)
+            headers.forEach((header, colIndex) => {
+                const cellRef = XLSX.utils.encode_cell({ r: 3, c: colIndex });
+                const cell = ws[cellRef];
+                if (cell) {
+                    cell.s = {
+                        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+                        fill: { fgColor: { rgb: '0099FF' } },
+                        alignment: { horizontal: 'left', vertical: 'center' },
+                        border: {
+                            top: { style: 'thin', color: { rgb: '0099FF' } },
+                            bottom: { style: 'thin', color: { rgb: '0099FF' } },
+                            left: { style: 'thin', color: { rgb: '0099FF' } },
+                            right: { style: 'thin', color: { rgb: '0099FF' } }
+                        }
+                    };
+                }
+            });
+
+            // Formatação das linhas de dados
+            data.forEach((row, rowIndex) => {
+                headers.forEach((header, colIndex) => {
+                    const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 4, c: colIndex });
+                    const cell = ws[cellRef];
+                    if (cell) {
+                        // Fundo alternado (zebrado)
+                        const bgColor = rowIndex % 2 === 0 ? 'F8F9FA' : 'FFFFFF';
+                        cell.s = {
+                            font: { sz: 10 },
+                            fill: { fgColor: { rgb: bgColor } },
+                            alignment: { horizontal: 'left', vertical: 'center' },
+                            border: {
+                                top: { style: 'thin', color: { rgb: 'C8C8C8' } },
+                                bottom: { style: 'thin', color: { rgb: 'C8C8C8' } },
+                                left: { style: 'thin', color: { rgb: 'C8C8C8' } },
+                                right: { style: 'thin', color: { rgb: 'C8C8C8' } }
+                            }
+                        };
+                    }
+                });
+            });
+
+            // Adicionar altura para título e data
+            ws['!rows'] = [
+                { hpt: 25 },  // Linha 1: Título
+                { hpt: 20 },  // Linha 2: Data
+                { hpt: 10 },  // Linha 3: Espaço
+                { hpt: 18 },  // Linha 4: Cabeçalho
+                ...data.map(() => ({ hpt: 15 }))  // Linhas de dados
+            ];
+
+            // Adicionar worksheet ao workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Agendamentos');
+
+            // Gerar arquivo Excel
+            const fileName = `agendamentos_${filterDate.replace(/-/g, '_')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            this.showToast('Planilha Excel exportada com sucesso!', 'success');
+        } catch (error) {
+            console.error('Erro ao gerar Excel:', error);
+            // Fallback para CSV se houver erro
+            this.exportAppointmentsToCsv();
+        }
+    }
+
+    exportAppointmentsToCsv() {
+        const filterDate = document.getElementById('filterDate')?.value;
+        const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
+        const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
+        
+        const data = this.appointments.map(apt => [
+            String(apt.customer_name || ''),
+            String(apt.customer_phone || ''),
+            String(apt.protocol || ''),
+            apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+            this.formatTime(apt.appointment_time) || ''
+        ]);
+
+        const escapeCsvValue = (value) => {
+            if (value === null || value === undefined) return '';
+            value = String(value);
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvLines = [
+            'Agendamentos do Dia',
+            `Data: ${dateFormatted}`,
+            '',
+            headers.join(','),
+            ...data.map(row => row.map(escapeCsvValue).join(','))
+        ];
+
+        const csvContent = csvLines.join('\n');
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `agendamentos_${filterDate.replace(/-/g, '_')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        this.showToast('Planilha CSV exportada com sucesso!', 'success');
+    }
+
+    exportAppointmentsToPdf() {
+        const filterDate = document.getElementById('filterDate')?.value;
+        
+        if (!filterDate) {
+            this.showToast('Selecione uma data primeiro para exportar os agendamentos', 'warning');
+            return;
+        }
+
+        if (!this.appointments || this.appointments.length === 0) {
+            this.showToast('Não há agendamentos para exportar nesta data', 'warning');
+            return;
+        }
+
+        // Verificar se jsPDF está disponível
+        if (typeof window.jspdf === 'undefined') {
+            this.showToast('Biblioteca PDF não carregada. Recarregue a página.', 'error');
+            return;
+        }
+
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4'); // Retrato para melhor visualização
+
+            // Configurações
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
+            const startY = 25;
+            let currentY = startY;
+            const rowHeight = 12;
+            const headerHeight = 14;
+            const cellPadding = 6;
+            const spacingAfterTitle = 8;
+            const spacingAfterDate = 15;
+
+            // Título
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Agendamentos do Dia', pageWidth / 2, currentY, { align: 'center' });
+            currentY += spacingAfterTitle;
+
+            // Data
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'normal');
+            const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
+            doc.text(`Data: ${dateFormatted}`, pageWidth / 2, currentY, { align: 'center' });
+            currentY += spacingAfterDate;
+
+            // Calcular larguras das colunas
+            const availableWidth = pageWidth - (margin * 2);
+            const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
+            // Larguras proporcionais ajustadas para A4 retrato
+            const colProportions = [0.40, 0.25, 0.15, 0.10, 0.10];
+            const colWidths = colProportions.map(prop => availableWidth * prop);
+            const startX = margin;
+
+            // Função para desenhar cabeçalho
+            const drawHeader = (y) => {
+                // Fundo azul do cabeçalho
+                doc.setFillColor(0, 153, 255);
+                doc.rect(startX, y, availableWidth, headerHeight, 'F');
+                
+                // Texto do cabeçalho
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                
+                let xPos = startX + cellPadding;
+                headers.forEach((header, index) => {
+                    // Centralizar verticalmente no cabeçalho
+                    doc.text(header, xPos, y + 9);
+                    xPos += colWidths[index];
+                });
+            };
+
+            // Desenhar cabeçalho inicial
+            drawHeader(currentY);
+            currentY += headerHeight + 2; // Espaço extra após cabeçalho
+
+            // Configurar para dados
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            doc.setLineWidth(0.3);
+            doc.setDrawColor(200, 200, 200);
+
+            // Dados
+            this.appointments.forEach((apt, index) => {
+                // Verificar se precisa de nova página
+                if (currentY + rowHeight > pageHeight - 25) {
+                    doc.addPage();
+                    currentY = startY;
+                    drawHeader(currentY);
+                    currentY += headerHeight + 2;
+                }
+
+                const rowData = [
+                    String(apt.customer_name || ''),
+                    String(apt.customer_phone || ''),
+                    String(apt.protocol || ''),
+                    apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+                    this.formatTime(apt.appointment_time) || ''
+                ];
+
+                // Fundo alternado para linhas
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                } else {
+                    doc.setFillColor(255, 255, 255);
+                }
+                doc.rect(startX, currentY - 10, availableWidth, rowHeight, 'F');
+
+                // Desenhar células com dados
+                let xPos = startX;
+                rowData.forEach((cell, cellIndex) => {
+                    // Truncar texto se necessário
+                    let cellText = String(cell || '');
+                    const maxWidth = colWidths[cellIndex] - (cellPadding * 2);
+                    
+                    // Verificar largura do texto
+                    let fontSize = 11;
+                    doc.setFontSize(fontSize);
+                    let textWidth = doc.getTextWidth(cellText);
+                    
+                    // Reduzir fonte se necessário
+                    while (textWidth > maxWidth && fontSize > 8) {
+                        fontSize -= 0.5;
+                        doc.setFontSize(fontSize);
+                        textWidth = doc.getTextWidth(cellText);
+                    }
+                    
+                    // Truncar se ainda não couber
+                    if (textWidth > maxWidth) {
+                        while (doc.getTextWidth(cellText + '...') > maxWidth && cellText.length > 0) {
+                            cellText = cellText.substring(0, cellText.length - 1);
+                        }
+                        cellText = cellText + '...';
+                    }
+                    
+                    // Desenhar texto centralizado verticalmente na célula
+                    doc.text(cellText, xPos + cellPadding, currentY - 3);
+                    doc.setFontSize(11); // Resetar tamanho da fonte
+                    
+                    // Desenhar borda vertical (exceto na última coluna)
+                    if (cellIndex < headers.length - 1) {
+                        doc.setDrawColor(220, 220, 220);
+                        doc.line(xPos + colWidths[cellIndex], currentY - 10, xPos + colWidths[cellIndex], currentY);
+                    }
+                    
+                    xPos += colWidths[cellIndex];
+                });
+
+                // Linha horizontal inferior da linha
+                doc.setDrawColor(200, 200, 200);
+                doc.line(startX, currentY, startX + availableWidth, currentY);
+                
+                currentY += rowHeight + 1; // Espaço extra entre linhas
+            });
+
+            // Borda externa da tabela
+            doc.setLineWidth(0.5);
+            doc.setDrawColor(0, 153, 255);
+            const tableTop = startY + spacingAfterTitle + spacingAfterDate; // Após título e data
+            const tableHeight = currentY - tableTop - 1;
+            doc.rect(startX, tableTop, availableWidth, tableHeight);
+
+            // Rodapé em todas as páginas
+            const totalPages = doc.internal.pages.length - 1;
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(9);
+                doc.setTextColor(100, 100, 100);
+                doc.setFont('helvetica', 'normal');
+                doc.text(
+                    `Página ${i} de ${totalPages} - Total: ${this.appointments.length} agendamento(s)`,
+                    pageWidth / 2,
+                    pageHeight - 10,
+                    { align: 'center' }
+                );
+            }
+
+            // Salvar PDF
+            const fileName = `agendamentos_${filterDate.replace(/-/g, '_')}.pdf`;
+            doc.save(fileName);
+
+            this.showToast('PDF exportado com sucesso!', 'success');
+        } catch (error) {
+            console.error('Erro ao gerar PDF:', error);
+            this.showToast('Erro ao gerar PDF. Verifique o console para mais detalhes.', 'error');
+        }
     }
 
     async saveEditAppointment() {

@@ -136,6 +136,10 @@
         <div class="help-text">
           Esta é a URL base oficial da API para integrações externas
         </div>
+        <div style="margin-top: 10px; padding: 12px; background: var(--background); border-radius: 8px; border-left: 4px solid var(--primary);">
+          <strong style="color: var(--text);">💡 Código para ativar ngrok:</strong>
+          <code style="display: block; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; font-family: monospace; color: var(--text);">ngrok http 3000</code>
+        </div>
       </div>
 
       <!-- Endpoints e Eventos -->
@@ -250,7 +254,7 @@
         const apiBaseUrlInput = document.getElementById('apiBaseUrl');
         if (apiBaseUrlInput) {
           // Tentar obter de variável de ambiente ou usar padrão
-          const defaultNgrokUrl = 'https://seu-ngrok-url.ngrok.io/api';
+          const defaultNgrokUrl = 'https://gulpy-semicylindrical-minta.ngrok-free.dev';
           apiBaseUrlInput.value = defaultNgrokUrl;
           apiBaseUrlInput.placeholder = 'Configure a URL do Ngrok no backend (.env)';
         }
