@@ -14,13 +14,23 @@ class DashboardController {
     try {
       console.log('DashboardController - getDailyStats chamado');
 
+      // Identificar empresa do usuário logado
+      let companyUserId = null;
+      if (req.user) {
+        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+          companyUserId = req.user.id;
+        } else if (req.user.role === 'user' && req.user.parent_user_id) {
+          companyUserId = req.user.parent_user_id;
+        }
+      }
+
       // Calcular data de 30 dias atrás
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDate = thirtyDaysAgo.toISOString().split('T')[0];
 
-      // Usar dados em memória (desenvolvimento)
-      const allAppointments = await Appointment.find();
+      // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
+      const allAppointments = await Appointment.find({}, companyUserId);
       const statsMap = new Map();
 
       // Filtrar apenas agendamentos não cancelados e dentro do período
@@ -79,8 +89,18 @@ class DashboardController {
    */
   async getTopServices(req, res) {
     try {
-      // Usar dados em memória (desenvolvimento)
-      const allAppointments = await Appointment.find();
+      // Identificar empresa do usuário logado
+      let companyUserId = null;
+      if (req.user) {
+        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+          companyUserId = req.user.id;
+        } else if (req.user.role === 'user' && req.user.parent_user_id) {
+          companyUserId = req.user.parent_user_id;
+        }
+      }
+
+      // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
+      const allAppointments = await Appointment.find({}, companyUserId);
       const servicesMap = new Map();
 
       // Filtrar apenas agendamentos não cancelados com notes
@@ -137,8 +157,18 @@ class DashboardController {
 
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      // Usar dados em memória (desenvolvimento)
-      const allAppointments = await Appointment.find();
+      // Identificar empresa do usuário logado
+      let companyUserId = null;
+      if (req.user) {
+        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+          companyUserId = req.user.id;
+        } else if (req.user.role === 'user' && req.user.parent_user_id) {
+          companyUserId = req.user.parent_user_id;
+        }
+      }
+
+      // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
+      const allAppointments = await Appointment.find({}, companyUserId);
 
       // Filtrar apenas agendamentos não cancelados
       const activeAppointments = allAppointments.filter(apt => apt.status !== 'cancelled');

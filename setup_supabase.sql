@@ -31,13 +31,18 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 -- =====================================================
 CREATE TABLE IF NOT EXISTS appointments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    protocol VARCHAR(50) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     customer_name VARCHAR(255) NOT NULL,
     customer_email VARCHAR(255),
     customer_phone VARCHAR(20),
+    customer_cpf VARCHAR(20),
+    service_type VARCHAR(100),
     appointment_date DATE NOT NULL,
     appointment_time TIME NOT NULL,
     duration_minutes INTEGER DEFAULT 60,
     notes TEXT,
+    extra_fields JSONB,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -49,6 +54,8 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
 CREATE INDEX IF NOT EXISTS idx_appointments_customer ON appointments(customer_name);
+CREATE INDEX IF NOT EXISTS idx_appointments_user_id ON appointments(user_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_protocol ON appointments(protocol);
 
 -- =====================================================
 -- TABELA: MODERATOR_SETTINGS (Configurações do Moderador)

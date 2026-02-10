@@ -102,6 +102,7 @@ class Appointment {
   constructor(data) {
     this.id = data.id || uuidv4();
     this.protocol = data.protocol || this.generateProtocol();
+    this.user_id = data.user_id || null; // ID da empresa que criou o agendamento
     this.customer_name = data.customer_name;
     this.customer_email = data.customer_email;
     this.customer_phone = data.customer_phone;
@@ -412,12 +413,13 @@ class Appointment {
       // Verificar conflito de horário (verificação tripla para evitar race conditions)
       console.log('📅 Appointment.create - Verificando conflito de horário...');
       
-      // Primeira verificação
+      // Primeira verificação (filtrar por userId para isolar por empresa)
       const conflict1 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
         data.duration_minutes,
-        null // excludeId
+        null, // excludeId
+        userId // userId para filtrar apenas agendamentos da mesma empresa
       );
       if (conflict1) {
         console.log('❌ Appointment.create - Conflito de horário detectado (primeira verificação)');
@@ -429,7 +431,8 @@ class Appointment {
         normalizedDate,
         normalizedTime,
         data.duration_minutes,
-        null // excludeId
+        null, // excludeId
+        userId // userId para filtrar apenas agendamentos da mesma empresa
       );
       if (conflict2) {
         console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
@@ -441,7 +444,8 @@ class Appointment {
         normalizedDate,
         normalizedTime,
         data.duration_minutes,
-        null // excludeId
+        null, // excludeId
+        userId // userId para filtrar apenas agendamentos da mesma empresa
       );
       if (conflict3) {
         console.log('❌ Appointment.create - Conflito de horário detectado (terceira verificação)');
@@ -467,6 +471,7 @@ class Appointment {
       const appointment = new Appointment({
         ...data,
         protocol,
+        user_id: userId, // Salvar ID da empresa
         appointment_date: normalizedDate,
         appointment_time: normalizedTime
       });
@@ -491,6 +496,7 @@ class Appointment {
                 CREATE TABLE appointments (
                   id TEXT PRIMARY KEY,
                   protocol TEXT UNIQUE NOT NULL,
+                  user_id INTEGER,
                   customer_name TEXT NOT NULL,
                   customer_email TEXT,
                   customer_phone TEXT,
@@ -522,16 +528,17 @@ class Appointment {
 
         const queryText = `
           INSERT INTO appointments (
-            id, protocol, customer_name, customer_email, customer_phone, customer_cpf, service_type,
+            id, protocol, user_id, customer_name, customer_email, customer_phone, customer_cpf, service_type,
             appointment_date, appointment_time, duration_minutes,
             notes, extra_fields, status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING *
         `;
 
         const values = [
           appointment.id,
           appointment.protocol,
+          appointment.user_id || null,
           appointment.customer_name,
           appointment.customer_email || null,
           appointment.customer_phone || null,
@@ -575,6 +582,9 @@ class Appointment {
               
               if (isPostgres) {
                 // Para PostgreSQL, usar IF NOT EXISTS
+                if (!columnName || columnName === 'user_id') {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS user_id INTEGER');
+                }
                 if (!columnName || columnName === 'customer_cpf') {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
                 }
@@ -589,6 +599,9 @@ class Appointment {
                 const tableInfo = await query("PRAGMA table_info(appointments)", []);
                 const existingColumns = tableInfo.rows.map(col => col.name);
                 
+                if (!existingColumns.includes('user_id')) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN user_id INTEGER');
+                }
                 if (!existingColumns.includes('customer_cpf')) {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN customer_cpf TEXT');
                 }
@@ -602,10 +615,12 @@ class Appointment {
                 // Fallback: tentar criar todas as colunas
                 console.log('⚠️ Dialect não reconhecido, tentando criar todas as colunas...');
                 if (isPostgres) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS user_id INTEGER');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_type VARCHAR(100)');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS extra_fields JSONB');
                 } else {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN user_id INTEGER');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN customer_cpf TEXT');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN service_type TEXT');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN extra_fields TEXT');
@@ -675,15 +690,31 @@ class Appointment {
   }
 
   // Buscar agendamento por ID
-  static async findById(id) {
+  // userId opcional: ID da empresa para verificar se o agendamento pertence à empresa
+  static async findById(id, userId = null) {
     if (useMemoryStorage()) {
       // Usar armazenamento em memória
       const appointment = memoryStorage.find(apt => apt.id === id);
-      return appointment || null;
+      if (!appointment) return null;
+      
+      // CRÍTICO: Se userId fornecido, verificar se o agendamento pertence à empresa
+      if (userId && appointment.user_id !== userId) {
+        return null; // Agendamento não pertence à empresa
+      }
+      
+      return appointment;
     } else {
       // Usar PostgreSQL
-      const queryText = 'SELECT * FROM appointments WHERE id = $1';
-      const result = await query(queryText, [id]);
+      let queryText = 'SELECT * FROM appointments WHERE id = $1';
+      const params = [id];
+      
+      // CRÍTICO: Se userId fornecido, filtrar por user_id
+      if (userId) {
+        queryText += ' AND user_id = $2';
+        params.push(userId);
+      }
+      
+      const result = await query(queryText, params);
 
       if (result.rows.length === 0) {
         return null;
@@ -694,15 +725,29 @@ class Appointment {
   }
 
   // Buscar agendamento por protocolo (case-insensitive)
-  static async findByProtocol(protocol) {
+  // userId opcional: ID da empresa para verificar se o agendamento pertence à empresa
+  static async findByProtocol(protocol, userId = null) {
     if (useMemoryStorage()) {
       // Usar armazenamento em memória
-      const appointment = memoryStorage.find(apt => apt.protocol.toUpperCase() === protocol.toUpperCase());
+      const appointment = memoryStorage.find(apt => {
+        if (apt.protocol.toUpperCase() !== protocol.toUpperCase()) return false;
+        // CRÍTICO: Se userId fornecido, verificar se o agendamento pertence à empresa
+        if (userId && apt.user_id !== userId) return false;
+        return true;
+      });
       return appointment || null;
     } else {
       // Usar PostgreSQL - busca case-insensitive
-      const queryText = 'SELECT * FROM appointments WHERE UPPER(protocol) = UPPER($1)';
-      const result = await query(queryText, [protocol]);
+      let queryText = 'SELECT * FROM appointments WHERE UPPER(protocol) = UPPER($1)';
+      const params = [protocol];
+      
+      // CRÍTICO: Se userId fornecido, filtrar por user_id
+      if (userId) {
+        queryText += ' AND user_id = $2';
+        params.push(userId);
+      }
+      
+      const result = await query(queryText, params);
 
       if (result.rows.length === 0) {
         return null;
@@ -713,10 +758,16 @@ class Appointment {
   }
 
   // Buscar agendamentos com filtros
-  static async find(filters = {}) {
+  // userId opcional: ID da empresa para filtrar apenas agendamentos dessa empresa
+  static async find(filters = {}, userId = null) {
     if (useMemoryStorage()) {
       // Usar armazenamento em memória
       let filteredAppointments = [...memoryStorage];
+
+      // CRÍTICO: Filtrar por user_id primeiro (isolamento de dados por empresa)
+      if (userId) {
+        filteredAppointments = filteredAppointments.filter(apt => apt.user_id === userId);
+      }
 
       if (filters.customer_name) {
         const searchTerm = filters.customer_name.toLowerCase();
@@ -759,6 +810,13 @@ class Appointment {
       let queryText = 'SELECT * FROM appointments WHERE 1=1';
       const values = [];
       let paramIndex = 1;
+
+      // CRÍTICO: Filtrar por user_id primeiro (isolamento de dados por empresa)
+      if (userId) {
+        queryText += ` AND user_id = $${paramIndex}`;
+        values.push(userId);
+        paramIndex++;
+      }
 
       if (filters.customer_name) {
         queryText += ` AND customer_name ILIKE $${paramIndex}`;
@@ -850,17 +908,20 @@ class Appointment {
   }
 
   // Verificar conflito de horário
-  static async checkTimeConflict(date, time, duration = 60, excludeId = null) {
+  // userId opcional: ID da empresa para verificar conflitos apenas com agendamentos dessa empresa
+  static async checkTimeConflict(date, time, duration = 60, excludeId = null, userId = null) {
     try {
       if (useMemoryStorage()) {
         // Usar armazenamento em memória
         const normalizedDate = this.normalizeDate(date);
         const normalizedTime = this.normalizeTime(time);
 
-        // Filtrar agendamentos da mesma data e que não estão cancelados
+        // Filtrar agendamentos da mesma data, mesma empresa e que não estão cancelados
         const sameDateAppointments = memoryStorage.filter(apt => {
           if (apt.status === 'cancelled') return false;
           if (excludeId && apt.id === excludeId) return false;
+          // CRÍTICO: Filtrar por user_id para isolar dados por empresa
+          if (userId && apt.user_id !== userId) return false;
           const aptDate = this.normalizeDate(apt.appointment_date);
           return aptDate === normalizedDate;
         });
@@ -893,25 +954,27 @@ class Appointment {
         let queryText;
         let params;
         
+        // Construir query com filtros necessários
+        let paramIndex = 1;
+        queryText = `
+          SELECT appointment_time, duration_minutes, id
+          FROM appointments
+          WHERE appointment_date = $${paramIndex}
+            AND status != 'cancelled'
+        `;
+        params = [normalizedDate];
+        paramIndex++;
+
+        // CRÍTICO: Filtrar por user_id para isolar dados por empresa
+        if (userId) {
+          queryText += ` AND user_id = $${paramIndex}`;
+          params.push(userId);
+          paramIndex++;
+        }
+
         if (excludeId) {
-          // Se há ID para excluir, incluir na query
-          queryText = `
-            SELECT appointment_time, duration_minutes, id
-            FROM appointments
-            WHERE appointment_date = $1
-              AND status != 'cancelled'
-              AND id != $2
-          `;
-          params = [normalizedDate, excludeId];
-        } else {
-          // Se não há ID para excluir, query mais simples
-          queryText = `
-            SELECT appointment_time, duration_minutes, id
-            FROM appointments
-            WHERE appointment_date = $1
-              AND status != 'cancelled'
-          `;
-          params = [normalizedDate];
+          queryText += ` AND id != $${paramIndex}`;
+          params.push(excludeId);
         }
         console.log('🔍 Verificando conflitos no banco:', { date: normalizedDate, time: normalizedTime, duration, excludeId });
         
@@ -977,7 +1040,8 @@ class Appointment {
         excludeId: this.id
       });
 
-      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id);
+      // Verificar conflito considerando apenas agendamentos da mesma empresa
+      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, this.user_id);
       if (conflict) {
         console.log('❌ Appointment.update - Conflito detectado no reagendamento');
         throw new Error(`Já existe um agendamento cadastrado para a data ${newDate} no horário ${newTime}. Por favor, escolha outro horário.`);
@@ -1181,6 +1245,7 @@ class Appointment {
     return {
       id: this.id,
       protocol: this.protocol,
+      user_id: this.user_id, // Incluir user_id no JSON
       customer_name: this.customer_name,
       customer_email: this.customer_email,
       customer_phone: this.customer_phone,

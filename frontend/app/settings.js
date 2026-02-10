@@ -140,6 +140,15 @@ class FormBuilder {
       </div>
     `;
     list.insertAdjacentHTML('beforeend', fieldHtml);
+    
+    // Anexar evento de mudança ao campo recém-criado
+    const newField = list.querySelector(`[data-field-id="${fieldId}"] .extra-field-name`);
+    if (newField) {
+      newField.addEventListener('input', () => {
+        this.settingsManager.markChanged();
+      });
+    }
+    
     this.settingsManager.markChanged();
   }
 
@@ -546,6 +555,9 @@ class SettingsManager {
         
         // Carregar configurações após verificação
         await this.loadSettings();
+        
+        // Anexar eventos de detecção de mudanças após carregar configurações
+        this.detectChanges();
       } else {
         if (errorDiv) {
           errorDiv.textContent = response.message || 'Senha incorreta. Tente novamente.';
@@ -643,7 +655,7 @@ class SettingsManager {
       const newSaveBtn = saveBtn.cloneNode(true);
       saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
       
-      newSaveBtn.addEventListener('click', (e) => {
+      newSaveBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         console.log('🔘 Botão Salvar clicado');
@@ -658,12 +670,22 @@ class SettingsManager {
           return;
         }
         
-        if (!this.hasChanges) {
-          alert('ℹ️ Nenhuma alteração para salvar.');
+        // Permitir salvar mesmo se hasChanges for false (pode haver mudanças não detectadas)
+        // Mas avisar o usuário se realmente não houver mudanças
+        const currentSettings = this.collectAllSettings();
+        const hasRealChanges = JSON.stringify(currentSettings) !== JSON.stringify(this.cachedSettings);
+        
+        if (!hasRealChanges && !this.hasChanges) {
+          alert('ℹ️ Nenhuma alteração detectada para salvar.');
           return;
         }
         
-        this.saveSettings();
+        // Forçar hasChanges se houver diferenças reais
+        if (hasRealChanges) {
+          this.hasChanges = true;
+        }
+        
+        await this.saveSettings();
       });
       
       console.log('✅ Event listener do botão Salvar anexado');
@@ -684,6 +706,22 @@ class SettingsManager {
     // Detectar mudanças - só se senha verificada
     if (this.isPasswordVerified) {
       this.detectChanges();
+    }
+    
+    // Event delegation para campos extras e serviços (funciona mesmo após criação dinâmica)
+    const settingsContainer = document.getElementById('settingsContainer');
+    
+    // Event delegation para detectar mudanças em campos extras e serviços
+    if (settingsContainer) {
+      settingsContainer.addEventListener('input', (e) => {
+        if (e.target.classList.contains('extra-field-name') || 
+            e.target.classList.contains('service-name')) {
+          if (this.isPasswordVerified) {
+            console.log('📝 Mudança detectada via delegation:', e.target.className);
+            this.markChanged();
+          }
+        }
+      });
     }
 
     // Seção admin master para senha
@@ -728,7 +766,6 @@ class SettingsManager {
     };
 
     // Usar o mesmo elemento para evitar múltiplos listeners
-    const settingsContainer = document.getElementById('settingsContainer');
     if (settingsContainer) {
       settingsContainer.addEventListener('click', handleDynamicButtonClick.bind(this));
     } else {
@@ -774,7 +811,10 @@ class SettingsManager {
     // Nome da empresa
     const companyName = document.getElementById('companyName');
     if (companyName) {
-      companyName.addEventListener('input', () => {
+      // Remover listener anterior se existir para evitar duplicação
+      const newCompanyName = companyName.cloneNode(true);
+      companyName.parentNode.replaceChild(newCompanyName, companyName);
+      newCompanyName.addEventListener('input', () => {
         console.log('📝 Mudança detectada no nome da empresa');
         this.markChanged();
       });
@@ -784,15 +824,54 @@ class SettingsManager {
     ['fieldNome', 'fieldTelefone', 'fieldEmail', 'fieldCPF'].forEach(id => {
       const checkbox = document.getElementById(id);
       if (checkbox) {
-        checkbox.addEventListener('change', () => this.markChanged());
+        // Remover listener anterior se existir
+        const newCheckbox = checkbox.cloneNode(true);
+        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+        newCheckbox.checked = checkbox.checked; // Preservar estado
+        newCheckbox.addEventListener('change', () => this.markChanged());
       }
     });
 
+    // Campos extras - usar event delegation para campos dinâmicos
+    const extraFieldsList = document.getElementById('extraFieldsList');
+    if (extraFieldsList) {
+      // Anexar eventos aos campos extras existentes
+      extraFieldsList.querySelectorAll('.extra-field-name').forEach(input => {
+        // Remover listener anterior se existir
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.value = input.value; // Preservar valor
+        newInput.addEventListener('input', () => {
+          console.log('📝 Mudança detectada em campo extra');
+          this.markChanged();
+        });
+      });
+    }
+
+    // Serviços - usar event delegation para campos dinâmicos
+    const servicesList = document.getElementById('servicesList');
+    if (servicesList) {
+      servicesList.querySelectorAll('.service-name').forEach(input => {
+        // Remover listener anterior se existir
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.value = input.value; // Preservar valor
+        newInput.addEventListener('input', () => {
+          console.log('📝 Mudança detectada em serviço');
+          this.markChanged();
+        });
+      });
+    }
+
     // Dias da semana
     document.querySelectorAll('.day-checkbox input[type="checkbox"]').forEach(checkbox => {
-      checkbox.addEventListener('change', () => {
+      // Remover listener anterior se existir
+      const newCheckbox = checkbox.cloneNode(true);
+      checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+      newCheckbox.checked = checkbox.checked; // Preservar estado
+      newCheckbox.addEventListener('change', () => {
         this.markChanged();
-        this.scheduleConfig.updateDayCheckboxStyle(checkbox);
+        this.scheduleConfig.updateDayCheckboxStyle(newCheckbox);
       });
     });
 
@@ -800,7 +879,11 @@ class SettingsManager {
     ['startTime', 'endTime', 'slotInterval'].forEach(id => {
       const input = document.getElementById(id);
       if (input) {
-        input.addEventListener('change', () => this.markChanged());
+        // Remover listener anterior se existir
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.value = input.value; // Preservar valor
+        newInput.addEventListener('change', () => this.markChanged());
       }
     });
   }
