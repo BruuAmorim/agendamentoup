@@ -28,21 +28,20 @@ class AppointmentController {
         filters.end_date = end_date;
       }
 
-      // Identificar empresa do usuário logado para filtrar agendamentos
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // admin_master pode ver todos (empresa_id será null)
+      let empresa_id = null;
       if (req.user) {
-        // Se o usuário é empresa, usar seu próprio ID
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        }
-        // Se for funcionário, usar parent_user_id
-        else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        // empresa_id já vem no token JWT (calculado no generateToken)
+        empresa_id = req.user.empresa_id || null;
+        
+        // Se admin_master, empresa_id será null e verá todos
+        // Caso contrário, empresa_id será o ID da empresa do usuário
       }
 
       // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
-      const appointments = await Appointment.find(filters, companyUserId);
+      // Se empresa_id for null (admin_master), retornar todos
+      const appointments = await Appointment.find(filters, empresa_id);
 
       // Paginação
       const startIndex = (page - 1) * limit;
@@ -75,18 +74,14 @@ class AppointmentController {
     try {
       const { id } = req.params;
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findById(id, companyUserId);
+      const appointment = await Appointment.findById(id, empresa_id);
 
       if (!appointment) {
         return res.status(404).json({
@@ -132,18 +127,14 @@ class AppointmentController {
         });
       }
 
-      // Identificar empresa do usuário logado para filtrar agendamentos
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar horários disponíveis apenas considerando agendamentos da mesma empresa
-      const availableSlots = await Appointment.getAvailableSlots(date, parseInt(duration), companyUserId);
+      const availableSlots = await Appointment.getAvailableSlots(date, parseInt(duration), empresa_id);
 
       res.json({
         success: true,
@@ -191,18 +182,32 @@ class AppointmentController {
 
       console.log('📅 Dados processados:', appointmentData);
       
-      // Identificar empresa do usuário logado (se disponível)
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        // Se o usuário é empresa, usar seu próprio ID
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-          console.log('📅 Empresa identificada:', companyUserId);
-        }
-        // Se for funcionário, usar parent_user_id
-        else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-          console.log('📅 Empresa identificada via funcionário:', companyUserId);
+        empresa_id = req.user.empresa_id || null;
+        console.log('📅 Empresa identificada do token:', empresa_id);
+      }
+      
+      // CRÍTICO: Validar que empresa_id está presente (exceto para admin_master)
+      // Mesmo admin_master deve fornecer empresa_id ao criar agendamento para outra empresa
+      if (!empresa_id) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado',
+          message: 'É necessário estar associado a uma empresa para criar agendamentos. Admin master deve especificar empresa_id no body.'
+        });
+      }
+      
+      // CRÍTICO: Se admin_master forneceu empresa_id no body, usar esse (permite criar para outras empresas)
+      // Caso contrário, usar empresa_id do token
+      if (req.user && req.user.role === 'admin_master' && appointmentData.empresa_id) {
+        const bodyEmpresaId = parseInt(appointmentData.empresa_id);
+        if (!isNaN(bodyEmpresaId)) {
+          empresa_id = bodyEmpresaId;
+          console.log('📅 Admin master criando agendamento para empresa:', empresa_id);
+          // Remover empresa_id do body para não salvar diretamente
+          delete appointmentData.empresa_id;
         }
       }
       
@@ -210,8 +215,8 @@ class AppointmentController {
       
       let appointment;
       try {
-        // Passar userId da empresa para validação usar configurações corretas
-        appointment = await Appointment.create(appointmentData, companyUserId);
+        // CRÍTICO: Passar empresa_id do token para garantir isolamento
+        appointment = await Appointment.create(appointmentData, empresa_id);
         console.log('✅ Agendamento criado com sucesso!');
       } catch (createError) {
         console.error('❌ Erro ao criar agendamento:', createError);
@@ -319,18 +324,14 @@ class AppointmentController {
       const { id } = req.params;
       const updateData = req.body;
 
-      // Identificar empresa do usuário logado (se disponível) para validação (RF02)
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findById(id, companyUserId);
+      const appointment = await Appointment.findById(id, empresa_id);
 
       if (!appointment) {
         return res.status(404).json({
@@ -342,7 +343,7 @@ class AppointmentController {
       const oldData = appointment.toJSON();
       
       // RF02 - Atualizar com validação de conflito e horário de expediente
-      const updatedAppointment = await appointment.update(updateData, companyUserId);
+      const updatedAppointment = await appointment.update(updateData, empresa_id);
       const newData = updatedAppointment.toJSON();
 
       // Registrar log
@@ -405,18 +406,14 @@ class AppointmentController {
       const { id } = req.params;
       const { reason } = req.body;
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findById(id, companyUserId);
+      const appointment = await Appointment.findById(id, empresa_id);
 
       if (!appointment) {
         return res.status(404).json({
@@ -460,18 +457,14 @@ class AppointmentController {
     try {
       const { id } = req.params;
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findById(id, companyUserId);
+      const appointment = await Appointment.findById(id, empresa_id);
 
       if (!appointment) {
         return res.status(404).json({
@@ -521,14 +514,10 @@ class AppointmentController {
         });
       }
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
@@ -537,7 +526,7 @@ class AppointmentController {
       console.log('🔍 Buscando agendamento com protocolo:', cleanProtocol);
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findByProtocol(cleanProtocol, companyUserId);
+      const appointment = await Appointment.findByProtocol(cleanProtocol, empresa_id);
 
       if (!appointment) {
         console.log('❌ Agendamento não encontrado com protocolo:', cleanProtocol);
@@ -585,14 +574,10 @@ class AppointmentController {
         });
       }
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
@@ -601,7 +586,7 @@ class AppointmentController {
       console.log('🔍 Buscando agendamento com protocolo:', cleanProtocol);
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findByProtocol(cleanProtocol, companyUserId);
+      const appointment = await Appointment.findByProtocol(cleanProtocol, empresa_id);
 
       if (!appointment) {
         console.log('❌ Agendamento não encontrado com protocolo:', cleanProtocol);
@@ -658,8 +643,8 @@ class AppointmentController {
 
       console.log('📝 Atualizando agendamento:', updateData);
 
-      // Atualizar o agendamento
-      const updatedAppointment = await appointment.update(updateData);
+      // Atualizar o agendamento com validação de empresa (empresa_id já foi obtido acima)
+      const updatedAppointment = await appointment.update(updateData, empresa_id);
 
       // Disparar webhook para n8n (assíncrono, não bloqueia a resposta)
       WebhookService.onAppointmentUpdated(updatedAppointment.id).catch(err => {
@@ -735,18 +720,14 @@ class AppointmentController {
 
       console.log('🕐 Horários possíveis do dia:', horariosPossiveis);
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamentos existentes apenas da empresa do usuário logado
-      const agendamentosExistentes = await Appointment.find({ date: date }, companyUserId);
+      const agendamentosExistentes = await Appointment.find({ date: date }, empresa_id);
 
       console.log(`📋 Encontrados ${agendamentosExistentes.length} agendamentos para ${date}`);
       if (agendamentosExistentes.length > 0) {
@@ -785,18 +766,14 @@ class AppointmentController {
     try {
       const { protocol } = req.params;
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
-      const appointment = await Appointment.findByProtocol(protocol, companyUserId);
+      const appointment = await Appointment.findByProtocol(protocol, empresa_id);
 
       if (!appointment) {
         return res.status(404).json({
@@ -834,14 +811,10 @@ class AppointmentController {
     try {
       const { start_date, end_date } = req.query;
 
-      // Identificar empresa do usuário logado
-      let companyUserId = null;
+      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      let empresa_id = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
-          companyUserId = req.user.id;
-        } else if (req.user.role === 'user' && req.user.parent_user_id) {
-          companyUserId = req.user.parent_user_id;
-        }
+        empresa_id = req.user.empresa_id || null;
       }
 
       // Verificar se deve usar armazenamento em memória
@@ -853,7 +826,7 @@ class AppointmentController {
         // Usar armazenamento em memória
         const Appointment = require('../models/Appointment');
         // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
-        appointments = Appointment.find ? await Appointment.find({}, companyUserId) : [];
+        appointments = Appointment.find ? await Appointment.find({}, empresa_id) : [];
       } else {
         // Usar PostgreSQL - implementação original seria aqui
         return res.status(500).json({

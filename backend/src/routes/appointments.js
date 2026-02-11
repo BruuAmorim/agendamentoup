@@ -10,6 +10,10 @@
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
+const { verifyToken } = require('../middleware/auth');
+
+// CRÍTICO: Todas as rotas de agendamentos exigem autenticação para garantir isolamento multi-tenant
+router.use(verifyToken);
 
 // Middleware de validação para criação/atualização
 const validateAppointment = (req, res, next) => {

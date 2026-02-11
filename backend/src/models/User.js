@@ -146,12 +146,26 @@ module.exports = (sequelize) => {
   User.prototype.generateToken = function() {
     const jwt = require('jsonwebtoken');
     const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    
+    // Calcular empresa_id baseado no role e parent_user_id
+    let empresa_id = null;
+    if (this.role === 'moderator' || this.role === 'empresa') {
+      // Empresa usa seu próprio ID
+      empresa_id = this.id;
+    } else if (this.role === 'user' && this.parent_user_id) {
+      // Funcionário usa o ID da empresa pai
+      empresa_id = this.parent_user_id;
+    }
+    // admin_master não tem empresa_id (pode ver todos)
+    
     return jwt.sign(
       {
         id: this.id,
         email: this.email,
         role: this.role,
-        name: this.name
+        name: this.name,
+        empresa_id: empresa_id,
+        parent_user_id: this.parent_user_id || null
       },
       JWT_SECRET,
       { expiresIn: '8h' }

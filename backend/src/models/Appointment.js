@@ -758,15 +758,21 @@ class Appointment {
   }
 
   // Buscar agendamentos com filtros
-  // userId opcional: ID da empresa para filtrar apenas agendamentos dessa empresa
+  // userId obrigatório para isolamento multi-tenant (null apenas para admin_master)
   static async find(filters = {}, userId = null) {
     if (useMemoryStorage()) {
       // Usar armazenamento em memória
       let filteredAppointments = [...memoryStorage];
 
       // CRÍTICO: Filtrar por user_id primeiro (isolamento de dados por empresa)
-      if (userId) {
+      // Se userId for null, retornar array vazio (admin_master deve passar userId explícito ou null intencionalmente)
+      // Em produção, userId nunca deve ser null para usuários normais
+      if (userId !== null) {
         filteredAppointments = filteredAppointments.filter(apt => apt.user_id === userId);
+      } else {
+        // userId null significa "ver todos" - apenas para admin_master
+        // Manter todos os agendamentos (comportamento para admin_master)
+        console.warn('⚠️ Appointment.find chamado com userId=null - retornando todos os agendamentos (apenas para admin_master)');
       }
 
       if (filters.customer_name) {
@@ -812,10 +818,14 @@ class Appointment {
       let paramIndex = 1;
 
       // CRÍTICO: Filtrar por user_id primeiro (isolamento de dados por empresa)
-      if (userId) {
+      // Se userId for null, não adicionar filtro (admin_master vê todos)
+      // Em produção, userId nunca deve ser null para usuários normais
+      if (userId !== null) {
         queryText += ` AND user_id = $${paramIndex}`;
         values.push(userId);
         paramIndex++;
+      } else {
+        console.warn('⚠️ Appointment.find chamado com userId=null - retornando todos os agendamentos (apenas para admin_master)');
       }
 
       if (filters.customer_name) {
@@ -850,27 +860,41 @@ class Appointment {
   }
 
   // Buscar horários disponíveis para uma data
-  static async getAvailableSlots(date, duration = 60) {
+  // userId opcional: ID da empresa para filtrar apenas agendamentos dessa empresa
+  static async getAvailableSlots(date, duration = 60, userId = null) {
     let bookedSlots;
 
     if (useMemoryStorage()) {
       // Usar armazenamento em memória
       bookedSlots = memoryStorage
-        .filter(apt => apt.appointment_date === date && apt.status !== 'cancelled')
+        .filter(apt => {
+          if (apt.appointment_date !== date || apt.status === 'cancelled') return false;
+          // CRÍTICO: Filtrar por user_id para isolar dados por empresa
+          if (userId && apt.user_id !== userId) return false;
+          return true;
+        })
         .map(apt => ({
           appointment_time: apt.appointment_time,
           duration_minutes: apt.duration_minutes
         }));
     } else {
       // Usar PostgreSQL
-      const queryText = `
+      let queryText = `
         SELECT appointment_time, duration_minutes
         FROM appointments
         WHERE appointment_date = $1 AND status != 'cancelled'
-        ORDER BY appointment_time ASC
       `;
+      const params = [date];
+      
+      // CRÍTICO: Filtrar por user_id para isolar dados por empresa
+      if (userId) {
+        queryText += ' AND user_id = $2';
+        params.push(userId);
+      }
+      
+      queryText += ' ORDER BY appointment_time ASC';
 
-      const result = await query(queryText, [date]);
+      const result = await query(queryText, params);
       bookedSlots = result.rows;
     }
 
@@ -1041,7 +1065,9 @@ class Appointment {
       });
 
       // Verificar conflito considerando apenas agendamentos da mesma empresa
-      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, this.user_id);
+      // Usar userId passado como parâmetro, ou this.user_id como fallback
+      const empresaId = userId || this.user_id;
+      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, empresaId);
       if (conflict) {
         console.log('❌ Appointment.update - Conflito detectado no reagendamento');
         throw new Error(`Já existe um agendamento cadastrado para a data ${newDate} no horário ${newTime}. Por favor, escolha outro horário.`);

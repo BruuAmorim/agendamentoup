@@ -14,10 +14,29 @@ class N8nAppointmentController {
     return Appointment.normalizeTime(time);
   }
 
-  // GET /api/n8n/appointments?date=YYYY-MM-DD&status=pending
+  // GET /api/n8n/appointments?date=YYYY-MM-DD&status=pending&empresa_id=123
   static async list(req, res) {
     try {
-      const { date, status, customer_name, start_date, end_date } = req.query;
+      const { date, status, customer_name, start_date, end_date, empresa_id } = req.query;
+      
+      // CRÍTICO: empresa_id é obrigatório para integrações n8n
+      if (!empresa_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id obrigatório',
+          message: 'O parâmetro empresa_id é obrigatório para filtrar agendamentos por empresa'
+        });
+      }
+      
+      const empresaIdInt = parseInt(empresa_id);
+      if (isNaN(empresaIdInt)) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id inválido',
+          message: 'empresa_id deve ser um número válido'
+        });
+      }
+      
       const filters = {};
       if (customer_name) filters.customer_name = customer_name;
       if (status) filters.status = status;
@@ -27,7 +46,8 @@ class N8nAppointmentController {
         filters.end_date = this.normalizeDate(end_date);
       }
 
-      const appointments = await Appointment.find(filters);
+      // CRÍTICO: Filtrar apenas agendamentos da empresa especificada
+      const appointments = await Appointment.find(filters, empresaIdInt);
       return res.json({
         success: true,
         data: appointments.map(a => a.toJSON())
@@ -43,16 +63,40 @@ class N8nAppointmentController {
   }
 
   // POST /api/n8n/appointments
+  // Body deve conter empresa_id obrigatoriamente
   static async create(req, res) {
     try {
       const body = req.body || {};
+      
+      // CRÍTICO: empresa_id é obrigatório para integrações n8n
+      if (!body.empresa_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id obrigatório',
+          message: 'O campo empresa_id é obrigatório no body da requisição'
+        });
+      }
+      
+      const empresaIdInt = parseInt(body.empresa_id);
+      if (isNaN(empresaIdInt)) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id inválido',
+          message: 'empresa_id deve ser um número válido'
+        });
+      }
+      
       const payload = {
         ...body,
         appointment_date: this.normalizeDate(body.appointment_date),
         appointment_time: this.normalizeTime(body.appointment_time)
       };
+      
+      // Remover empresa_id do payload (será passado como userId para create)
+      delete payload.empresa_id;
 
-      const appointment = await Appointment.create(payload);
+      // CRÍTICO: Passar empresa_id como userId para garantir isolamento
+      const appointment = await Appointment.create(payload, empresaIdInt);
       return res.status(201).json({
         success: true,
         message: 'Agendamento criado com sucesso',
@@ -71,24 +115,49 @@ class N8nAppointmentController {
   }
 
   // PUT /api/n8n/appointments/:id
+  // Body deve conter empresa_id obrigatoriamente
   static async update(req, res) {
     try {
       const { id } = req.params;
       const body = req.body || {};
+      
+      // CRÍTICO: empresa_id é obrigatório para integrações n8n
+      if (!body.empresa_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id obrigatório',
+          message: 'O campo empresa_id é obrigatório no body da requisição'
+        });
+      }
+      
+      const empresaIdInt = parseInt(body.empresa_id);
+      if (isNaN(empresaIdInt)) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id inválido',
+          message: 'empresa_id deve ser um número válido'
+        });
+      }
 
-      const appointment = await Appointment.findById(id);
+      // CRÍTICO: Buscar agendamento apenas se pertencer à empresa especificada
+      const appointment = await Appointment.findById(id, empresaIdInt);
       if (!appointment) {
         return res.status(404).json({
           success: false,
-          error: 'Agendamento não encontrado'
+          error: 'Agendamento não encontrado',
+          message: 'Agendamento não encontrado ou não pertence à empresa especificada'
         });
       }
 
       const payload = { ...body };
+      // Remover empresa_id do payload (não deve ser atualizado)
+      delete payload.empresa_id;
+      
       if (payload.appointment_date) payload.appointment_date = this.normalizeDate(payload.appointment_date);
       if (payload.appointment_time) payload.appointment_time = this.normalizeTime(payload.appointment_time);
 
-      const updated = await appointment.update(payload);
+      // CRÍTICO: Passar empresa_id para validação de conflitos
+      const updated = await appointment.update(payload, empresaIdInt);
       return res.json({
         success: true,
         message: 'Agendamento atualizado com sucesso',
@@ -107,9 +176,10 @@ class N8nAppointmentController {
   }
 
   // DELETE /api/n8n/appointments
+  // Body deve conter empresa_id obrigatoriamente
   static async remove(req, res) {
     try {
-      const { protocol } = req.body;
+      const { protocol, empresa_id } = req.body;
 
       if (!protocol) {
         return res.status(400).json({
@@ -117,12 +187,32 @@ class N8nAppointmentController {
           error: 'Protocolo é obrigatório'
         });
       }
+      
+      // CRÍTICO: empresa_id é obrigatório para integrações n8n
+      if (!empresa_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id obrigatório',
+          message: 'O campo empresa_id é obrigatório no body da requisição'
+        });
+      }
+      
+      const empresaIdInt = parseInt(empresa_id);
+      if (isNaN(empresaIdInt)) {
+        return res.status(400).json({
+          success: false,
+          error: 'empresa_id inválido',
+          message: 'empresa_id deve ser um número válido'
+        });
+      }
 
-      const appointment = await Appointment.findByProtocol(protocol);
+      // CRÍTICO: Buscar agendamento apenas se pertencer à empresa especificada
+      const appointment = await Appointment.findByProtocol(protocol, empresaIdInt);
       if (!appointment) {
         return res.status(404).json({
           success: false,
-          error: 'Agendamento não encontrado'
+          error: 'Agendamento não encontrado',
+          message: 'Agendamento não encontrado ou não pertence à empresa especificada'
         });
       }
 
