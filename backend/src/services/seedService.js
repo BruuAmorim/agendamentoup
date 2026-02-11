@@ -1,4 +1,6 @@
 const { User } = require('../models/index');
+const { Op } = require('sequelize');
+const ApiKeyService = require('./apiKeyService');
 
 /**
  * Serviço para criar usuários iniciais (seeds)
@@ -44,6 +46,34 @@ class SeedService {
         console.log('✅ Usuário de teste criado: usuarioteste@gmail.com');
       } else {
         console.log('ℹ️ Usuário de teste já existe: usuarioteste@gmail.com');
+      }
+
+      // Gerar API Keys automaticamente para empresas/moderators existentes sem API Key
+      try {
+        console.log('🔑 Verificando empresas sem API Key...');
+        const empresasSemApiKey = await User.findAll({
+          where: {
+            role: { [Op.in]: ['moderator', 'empresa'] },
+            api_key_hash: null
+          }
+        });
+
+        for (const empresa of empresasSemApiKey) {
+          try {
+            console.log(`🔑 Gerando API Key para empresa ID: ${empresa.id} - ${empresa.name}`);
+            await ApiKeyService.generateAndSaveApiKey(empresa.id);
+            console.log(`✅ API Key gerada para empresa ID: ${empresa.id}`);
+          } catch (apiKeyError) {
+            console.warn(`⚠️ Erro ao gerar API Key para empresa ${empresa.id}:`, apiKeyError.message);
+          }
+        }
+
+        if (empresasSemApiKey.length > 0) {
+          console.log(`✅ API Keys geradas para ${empresasSemApiKey.length} empresa(s)`);
+        }
+      } catch (seedApiKeyError) {
+        console.warn('⚠️ Erro ao gerar API Keys no seed:', seedApiKeyError.message);
+        // Não falhar o seed se houver erro
       }
 
       console.log('🎯 Seed de usuários concluído com sucesso!');

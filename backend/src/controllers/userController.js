@@ -1,5 +1,6 @@
 const { User } = require('../models');
 const LogService = require('../services/logService');
+const ApiKeyService = require('../services/apiKeyService');
 
 /**
  * Controller de Gerenciamento de Usuários
@@ -118,6 +119,19 @@ class UserController {
       });
       
       console.log('✅ Usuário criado:', { id: newUser.id, email: newUser.email, role: newUser.role });
+
+      // CRÍTICO: Gerar API Key automaticamente para empresas/moderators
+      if (userRole === 'moderator' || userRole === 'empresa') {
+        try {
+          console.log(`🔑 Gerando API Key automaticamente para empresa ID: ${newUser.id}`);
+          await ApiKeyService.generateAndSaveApiKey(newUser.id);
+          console.log(`✅ API Key gerada automaticamente para empresa ID: ${newUser.id}`);
+        } catch (apiKeyError) {
+          console.error('⚠️ Erro ao gerar API Key automaticamente:', apiKeyError);
+          // Não falhar a criação do usuário se a API Key falhar
+          // A API Key pode ser gerada depois via painel
+        }
+      }
 
       console.log('🔍 DEBUG - Usuário criado:', { id: newUser.id, role: newUser.role }); // DEBUG
 

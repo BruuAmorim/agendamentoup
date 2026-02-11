@@ -182,25 +182,31 @@ class AppointmentController {
 
       console.log('📅 Dados processados:', appointmentData);
       
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id - pode vir de API Key (req.empresa_id) ou JWT (req.user)
       let empresa_id = null;
-      if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+      
+      // Prioridade 1: API Key (rotas públicas)
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+        console.log('📅 Empresa identificada via API Key:', empresa_id);
+      }
+      // Prioridade 2: JWT Token (rotas autenticadas)
+      else if (req.user) {
+        empresa_id = req.user.empresa_id || req.user.id;
         console.log('📅 Empresa identificada do token:', empresa_id);
       }
       
-      // CRÍTICO: Validar que empresa_id está presente (exceto para admin_master)
-      // Mesmo admin_master deve fornecer empresa_id ao criar agendamento para outra empresa
+      // CRÍTICO: Validar que empresa_id está presente
       if (!empresa_id) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
-          message: 'É necessário estar associado a uma empresa para criar agendamentos. Admin master deve especificar empresa_id no body.'
+          message: 'É necessário estar associado a uma empresa para criar agendamentos. Use API Key (x-api-key) ou faça login.'
         });
       }
       
       // CRÍTICO: Se admin_master forneceu empresa_id no body, usar esse (permite criar para outras empresas)
-      // Caso contrário, usar empresa_id do token
+      // Caso contrário, usar empresa_id já identificado
       if (req.user && req.user.role === 'admin_master' && appointmentData.empresa_id) {
         const bodyEmpresaId = parseInt(appointmentData.empresa_id);
         if (!isNaN(bodyEmpresaId)) {

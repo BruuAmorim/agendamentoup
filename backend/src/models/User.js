@@ -45,6 +45,26 @@ module.exports = (sequelize) => {
         key: 'id'
       }
     },
+    api_key_hash: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: null,
+    },
+    api_key_prefix: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: null,
+    },
+    api_key_created_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
+    api_key_last_regenerated: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

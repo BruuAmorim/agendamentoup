@@ -129,7 +129,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/public/appointments', require('./src/routes/publicAppointmentsRoutes')); // Rotas públicas com API Key
 app.use('/api/integrations', integrationRoutes);
+app.use('/api/admin/integrations', require('./src/routes/adminIntegrationRoutes'));
+app.use('/api/empresa/api-key', require('./src/routes/empresaApiKeyRoutes')); // Rotas de API Key de empresas
 app.use('/api/n8n', n8nRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/moderator', moderatorRoutes);

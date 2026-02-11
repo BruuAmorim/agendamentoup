@@ -441,6 +441,9 @@ class SettingsManager {
     // Mas só permitir edição após verificação de senha
     this.bindEvents();
     
+    // Inicializar gerenciamento de API Key (apenas para empresas)
+    this.initApiKeyManagement();
+    
     // Desabilitar campos inicialmente se senha não verificada
     if (!this.isPasswordVerified) {
       this.toggleFieldsEnabled(false);
@@ -492,6 +495,9 @@ class SettingsManager {
         input.focus();
       }
     }
+
+    // Inicializar gerenciamento de API Key (apenas para empresas)
+    this.initApiKeyManagement();
 
     // Bind eventos do lock screen
     const verifyBtn = document.getElementById('verifyPasswordBtn');
@@ -629,14 +635,22 @@ class SettingsManager {
 
   bindEvents() {
     // Tabs - sempre funcionam
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const tabName = e.target.dataset.tab || e.target.closest('.tab-btn')?.dataset.tab;
-        if (tabName) {
-          this.switchTab(tabName);
-        }
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const tabName = e.target.dataset.tab || e.target.closest('.tab-btn')?.dataset.tab;
+          if (tabName) {
+            this.switchTab(tabName);
+            // Se clicou na tab de integrações, carregar informações da API Key
+            if (tabName === 'integrations') {
+              console.log('🔍 [bindEvents] Tab Integrações clicada, carregando informações...');
+              // Aguardar um pouco para garantir que a tab foi trocada
+              setTimeout(() => {
+                this.loadApiKeyInfo();
+              }, 100);
+            }
+          }
+        });
       });
-    });
 
     // Logo upload
     const logoUpload = document.getElementById('logoUpload');
@@ -651,22 +665,37 @@ class SettingsManager {
     // Salvar configurações - só funciona se senha verificada
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
-      // Remover event listeners anteriores para evitar duplicação
+      // Remover TODOS os event listeners anteriores
       const newSaveBtn = saveBtn.cloneNode(true);
       saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
       
-      newSaveBtn.addEventListener('click', async (e) => {
+      // Garantir que o botão não está desabilitado por padrão
+      newSaveBtn.disabled = false;
+      
+      // Anexar event listener usando uma função nomeada para facilitar debug
+      const handleSaveClick = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔘 Botão Salvar clicado');
-        console.log('🔘 Estado:', {
+        
+        console.log('🔘 [handleSaveClick] Botão Salvar clicado!');
+        console.log('🔘 [handleSaveClick] Estado completo:', {
           isPasswordVerified: this.isPasswordVerified,
           hasChanges: this.hasChanges,
-          disabled: newSaveBtn.disabled
+          buttonDisabled: newSaveBtn.disabled,
+          buttonExists: !!newSaveBtn,
+          buttonText: newSaveBtn.textContent
         });
         
+        // Verificar senha apenas se necessário
         if (!this.isPasswordVerified) {
+          console.warn('⚠️ [handleSaveClick] Senha não verificada');
           alert('⚠️ Por favor, verifique sua senha primeiro.');
+          return;
+        }
+        
+        // Verificar se o botão está desabilitado (pode estar em processo de salvamento)
+        if (newSaveBtn.disabled && newSaveBtn.textContent.includes('Salvando')) {
+          console.log('⚠️ [handleSaveClick] Salvamento já em andamento');
           return;
         }
         
@@ -675,22 +704,47 @@ class SettingsManager {
         const currentSettings = this.collectAllSettings();
         const hasRealChanges = JSON.stringify(currentSettings) !== JSON.stringify(this.cachedSettings);
         
+        console.log('🔘 [handleSaveClick] Verificação de mudanças:', {
+          hasRealChanges,
+          hasChanges: this.hasChanges,
+          cachedSettingsExists: !!this.cachedSettings
+        });
+        
         if (!hasRealChanges && !this.hasChanges) {
+          console.log('ℹ️ [handleSaveClick] Nenhuma alteração detectada');
           alert('ℹ️ Nenhuma alteração detectada para salvar.');
           return;
         }
         
         // Forçar hasChanges se houver diferenças reais
         if (hasRealChanges) {
+          console.log('✅ [handleSaveClick] Mudanças detectadas, forçando hasChanges');
           this.hasChanges = true;
         }
         
+        // Chamar método de salvamento
+        console.log('💾 [handleSaveClick] Chamando saveSettings()...');
         await this.saveSettings();
+      };
+      
+      newSaveBtn.addEventListener('click', handleSaveClick);
+      
+      // Também permitir Enter no botão se estiver focado
+      newSaveBtn.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleSaveClick(e);
+        }
       });
       
-      console.log('✅ Event listener do botão Salvar anexado');
+      console.log('✅ [bindEvents] Event listener do botão Salvar anexado com sucesso');
+      console.log('✅ [bindEvents] Botão estado:', {
+        disabled: newSaveBtn.disabled,
+        text: newSaveBtn.textContent,
+        id: newSaveBtn.id
+      });
     } else {
-      console.error('❌ Botão saveSettingsBtn não encontrado!');
+      console.error('❌ [bindEvents] Botão saveSettingsBtn não encontrado no DOM!');
     }
 
     // Logout - sempre funciona
@@ -797,6 +851,13 @@ class SettingsManager {
       const targetTab = document.getElementById(`${tabName}-tab`);
       if (targetTab) {
         targetTab.classList.add('active');
+        // Se for a tab de integrações, carregar informações da API Key
+        if (tabName === 'integrations') {
+          setTimeout(() => {
+            console.log('🔍 [switchTab] Carregando informações da API Key após trocar para tab Integrações...');
+            this.loadApiKeyInfo();
+          }, 200);
+        }
       } else {
         console.error(`❌ Tab ${tabName}-tab não encontrada`);
       }
@@ -891,13 +952,33 @@ class SettingsManager {
   updateSaveButton() {
     const saveBtn = document.getElementById('saveSettingsBtn');
     if (saveBtn) {
-      // Habilitar apenas se senha verificada E houver mudanças
-      saveBtn.disabled = !this.isPasswordVerified || !this.hasChanges;
-      console.log('🔘 updateSaveButton - Estado:', {
+      // CRÍTICO: Botão só deve estar desabilitado se:
+      // 1. Senha não verificada OU
+      // 2. Está salvando (textContent contém "Salvando")
+      const isSaving = saveBtn.textContent.includes('Salvando');
+      saveBtn.disabled = !this.isPasswordVerified || isSaving;
+      
+      // Visual: mostrar estilo diferente se não houver mudanças detectadas
+      if (this.hasChanges && !isSaving) {
+        saveBtn.style.opacity = '1';
+        saveBtn.style.cursor = 'pointer';
+        saveBtn.style.pointerEvents = 'auto';
+      } else if (!isSaving) {
+        saveBtn.style.opacity = '0.7';
+        saveBtn.style.cursor = 'pointer';
+        saveBtn.style.pointerEvents = 'auto'; // Sempre permite clicar se não estiver salvando
+      }
+      
+      console.log('🔘 [updateSaveButton] Estado atualizado:', {
         isPasswordVerified: this.isPasswordVerified,
         hasChanges: this.hasChanges,
-        disabled: saveBtn.disabled
+        isSaving,
+        disabled: saveBtn.disabled,
+        buttonText: saveBtn.textContent,
+        buttonExists: !!saveBtn
       });
+    } else {
+      console.warn('⚠️ [updateSaveButton] Botão saveSettingsBtn não encontrado!');
     }
   }
 
@@ -947,20 +1028,36 @@ class SettingsManager {
   }
 
   async saveSettings() {
+    console.log('💾 [saveSettings] Iniciando salvamento...');
+    console.log('💾 [saveSettings] Estado:', {
+      isPasswordVerified: this.isPasswordVerified,
+      hasChanges: this.hasChanges
+    });
+    
     if (!this.isPasswordVerified) {
       alert('Por favor, verifique sua senha primeiro.');
       return;
     }
 
     const saveBtn = document.getElementById('saveSettingsBtn');
-    if (saveBtn && saveBtn.disabled) {
-      console.log('⚠️ Salvamento já em andamento, ignorando...');
+    if (!saveBtn) {
+      console.error('❌ [saveSettings] Botão saveSettingsBtn não encontrado!');
+      alert('❌ Erro: Botão de salvar não encontrado. Recarregue a página.');
+      return;
+    }
+    
+    // Verificar se já está salvando
+    if (saveBtn.disabled && saveBtn.textContent.includes('Salvando')) {
+      console.log('⚠️ [saveSettings] Salvamento já em andamento, ignorando...');
       return;
     }
 
+    // Desabilitar botão durante salvamento
     if (saveBtn) {
       saveBtn.disabled = true;
       saveBtn.textContent = '💾 Salvando...';
+      saveBtn.style.cursor = 'wait';
+      console.log('💾 [saveSettings] Botão desabilitado para salvamento');
     }
 
     try {
@@ -1022,9 +1119,16 @@ class SettingsManager {
         
         alert('✅ Configurações salvas com sucesso!');
         
+        // Reabilitar botão após salvamento bem-sucedido
         if (saveBtn) {
+          saveBtn.disabled = false;
           saveBtn.textContent = '💾 Salvar Alterações';
+          saveBtn.style.cursor = 'pointer';
+          console.log('✅ [saveSettings] Botão reabilitado após salvamento');
         }
+        
+        // Atualizar estado do botão
+        this.updateSaveButton();
       } else {
         throw new Error(response.message || 'Erro ao salvar configurações');
       }
@@ -1410,4 +1514,213 @@ function addService() {
     alert('❌ Erro ao adicionar serviço. Tente novamente.');
   }
 }
+
+// Gerenciamento de API Key para empresas
+SettingsManager.prototype.initApiKeyManagement = function() {
+  const user = window.authManager?.currentUser;
+  
+  // Mostrar tab de integrações apenas para empresas (não admin_master)
+  const integrationsTabBtn = document.getElementById('integrationsTabBtn');
+  if (integrationsTabBtn && user && (user.role === 'empresa' || user.role === 'moderator')) {
+    integrationsTabBtn.style.display = 'block';
+  }
+
+  // Bind eventos
+  const regenerateBtn = document.getElementById('regenerateApiKeyBtn');
+  if (regenerateBtn) {
+    regenerateBtn.addEventListener('click', () => this.regenerateApiKey());
+  }
+
+  const closeModalBtn = document.getElementById('closeApiKeyModalBtn');
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      document.getElementById('apiKeyModal').style.display = 'none';
+    });
+  }
+
+  const copyModalBtn = document.getElementById('copyApiKeyModalBtn');
+  if (copyModalBtn) {
+    copyModalBtn.addEventListener('click', () => {
+      const apiKeyDisplay = document.getElementById('newApiKeyDisplay');
+      if (apiKeyDisplay && apiKeyDisplay.textContent) {
+        const apiKey = apiKeyDisplay.textContent;
+        
+        // Tentar usar Clipboard API (requer HTTPS ou localhost)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(apiKey).then(() => {
+            alert('✅ API Key copiada para a área de transferência!');
+          }).catch(() => {
+            // Fallback para método antigo
+            this.fallbackCopyToClipboard(apiKey);
+          });
+        } else {
+          // Fallback para navegadores antigos ou sem HTTPS
+          this.fallbackCopyToClipboard(apiKey);
+        }
+      }
+    });
+  }
+
+  // Fechar modal ao clicar fora
+  const modal = document.getElementById('apiKeyModal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    });
+  }
+};
+
+SettingsManager.prototype.loadApiKeyInfo = async function() {
+  try {
+    console.log('🔍 [loadApiKeyInfo] Carregando informações da API Key...');
+    const response = await window.authManager.apiRequest('/api/empresa/api-key/info');
+    
+    console.log('🔍 [loadApiKeyInfo] Resposta recebida:', response);
+    
+    if (response.success && response.data) {
+      const data = response.data;
+      console.log('🔍 [loadApiKeyInfo] Dados processados:', data);
+      
+      const statusBadge = document.getElementById('apiKeyStatusBadge');
+      const prefixDisplay = document.getElementById('apiKeyPrefixDisplay');
+      const prefixValue = document.getElementById('apiKeyPrefixValue');
+      const datesDiv = document.getElementById('apiKeyDates');
+      const createdAt = document.getElementById('apiKeyCreatedAt');
+      const lastRegenerated = document.getElementById('apiKeyLastRegenerated');
+
+      console.log('🔍 [loadApiKeyInfo] Elementos encontrados:', {
+        statusBadge: !!statusBadge,
+        prefixDisplay: !!prefixDisplay,
+        prefixValue: !!prefixValue,
+        datesDiv: !!datesDiv
+      });
+
+      // Garantir que hasApiKey seja tratado como boolean
+      const hasApiKey = Boolean(data.hasApiKey);
+      
+      console.log('🔍 [loadApiKeyInfo] hasApiKey (boolean):', hasApiKey, typeof hasApiKey);
+
+      if (hasApiKey === true) {
+        console.log('✅ [loadApiKeyInfo] API Key configurada, atualizando UI...');
+        if (statusBadge) {
+          statusBadge.textContent = 'Configurada';
+          statusBadge.style.background = '#10b981';
+          statusBadge.style.color = 'white';
+          statusBadge.style.display = 'inline-block';
+          console.log('✅ [loadApiKeyInfo] Status badge atualizado para "Configurada" (verde)');
+        }
+        if (prefixDisplay) {
+          prefixDisplay.style.display = 'block';
+          console.log('✅ [loadApiKeyInfo] Prefix display mostrado');
+        }
+        if (prefixValue) {
+          prefixValue.textContent = data.prefix || '-';
+          console.log('✅ [loadApiKeyInfo] Prefix value atualizado:', data.prefix);
+        }
+        if (datesDiv) {
+          datesDiv.style.display = 'block';
+          console.log('✅ [loadApiKeyInfo] Dates div mostrado');
+        }
+        if (createdAt && data.createdAt) {
+          createdAt.textContent = new Date(data.createdAt).toLocaleString('pt-BR');
+        }
+        if (lastRegenerated && data.lastRegenerated) {
+          lastRegenerated.textContent = new Date(data.lastRegenerated).toLocaleString('pt-BR');
+        } else if (lastRegenerated) {
+          lastRegenerated.textContent = 'Nunca regenerada';
+        }
+      } else {
+        console.log('⚠️ [loadApiKeyInfo] API Key não configurada (hasApiKey =', hasApiKey, ')');
+        if (statusBadge) {
+          statusBadge.textContent = 'Não configurada';
+          statusBadge.style.background = '#ef4444';
+          statusBadge.style.color = 'white';
+          statusBadge.style.display = 'inline-block';
+        }
+        if (prefixDisplay) prefixDisplay.style.display = 'none';
+        if (datesDiv) datesDiv.style.display = 'none';
+      }
+    } else {
+      console.warn('⚠️ [loadApiKeyInfo] Resposta sem dados:', response);
+    }
+  } catch (error) {
+    console.error('❌ [loadApiKeyInfo] Erro ao carregar informações da API Key:', error);
+  }
+};
+
+SettingsManager.prototype.fallbackCopyToClipboard = function(text) {
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.left = '-999999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    if (successful) {
+      alert('✅ API Key copiada para a área de transferência!');
+    } else {
+      alert('❌ Erro ao copiar. Selecione e copie manualmente:\n\n' + text);
+    }
+  } catch (error) {
+    console.error('Erro ao copiar:', error);
+    alert('❌ Erro ao copiar. Selecione e copie manualmente:\n\n' + text);
+  }
+};
+
+SettingsManager.prototype.regenerateApiKey = async function() {
+  if (!confirm('Tem certeza que deseja regenerar a API Key?\n\nA API Key atual será invalidada e você precisará atualizar todas as integrações que a utilizam.')) {
+    return;
+  }
+
+  const btn = document.getElementById('regenerateApiKeyBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+  }
+
+  try {
+    const response = await window.authManager.apiRequest('/api/empresa/api-key/regenerate', {
+      method: 'POST'
+    });
+
+    if (response.success && response.apiKey) {
+      console.log('✅ [regenerateApiKey] API Key regenerada com sucesso:', response.apiKey.substring(0, 20) + '...');
+      
+      // Mostrar modal com nova API Key
+      const modal = document.getElementById('apiKeyModal');
+      const apiKeyDisplay = document.getElementById('newApiKeyDisplay');
+      
+      if (apiKeyDisplay) {
+        apiKeyDisplay.textContent = response.apiKey;
+      }
+      if (modal) {
+        modal.style.display = 'block';
+      }
+
+      // Aguardar um pouco antes de recarregar (garantir que o banco foi atualizado)
+      console.log('⏳ [regenerateApiKey] Aguardando 1 segundo antes de recarregar informações...');
+      setTimeout(async () => {
+        console.log('🔄 [regenerateApiKey] Recarregando informações da API Key...');
+        await this.loadApiKeyInfo();
+      }, 1000);
+    } else {
+      console.error('❌ [regenerateApiKey] Resposta sem API Key:', response);
+      alert('Erro ao regenerar API Key: ' + (response.message || 'Erro desconhecido'));
+    }
+  } catch (error) {
+    console.error('Erro ao regenerar API Key:', error);
+    alert('Erro ao regenerar API Key: ' + (error.message || 'Erro desconhecido'));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔁 Gerar Nova API Key';
+    }
+  }
+};
 
