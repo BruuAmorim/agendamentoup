@@ -852,10 +852,18 @@ class Aevum {
             return;
         }
 
+        // Formatar data do campo filterDate (formato YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
+        const formatDateToBR = (dateString) => {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        };
+
         if (this.appointments.length === 0) {
+            const formattedDate = formatDateToBR(filterDate);
             listaContainer.innerHTML = `
                 <div class="no-appointments-message">
-                    <p>📭 Nenhum agendamento encontrado para ${new Date(filterDate).toLocaleDateString('pt-BR')}</p>
+                    <p>📭 Nenhum agendamento encontrado para ${formattedDate}</p>
                 </div>
             `;
             return;
@@ -1632,103 +1640,123 @@ class Aevum {
 
             // Calcular larguras das colunas
             const availableWidth = pageWidth - (margin * 2);
-            const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
-            // Larguras proporcionais ajustadas para A4 retrato
-            const colProportions = [0.40, 0.25, 0.15, 0.10, 0.10];
+            const headers = ['Nome', 'Telefone', 'Protocolo', 'Serviço', 'Horário'];
+            // Larguras proporcionais otimizadas para melhor visualização
+            const colProportions = [0.30, 0.20, 0.15, 0.20, 0.15];
             const colWidths = colProportions.map(prop => availableWidth * prop);
             const startX = margin;
 
             // Função para desenhar cabeçalho
             const drawHeader = (y) => {
                 // Fundo azul do cabeçalho
-                doc.setFillColor(0, 153, 255);
-                doc.rect(startX, y, availableWidth, headerHeight, 'F');
+                doc.setFillColor(0, 145, 234); // Azul mais escuro e profissional
+                doc.rect(startX, y - headerHeight + 2, availableWidth, headerHeight, 'F');
                 
                 // Texto do cabeçalho
                 doc.setTextColor(255, 255, 255);
-                doc.setFontSize(12);
+                doc.setFontSize(11);
                 doc.setFont('helvetica', 'bold');
                 
                 let xPos = startX + cellPadding;
                 headers.forEach((header, index) => {
                     // Centralizar verticalmente no cabeçalho
-                    doc.text(header, xPos, y + 9);
+                    const textY = y - headerHeight + 2 + (headerHeight / 2) + 3;
+                    doc.text(header, xPos + cellPadding, textY);
                     xPos += colWidths[index];
                 });
             };
 
             // Desenhar cabeçalho inicial
+            const headerY = currentY;
             drawHeader(currentY);
-            currentY += headerHeight + 2; // Espaço extra após cabeçalho
+            currentY = headerY + 2; // Posição após cabeçalho
 
             // Configurar para dados
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(11);
-            doc.setLineWidth(0.3);
+            doc.setFontSize(10);
+            doc.setLineWidth(0.2);
             doc.setDrawColor(200, 200, 200);
 
             // Dados
             this.appointments.forEach((apt, index) => {
                 // Verificar se precisa de nova página
-                if (currentY + rowHeight > pageHeight - 25) {
+                if (currentY + rowHeight > pageHeight - 30) {
                     doc.addPage();
                     currentY = startY;
-                    drawHeader(currentY);
-                    currentY += headerHeight + 2;
+                    const newHeaderY = currentY;
+                    drawHeader(newHeaderY);
+                    currentY = newHeaderY + 2;
                 }
 
+                // Preparar dados da linha
+                const customerName = String(apt.customer_name || 'N/A').trim();
+                const customerPhone = String(apt.customer_phone || '-').trim();
+                const protocol = String(apt.protocol || '-').trim();
+                const serviceType = String(apt.service_type || '-').trim();
+                const time = this.formatTime(apt.appointment_time) || '-';
+
                 const rowData = [
-                    String(apt.customer_name || ''),
-                    String(apt.customer_phone || ''),
-                    String(apt.protocol || ''),
-                    apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
-                    this.formatTime(apt.appointment_time) || ''
+                    customerName,
+                    customerPhone,
+                    protocol,
+                    serviceType,
+                    time
                 ];
 
-                // Fundo alternado para linhas
+                // Fundo alternado para linhas (mais sutil)
                 if (index % 2 === 0) {
-                    doc.setFillColor(248, 249, 250);
+                    doc.setFillColor(250, 250, 250);
                 } else {
                     doc.setFillColor(255, 255, 255);
                 }
-                doc.rect(startX, currentY - 10, availableWidth, rowHeight, 'F');
+                const rowY = currentY - rowHeight + 2;
+                doc.rect(startX, rowY, availableWidth, rowHeight, 'F');
 
                 // Desenhar células com dados
                 let xPos = startX;
                 rowData.forEach((cell, cellIndex) => {
-                    // Truncar texto se necessário
-                    let cellText = String(cell || '');
-                    const maxWidth = colWidths[cellIndex] - (cellPadding * 2);
+                    let cellText = String(cell || '-');
+                    const cellWidth = colWidths[cellIndex];
+                    const maxTextWidth = cellWidth - (cellPadding * 2);
                     
-                    // Verificar largura do texto
-                    let fontSize = 11;
-                    doc.setFontSize(fontSize);
+                    // Verificar largura do texto e ajustar se necessário
+                    doc.setFontSize(10);
                     let textWidth = doc.getTextWidth(cellText);
                     
-                    // Reduzir fonte se necessário
-                    while (textWidth > maxWidth && fontSize > 8) {
-                        fontSize -= 0.5;
-                        doc.setFontSize(fontSize);
-                        textWidth = doc.getTextWidth(cellText);
-                    }
-                    
-                    // Truncar se ainda não couber
-                    if (textWidth > maxWidth) {
-                        while (doc.getTextWidth(cellText + '...') > maxWidth && cellText.length > 0) {
-                            cellText = cellText.substring(0, cellText.length - 1);
+                    // Reduzir fonte apenas se realmente necessário (mínimo 9pt)
+                    if (textWidth > maxTextWidth) {
+                        let fontSize = 10;
+                        while (textWidth > maxTextWidth && fontSize > 9) {
+                            fontSize -= 0.3;
+                            doc.setFontSize(fontSize);
+                            textWidth = doc.getTextWidth(cellText);
                         }
-                        cellText = cellText + '...';
+                        
+                        // Se ainda não couber, truncar inteligentemente
+                        if (textWidth > maxTextWidth) {
+                            const ellipsis = '...';
+                            const ellipsisWidth = doc.getTextWidth(ellipsis);
+                            let truncatedText = cellText;
+                            
+                            while (doc.getTextWidth(truncatedText) + ellipsisWidth > maxTextWidth && truncatedText.length > 0) {
+                                truncatedText = truncatedText.substring(0, truncatedText.length - 1);
+                            }
+                            cellText = truncatedText + ellipsis;
+                        }
                     }
                     
                     // Desenhar texto centralizado verticalmente na célula
-                    doc.text(cellText, xPos + cellPadding, currentY - 3);
-                    doc.setFontSize(11); // Resetar tamanho da fonte
+                    const textY = rowY + (rowHeight / 2) + 2;
+                    doc.text(cellText, xPos + cellPadding, textY);
                     
-                    // Desenhar borda vertical (exceto na última coluna)
+                    // Resetar tamanho da fonte
+                    doc.setFontSize(10);
+                    
+                    // Desenhar borda vertical entre colunas
                     if (cellIndex < headers.length - 1) {
                         doc.setDrawColor(220, 220, 220);
-                        doc.line(xPos + colWidths[cellIndex], currentY - 10, xPos + colWidths[cellIndex], currentY);
+                        doc.line(xPos + colWidths[cellIndex], rowY, xPos + colWidths[cellIndex], rowY + rowHeight);
                     }
                     
                     xPos += colWidths[cellIndex];
@@ -1736,16 +1764,16 @@ class Aevum {
 
                 // Linha horizontal inferior da linha
                 doc.setDrawColor(200, 200, 200);
-                doc.line(startX, currentY, startX + availableWidth, currentY);
+                doc.line(startX, rowY + rowHeight, startX + availableWidth, rowY + rowHeight);
                 
-                currentY += rowHeight + 1; // Espaço extra entre linhas
+                currentY = rowY + rowHeight + 1; // Próxima linha
             });
 
-            // Borda externa da tabela
-            doc.setLineWidth(0.5);
-            doc.setDrawColor(0, 153, 255);
-            const tableTop = startY + spacingAfterTitle + spacingAfterDate; // Após título e data
-            const tableHeight = currentY - tableTop - 1;
+            // Borda externa da tabela (mais visível)
+            doc.setLineWidth(0.8);
+            doc.setDrawColor(0, 145, 234);
+            const tableTop = headerY - headerHeight + 2; // Topo do cabeçalho
+            const tableHeight = currentY - tableTop;
             doc.rect(startX, tableTop, availableWidth, tableHeight);
 
             // Rodapé em todas as páginas

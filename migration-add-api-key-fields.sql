@@ -15,3 +15,8 @@ CREATE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash) WHERE a
 -- ALTER TABLE users ADD COLUMN api_key_created_at TEXT;
 -- ALTER TABLE users ADD COLUMN api_key_last_regenerated TEXT;
 
+
+
+
+
+

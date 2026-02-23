@@ -57,3 +57,8 @@ Se a API Key estiver funcionando, você verá:
 3. Testar com curl ou Postman
 4. Verificar logs do backend
 
+
+
+
+
+

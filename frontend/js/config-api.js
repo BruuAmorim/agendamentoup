@@ -38,7 +38,7 @@ const API_CONFIG = {
 
     if (isVercel || isFirebase) {
       // Quando estiver em produção (Vercel ou Firebase), usar a API de produção
-      const productionApiUrl = 'https://agendamentoup.onrender.com/api';
+      const productionApiUrl = 'https://cloudd-agenda-backend.vercel.app/api';
       console.log('🔧 Detectado ambiente de produção - usando API:', productionApiUrl);
       return productionApiUrl;
     }

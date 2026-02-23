@@ -1,11 +1,12 @@
 {
-  "name": "eva-agendmentoup",
+  "name": "cloudd-agenda-backend",
   "version": "1.0.0",
   "description": "Sistema de Agendamento SaaS",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "node backend/server.js"
+    "dev": "node backend/server.js",
+    "vercel-build": "echo 'No build needed'"
   },
   "dependencies": {
     "axios": "^1.13.4",

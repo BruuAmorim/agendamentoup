@@ -19,3 +19,8 @@ WHERE table_name = 'users'
 AND column_name IN ('api_key_hash', 'api_key_created_at', 'api_key_last_regenerated')
 ORDER BY column_name;
 
+
+
+
+
+

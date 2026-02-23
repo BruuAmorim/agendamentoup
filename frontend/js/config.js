@@ -9,7 +9,7 @@ const CONFIG = {
         // - "logo.png" (logo na pasta assets)
         // - "images/logo.svg" (logo em subpasta)
         // - "https://exemplo.com/logo.png" (URL externa)
-        path: "logo.png",
+        path: "logo.jpg",
 
        // Propriedades da Logo
     width: "auto",      // Deixe a largura automática para não esticar

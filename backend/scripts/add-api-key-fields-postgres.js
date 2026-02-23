@@ -72,3 +72,8 @@ async function addApiKeyFieldsPostgres() {
 // Executar migração
 addApiKeyFieldsPostgres();
 
+
+
+
+
+

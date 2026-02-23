@@ -185,3 +185,8 @@ WHERE api_key_hash IS NOT NULL;
 
 **🎉 Sistema de Integrações Dinâmicas implementado com sucesso!**
 
+
+
+
+
+

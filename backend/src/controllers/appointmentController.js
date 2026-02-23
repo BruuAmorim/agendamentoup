@@ -74,9 +74,11 @@ class AppointmentController {
     try {
       const { id } = req.params;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -127,10 +129,14 @@ class AppointmentController {
         });
       }
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
       if (req.user) {
         empresa_id = req.user.empresa_id || null;
+      }
+      // Também verificar se vem do middleware de API Key
+      if (!empresa_id && req.empresa_id) {
+        empresa_id = req.empresa_id;
       }
 
       // CRÍTICO: Buscar horários disponíveis apenas considerando agendamentos da mesma empresa
@@ -330,9 +336,11 @@ class AppointmentController {
       const { id } = req.params;
       const updateData = req.body;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -412,9 +420,11 @@ class AppointmentController {
       const { id } = req.params;
       const { reason } = req.body;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -463,9 +473,11 @@ class AppointmentController {
     try {
       const { id } = req.params;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -520,9 +532,11 @@ class AppointmentController {
         });
       }
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -580,9 +594,11 @@ class AppointmentController {
         });
       }
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -726,9 +742,11 @@ class AppointmentController {
 
       console.log('🕐 Horários possíveis do dia:', horariosPossiveis);
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -772,9 +790,11 @@ class AppointmentController {
     try {
       const { protocol } = req.params;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 
@@ -817,9 +837,11 @@ class AppointmentController {
     try {
       const { start_date, end_date } = req.query;
 
-      // CRÍTICO: Obter empresa_id do token (nunca confiar no frontend)
+      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
+      if (req.empresa_id) {
+        empresa_id = req.empresa_id;
+      } else if (req.user) {
         empresa_id = req.user.empresa_id || null;
       }
 

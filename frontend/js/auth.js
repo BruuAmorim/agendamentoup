@@ -37,7 +37,7 @@ class AuthManager {
             hostname.includes('firebaseapp.com') || 
             hostname.includes('web.app') ||
             hostname.includes('firebaseapp')) {
-            return 'https://agendamentoup.onrender.com';
+            return 'https://cloudd-agenda-backend.vercel.app';
         }
 
         // Caso contrário, usar localhost (desenvolvimento)

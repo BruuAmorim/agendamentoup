@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
-const apiKeyMiddleware = require('../middleware/apiKey.middleware');
+const empresaApiKeyMiddleware = require('../middleware/empresaApiKey.middleware');
 
 // Middleware de validação para criação/atualização
 const validateAppointment = (req, res, next) => {
@@ -65,7 +65,17 @@ const validateAppointment = (req, res, next) => {
  */
 
 // POST /api/public/appointments - Criar agendamento via API Key
-router.post('/', validateAppointment, apiKeyMiddleware, appointmentController.createAppointment);
+router.post('/', validateAppointment, empresaApiKeyMiddleware, appointmentController.createAppointment);
+
+// GET /api/public/appointments/available/:date - Buscar horários disponíveis via API Key
+router.get('/available/:date', empresaApiKeyMiddleware, appointmentController.getAvailableSlots);
+
+// PUT /api/public/appointments/:id - Atualizar agendamento via API Key
+router.put('/:id', validateAppointment, empresaApiKeyMiddleware, appointmentController.updateAppointment);
+
+// DELETE /api/public/appointments/:id - Deletar agendamento via API Key
+router.delete('/:id', empresaApiKeyMiddleware, appointmentController.deleteAppointment);
 
 module.exports = router;
+
 

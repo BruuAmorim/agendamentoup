@@ -54,7 +54,9 @@ const corsOptions = {
       /^https:\/\/.*\.ngrok-free\.app$/, // URLs ngrok free
       /^https:\/\/.*\.ngrok\.app$/, // URLs ngrok alternativas
       /^https:\/\/.*\.firebaseapp\.com$/, // Firebase Hosting
-      /^https:\/\/.*\.web\.app$/ // Firebase Hosting (domínio customizado)
+      /^https:\/\/.*\.web\.app$/, // Firebase Hosting (domínio customizado)
+      /^https:\/\/.*\.vercel\.app$/, // Vercel
+      /^https:\/\/.*\.vercel\.dev$/ // Vercel (preview)
     ];
     
     // Verificar se a origem está na lista ou corresponde a um padrão
@@ -130,6 +132,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/public/appointments', require('./src/routes/publicAppointmentsRoutes')); // Rotas públicas com API Key
+app.use('/api/public/company', require('./src/routes/publicCompanyRoutes')); // Rotas públicas de informações da empresa
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/admin/integrations', require('./src/routes/adminIntegrationRoutes'));
 app.use('/api/empresa/api-key', require('./src/routes/empresaApiKeyRoutes')); // Rotas de API Key de empresas
@@ -157,11 +160,16 @@ app.use((err, req, res, next) => {
 });
 
 // 6. INICIALIZAÇÃO DO SERVIDOR
-async function startServer() {
+let dbInitialized = false;
+
+async function initializeDatabase() {
+  if (dbInitialized) return;
+  
   try {
     // Testar conexão com o banco de dados
     await sequelize.authenticate();
     console.log('✅ Conexão com o banco de dados estabelecida com sucesso.');
+    dbInitialized = true;
 
     // Sincronizar modelos (apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
@@ -548,9 +556,20 @@ async function startServer() {
         console.warn('⚠️  Continuando apesar do erro...');
       }
     }
+  } catch (error) {
+    console.error('❌ Erro ao inicializar banco de dados:', error);
+    throw error;
+  }
+}
+
+async function startServer() {
+  try {
+    await initializeDatabase();
 
     // Iniciar servidor
-    app.listen(PORT, () => {
+    // Escutar em 0.0.0.0 para aceitar conexões de qualquer interface (necessário para n8n/Docker)
+    const HOST = process.env.HOST || '0.0.0.0';
+    app.listen(PORT, HOST, () => {
       console.log('========================================');
       console.log('🚀 Aevum API iniciada!');
       console.log('========================================');
@@ -558,6 +577,8 @@ async function startServer() {
       console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 API Base: http://localhost:${PORT}/api`);
       console.log(`❤️  Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`🌐 Servidor acessível em: http://0.0.0.0:${PORT}/api`);
+      console.log(`📡 Para n8n/Docker, use: http://SEU_IP:${PORT}/api`);
       console.log('========================================');
     });
   } catch (error) {
@@ -566,5 +587,31 @@ async function startServer() {
   }
 }
 
-// Iniciar o servidor
-startServer();
+// Middleware para inicializar banco de dados no Vercel (lazy initialization)
+if (process.env.VERCEL) {
+  app.use(async (req, res, next) => {
+    if (!dbInitialized) {
+      try {
+        await initializeDatabase();
+      } catch (error) {
+        console.error('❌ Erro ao inicializar banco no Vercel:', error);
+        return res.status(500).json({
+          error: 'Erro ao conectar com o banco de dados',
+          message: error.message
+        });
+      }
+    }
+    next();
+  });
+}
+
+// Exportar o app para uso no Vercel (serverless)
+// Se estiver rodando no Vercel, não iniciar o servidor tradicional
+if (process.env.VERCEL) {
+  // No Vercel, apenas exportar o app
+  // A inicialização do banco será feita na primeira requisição
+  module.exports = app;
+} else {
+  // Em ambiente tradicional (local, Render, etc), iniciar o servidor
+  startServer();
+}

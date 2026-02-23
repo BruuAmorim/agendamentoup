@@ -85,3 +85,8 @@ async function addApiKeyFields() {
 // Executar migração
 addApiKeyFields();
 
+
+
+
+
+
