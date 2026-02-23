@@ -118,6 +118,17 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // 4. ROTAS
+// Rota raiz para verificar se a API está rodando
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'API running',
+    service: 'Cloudd Agenda API',
+    version: API_CONFIG.info.version,
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
