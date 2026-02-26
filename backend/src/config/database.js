@@ -4,6 +4,8 @@ const path = require('path');
 // O Supabase geralmente fornece a URL completa em DATABASE_URL
 const databaseUrl = process.env.DATABASE_URL;
 const useMemoryStorage = process.env.USE_MEMORY_STORAGE === 'true';
+// Use SQLite local mesmo com DATABASE_URL definido (ex.: npm run start:local)
+const useSqliteLocal = process.env.USE_SQLITE_LOCAL === 'true';
 
 let sequelize;
 
@@ -15,7 +17,7 @@ if (useMemoryStorage) {
     storage: ':memory:',
     logging: false
   });
-} else if (databaseUrl) {
+} else if (databaseUrl && !useSqliteLocal) {
   // Modo PostgreSQL (produção/Supabase)
   sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',

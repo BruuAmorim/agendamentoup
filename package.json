@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
+    "start:local": "node -e \"process.env.USE_SQLITE_LOCAL='true'; require('./backend/server.js')\"",
     "build": "npm install && echo Build OK",
     "vercel-build": "npm install && echo Build OK"
   },

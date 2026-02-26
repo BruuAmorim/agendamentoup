@@ -50,13 +50,16 @@ const corsOptions = {
       'http://localhost:8080',
       'https://n8n.io',
       'http://localhost:5678', // n8n local
-      /^https:\/\/.*\.ngrok\.io$/, // Qualquer URL ngrok
-      /^https:\/\/.*\.ngrok-free\.app$/, // URLs ngrok free
-      /^https:\/\/.*\.ngrok\.app$/, // URLs ngrok alternativas
-      /^https:\/\/.*\.firebaseapp\.com$/, // Firebase Hosting
-      /^https:\/\/.*\.web\.app$/, // Firebase Hosting (domínio customizado)
-      /^https:\/\/.*\.vercel\.app$/, // Vercel
-      /^https:\/\/.*\.vercel\.dev$/ // Vercel (preview)
+      /^http:\/\/192\.168\.\d+\.\d+:\d+$/, // Rede local (ex.: 192.168.1.175:8080)
+      /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,   // Rede local 10.x
+      /^http:\/\/172\.\d+\.\d+\.\d+:\d+$/,  // Rede local 172.x (ex.: 172.21.128.1:8080)
+      /^https:\/\/.*\.ngrok\.io$/,
+      /^https:\/\/.*\.ngrok-free\.app$/,
+      /^https:\/\/.*\.ngrok\.app$/,
+      /^https:\/\/.*\.firebaseapp\.com$/,
+      /^https:\/\/.*\.web\.app$/,
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/.*\.vercel\.dev$/
     ];
     
     // Verificar se a origem está na lista ou corresponde a um padrão
@@ -576,6 +579,14 @@ async function initializeDatabase() {
 async function startServer() {
   try {
     await initializeDatabase();
+
+    // Criar usuários de teste se o banco estiver vazio (SQLite local, etc.)
+    try {
+      const SeedService = require('./src/services/seedService');
+      await SeedService.ensureSeedUsers();
+    } catch (seedErr) {
+      console.warn('⚠️ Seed de usuários:', seedErr.message);
+    }
 
     // Iniciar servidor
     // Escutar em 0.0.0.0 para aceitar conexões de qualquer interface (necessário para n8n/Docker)

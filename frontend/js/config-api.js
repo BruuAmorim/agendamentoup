@@ -26,30 +26,32 @@ const API_CONFIG = {
     return protocol === 'https:' || !hostname.includes('localhost');
   },
 
+  // IP da rede local? (192.168.x.x, 10.x.x.x, 172.16–31.x.x)
+  isPrivateNetwork: (hostname) => {
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true;
+    if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname)) return true;
+    return false;
+  },
+
   // Obter URL base da API
   getBaseUrl: () => {
-    // Detectar se está rodando no Vercel
-    const isVercel = window.location.hostname.includes('vercel.app');
-    
-    // Detectar se está rodando no Firebase Hosting
-    const isFirebase = window.location.hostname.includes('firebaseapp.com') || 
-                       window.location.hostname.includes('web.app') ||
-                       window.location.hostname.includes('firebaseapp');
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isPrivate = API_CONFIG.isPrivateNetwork(hostname);
 
-    if (isVercel || isFirebase) {
-      // Quando estiver em produção (Vercel ou Firebase), usar a API de produção
-      const productionApiUrl = 'https://cloudd-agenda-backend.vercel.app/api';
-      console.log('🔧 Detectado ambiente de produção - usando API:', productionApiUrl);
-      return productionApiUrl;
+    // Localhost ou IP da rede: usar backend no mesmo host, porta 3000 (teste local sem deploy)
+    if (isLocalhost || isPrivate) {
+      const localApi = `http://${hostname}:3000/api`;
+      console.log('🔧 Ambiente local/rede - usando API:', localApi);
+      return localApi;
     }
 
-    if (API_CONFIG.isProduction()) {
-      // Em produção normal: usar a mesma origem que o frontend
-      return `${window.location.origin}/api`;
-    } else {
-      // Em desenvolvimento local: usar localhost
-      return 'http://localhost:3000/api';
-    }
+    // Produção (Vercel, Firebase, etc.): API no Vercel
+    const productionApiUrl = 'https://cloudd-agenda-backend.vercel.app/api';
+    console.log('🔧 Usando API em produção (Vercel):', productionApiUrl);
+    return productionApiUrl;
   },
 
   // Configurações de timeout e retry

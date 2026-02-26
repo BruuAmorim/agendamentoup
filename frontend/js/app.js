@@ -2874,4 +2874,5 @@ class Aevum {
 // Inicializar aplicação quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new Aevum();
+    window.aevum = window.app;
 });

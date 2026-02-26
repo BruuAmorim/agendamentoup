@@ -45,8 +45,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/config-api.js"></script>
-  <script src="js/api.js"></script>
+  <script src="/js/config-api.js"></script>
+  <script src="/js/api.js"></script>
 
   <script>
     // Página de Login Simplificada
@@ -141,11 +141,10 @@
               return window.API_CONFIG.baseUrl;
             }
             const hostname = window.location.hostname;
-            const isProduction = hostname.includes('vercel.app') || 
-                                hostname.includes('firebaseapp.com') || 
-                                hostname.includes('web.app') ||
-                                hostname.includes('firebaseapp');
-            return isProduction ? 'https://cloudd-agenda-backend.vercel.app/api' : 'http://localhost:3000/api';
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' ||
+              /^192\.168\.\d+\.\d+$/.test(hostname) || /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+              /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname);
+            return isLocal ? `http://${hostname}:3000/api` : 'https://cloudd-agenda-backend.vercel.app/api';
           })();
 
           console.log('🌐 URL da API:', apiUrl);

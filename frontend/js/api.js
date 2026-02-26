@@ -1,29 +1,27 @@
-// api.js - FRONTEND (adicionar no início)
+// api.js - FRONTEND (respeita config-api.js quando carregado antes)
 (function() {
     console.log("🔧 Iniciando configuração da API...");
-    
-    const BACKEND_PORT = 3000;
-    const BASE_URL = `http://localhost:${BACKEND_PORT}/api`;
-    
-    console.log("🔧 Base URL configurada:", BASE_URL);
 
-    window.API_CONFIG = {
-        baseUrl: BASE_URL,
-        endpoints: {
-            auth: {
-                login: '/auth/login',
-                register: '/auth/register'
-            },
-            users: {
-                list: '/users',
-                get: '/users/:id'
-            },
-            appointments: {
-                list: '/appointments',
-                create: '/appointments'
-            }
-        }
+    var endpoints = {
+        auth: { login: '/auth/login', register: '/auth/register' },
+        users: { list: '/users', get: '/users/:id' },
+        appointments: { list: '/appointments', create: '/appointments' }
     };
+    if (!window.API_CONFIG || !window.API_CONFIG.baseUrl) {
+        var hostname = window.location.hostname;
+        var isLocal = hostname === 'localhost' || hostname === '127.0.0.1' ||
+            /^192\.168\.\d+\.\d+$/.test(hostname) || /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+            /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname);
+        var baseUrl = isLocal ? 'http://' + hostname + ':3000/api' : 'https://cloudd-agenda-backend.vercel.app/api';
+        window.API_CONFIG = {
+            baseUrl: baseUrl,
+            endpoints: endpoints
+        };
+    } else {
+        window.API_CONFIG.endpoints = window.API_CONFIG.endpoints || endpoints;
+    }
+    var BASE_URL = window.API_CONFIG.baseUrl;
+    console.log("🔧 Base URL configurada:", BASE_URL);
 
     // DEBUG: Mostrar todos os endpoints
     console.log("🔧 Endpoints configurados:", window.API_CONFIG.endpoints);

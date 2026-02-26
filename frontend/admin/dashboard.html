@@ -292,7 +292,7 @@
     <div class="admin-header-content">
       <h1>🏢 Dashboard Administrativo</h1>
       <div class="admin-actions">
-        <a href="/admin/users.html" class="admin-btn admin-btn-primary" id="manageUsersBtn">
+        <a href="/admin/users" class="admin-btn admin-btn-primary" id="manageUsersBtn">
           👥 Gerenciar Usuários
         </a>
         <button class="admin-btn admin-btn-danger" id="adminLogoutBtn">
@@ -343,88 +343,12 @@
         </section>
       </div>
 
-      <!-- Logs do Sistema -->
-      <section class="logs-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
-        <h2 class="section-title">📋 Logs do Sistema</h2>
-        <p style="color: var(--muted); margin-bottom: 20px;">
-          Visualize todas as ações realizadas na plataforma. Logs de criação, atualização, exclusão e outras operações importantes.
-        </p>
-        
-        <!-- Filtros -->
-        <div style="background: var(--background); padding: 20px; border-radius: 8px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Ação</label>
-            <select id="filterAction" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
-              <option value="">Todas</option>
-              <option value="create_user">Criar Usuário</option>
-              <option value="update_user">Atualizar Usuário</option>
-              <option value="delete_user">Deletar Usuário</option>
-              <option value="create_appointment">Criar Agendamento</option>
-              <option value="update_appointment">Atualizar Agendamento</option>
-              <option value="delete_appointment">Deletar Agendamento</option>
-              <option value="update_settings">Atualizar Configurações</option>
-              <option value="change_password">Alterar Senha</option>
-              <option value="login">Login</option>
-              <option value="logout">Logout</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Tipo de Entidade</label>
-            <select id="filterEntityType" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
-              <option value="">Todos</option>
-              <option value="user">Usuário</option>
-              <option value="appointment">Agendamento</option>
-              <option value="settings">Configurações</option>
-              <option value="auth">Autenticação</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Data Inicial</label>
-            <input type="date" id="filterStartDate" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Data Final</label>
-            <input type="date" id="filterEndDate" style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text); font-size: 14px;">Buscar</label>
-            <input type="text" id="filterSearch" placeholder="Descrição, nome ou email..." style="width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px;">
-          </div>
-          <div style="display: flex; align-items: flex-end;">
-            <button type="button" id="applyFiltersBtn" class="admin-btn admin-btn-primary" style="width: 100%;">
-              🔍 Filtrar
-            </button>
-          </div>
-        </div>
-
-        <!-- Lista de Logs -->
-        <div id="logsContainer" style="background: var(--background); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto;">
-          <div id="logsList">
-            <p style="text-align: center; color: var(--muted);">Carregando logs...</p>
-          </div>
-        </div>
-
-        <!-- Paginação -->
-        <div id="logsPagination" style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;">
-          <!-- Paginação será inserida aqui -->
-        </div>
-      </section>
-
       <!-- Gerenciar Senha de Configurações -->
       <section class="settings-password-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
         <h2 class="section-title">🔐 Senha de Configurações</h2>
         <p style="color: var(--muted); margin-bottom: 20px;">
-          Gerencie a senha que protege o acesso às configurações do sistema para cada empresa. Cada empresa pode ter sua própria senha de configurações. Apenas administradores podem visualizar, criar ou alterar estas senhas.
+          Gerencie a senha que protege o acesso às configurações do sistema. Apenas administradores podem visualizar, criar ou alterar esta senha.
         </p>
-        
-        <div style="background: var(--background); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
-            Selecionar Empresa
-          </label>
-          <select id="companySelect" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
-            <option value="">Carregando empresas...</option>
-          </select>
-        </div>
         
         <div id="passwordStatusCard" style="background: var(--background); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p id="passwordStatusText" style="margin: 0; color: var(--muted);">Carregando status...</p>
@@ -482,6 +406,33 @@
         </div>
       </section>
 
+      <!-- Atividades Recentes -->
+      <section class="activities-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
+        <h2 class="section-title">📋 Atividades Recentes</h2>
+        <ul class="recent-activities" id="recentActivities">
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Novo usuário cadastrado</h4>
+              <p>João Silva foi adicionado ao sistema</p>
+            </div>
+            <span class="activity-time">2h atrás</span>
+          </li>
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Agendamento realizado</h4>
+              <p>Cliente Maria solicitou agendamento</p>
+            </div>
+            <span class="activity-time">4h atrás</span>
+          </li>
+          <li class="activity-item">
+            <div class="activity-info">
+              <h4>Integração configurada</h4>
+              <p>Webhook n8n foi atualizado</p>
+            </div>
+            <span class="activity-time">1d atrás</span>
+          </li>
+        </ul>
+      </section>
     </div>
   </main>
 
@@ -493,17 +444,13 @@
     // Dashboard Administrativo
     class AdminDashboard {
       constructor() {
-        this.currentPage = 1;
-        this.currentFilters = {};
         this.init();
       }
 
       async init() {
         await this.checkAdminAccess();
         this.bindEvents();
-        await this.loadDashboardData();
-        // Garantir que empresas sejam carregadas após bindEvents
-        await this.loadCompanies();
+        this.loadDashboardData();
       }
 
       async checkAdminAccess() {
@@ -581,101 +528,9 @@
         console.log('✅ User completo:', user);
       }
 
-      async loadCompanies() {
+      async loadPasswordStatus() {
         try {
-          console.log('🔄 loadCompanies - Iniciando...');
-          
-          // Aguardar authManager estar pronto
-          if (!window.authManager) {
-            console.warn('⚠️ AuthManager não está pronto, aguardando...');
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (!window.authManager) {
-              console.error('❌ AuthManager não disponível');
-              const companySelect = document.getElementById('companySelect');
-              if (companySelect) {
-                companySelect.innerHTML = '<option value="">Erro: AuthManager não disponível</option>';
-              }
-              return;
-            }
-          }
-          
-          console.log('📡 loadCompanies - Fazendo requisição para /api/users...');
-          const response = await window.authManager.apiRequest('/api/users');
-          console.log('📥 loadCompanies - Resposta recebida:', response);
-          
-          if (response && response.success && response.users) {
-            const companies = response.users.filter(u => u.role === 'empresa' || u.role === 'moderator');
-            console.log('🏢 loadCompanies - Empresas encontradas:', companies.length, companies);
-            
-            const companySelect = document.getElementById('companySelect');
-            if (!companySelect) {
-              console.error('❌ Elemento companySelect não encontrado');
-              return;
-            }
-            
-            if (companies.length === 0) {
-              companySelect.innerHTML = '<option value="">Nenhuma empresa encontrada</option>';
-              const statusText = document.getElementById('passwordStatusText');
-              if (statusText) {
-                statusText.textContent = 'Nenhuma empresa cadastrada no sistema.';
-                statusText.style.color = 'var(--muted)';
-              }
-              return;
-            }
-            
-            companySelect.innerHTML = '<option value="">Selecione uma empresa</option>';
-            companies.forEach(company => {
-              const option = document.createElement('option');
-              option.value = company.id;
-              option.textContent = `${company.name} (${company.email})`;
-              companySelect.appendChild(option);
-            });
-            
-            console.log('✅ loadCompanies - Empresas carregadas no dropdown');
-            
-            // Remover event listener anterior se existir e adicionar novo
-            const newCompanySelect = document.getElementById('companySelect');
-            const clonedSelect = newCompanySelect.cloneNode(true);
-            newCompanySelect.parentNode.replaceChild(clonedSelect, newCompanySelect);
-            
-            // Adicionar event listener no novo elemento
-            clonedSelect.addEventListener('change', () => {
-              const companyId = clonedSelect.value;
-              if (companyId) {
-                this.loadPasswordStatus(companyId);
-              } else {
-                this.resetPasswordForm();
-              }
-            });
-          } else {
-            console.warn('⚠️ loadCompanies - Resposta inválida ou sem usuários:', response);
-            const companySelect = document.getElementById('companySelect');
-            if (companySelect) {
-              companySelect.innerHTML = '<option value="">Erro ao carregar empresas</option>';
-            }
-          }
-        } catch (error) {
-          console.error('❌ Erro ao carregar empresas:', error);
-          const companySelect = document.getElementById('companySelect');
-          if (companySelect) {
-            companySelect.innerHTML = '<option value="">Erro ao carregar empresas</option>';
-          }
-          const statusText = document.getElementById('passwordStatusText');
-          if (statusText) {
-            statusText.textContent = '❌ Erro ao carregar empresas: ' + (error.message || 'Erro desconhecido');
-            statusText.style.color = 'var(--danger, #dc3545)';
-          }
-        }
-      }
-
-      async loadPasswordStatus(companyId) {
-        if (!companyId) {
-          this.resetPasswordForm();
-          return;
-        }
-        
-        try {
-          const response = await window.authManager.apiRequest(`/api/settings-password?companyId=${companyId}`);
+          const response = await window.authManager.apiRequest('/api/settings-password');
           
           if (response.success) {
             const hasPassword = response.data.hasPassword;
@@ -684,50 +539,22 @@
             const changeBtn = document.getElementById('changePasswordBtn');
             
             if (hasPassword) {
-              statusText.textContent = '✅ Senha de configurações está definida para esta empresa.';
+              statusText.textContent = '✅ Senha de configurações está definida.';
               statusText.style.color = 'var(--success, #28a745)';
               createBtn.style.display = 'none';
               changeBtn.style.display = 'inline-block';
             } else {
-              statusText.textContent = '⚠️ Nenhuma senha de configurações definida para esta empresa. Crie uma senha para proteger o acesso às configurações.';
+              statusText.textContent = '⚠️ Nenhuma senha de configurações definida. Crie uma senha para proteger o acesso às configurações.';
               statusText.style.color = 'var(--warning, #ffc107)';
               createBtn.style.display = 'inline-block';
               changeBtn.style.display = 'none';
-            }
-            
-            // Armazenar companyId no formulário
-            const form = document.getElementById('settingsPasswordForm');
-            if (form) {
-              form.dataset.companyId = companyId;
             }
           }
         } catch (error) {
           console.error('Erro ao carregar status da senha:', error);
           const statusText = document.getElementById('passwordStatusText');
-          if (statusText) {
-            statusText.textContent = '❌ Erro ao carregar status da senha.';
-            statusText.style.color = 'var(--danger, #dc3545)';
-          }
-        }
-      }
-
-      resetPasswordForm() {
-        const statusText = document.getElementById('passwordStatusText');
-        const createBtn = document.getElementById('createPasswordBtn');
-        const changeBtn = document.getElementById('changePasswordBtn');
-        const form = document.getElementById('settingsPasswordForm');
-        
-        if (statusText) {
-          statusText.textContent = 'Selecione uma empresa para gerenciar a senha de configurações.';
-          statusText.style.color = 'var(--muted)';
-        }
-        if (createBtn) createBtn.style.display = 'none';
-        if (changeBtn) changeBtn.style.display = 'none';
-        if (form) {
-          form.style.display = 'none';
-          if (form.dataset) {
-            delete form.dataset.companyId;
-          }
+          statusText.textContent = '❌ Erro ao carregar status da senha.';
+          statusText.style.color = 'var(--danger, #dc3545)';
         }
       }
 
@@ -736,15 +563,6 @@
         const createBtn = document.getElementById('createPasswordBtn');
         if (createBtn) {
           createBtn.addEventListener('click', () => {
-            const companyId = document.getElementById('companySelect')?.value;
-            if (!companyId) {
-              alert('❌ Por favor, selecione uma empresa primeiro.');
-              return;
-            }
-            const form = document.getElementById('settingsPasswordForm');
-            if (form) {
-              form.dataset.companyId = companyId;
-            }
             document.getElementById('settingsPasswordForm').style.display = 'block';
             document.getElementById('currentPasswordField').style.display = 'none';
             document.getElementById('passwordActions').style.display = 'none';
@@ -756,15 +574,6 @@
         const changeBtn = document.getElementById('changePasswordBtn');
         if (changeBtn) {
           changeBtn.addEventListener('click', () => {
-            const companyId = document.getElementById('companySelect')?.value;
-            if (!companyId) {
-              alert('❌ Por favor, selecione uma empresa primeiro.');
-              return;
-            }
-            const form = document.getElementById('settingsPasswordForm');
-            if (form) {
-              form.dataset.companyId = companyId;
-            }
             document.getElementById('settingsPasswordForm').style.display = 'block';
             document.getElementById('currentPasswordField').style.display = 'block';
             document.getElementById('passwordActions').style.display = 'none';
@@ -793,14 +602,6 @@
       }
 
       async savePassword() {
-        const form = document.getElementById('settingsPasswordForm');
-        const companyId = form.dataset?.companyId;
-        
-        if (!companyId) {
-          alert('❌ Por favor, selecione uma empresa primeiro.');
-          return;
-        }
-
         const newPassword = document.getElementById('newPasswordInput').value;
         const confirmPassword = document.getElementById('confirmPasswordInput').value;
         const currentPassword = document.getElementById('currentPasswordInput').value;
@@ -830,7 +631,6 @@
             response = await window.authManager.apiRequest('/api/settings-password', {
               method: 'PUT',
               body: JSON.stringify({
-                companyId: parseInt(companyId),
                 password: newPassword,
                 currentPassword: currentPassword
               })
@@ -840,7 +640,6 @@
             response = await window.authManager.apiRequest('/api/settings-password', {
               method: 'POST',
               body: JSON.stringify({
-                companyId: parseInt(companyId),
                 password: newPassword
               })
             });
@@ -850,7 +649,7 @@
             alert('✅ Senha de configurações salva com sucesso!');
             document.getElementById('settingsPasswordForm').style.display = 'none';
             document.getElementById('settingsPasswordForm').reset();
-            this.loadPasswordStatus(companyId);
+            this.loadPasswordStatus();
             document.getElementById('passwordActions').style.display = 'block';
           } else {
             throw new Error(response.message || 'Erro ao salvar senha');
@@ -875,26 +674,27 @@
           });
         }
 
-        // Botão de gerenciar usuários (link no header)
+        // Botão de gerenciar usuários
         const manageUsersBtn = document.getElementById('manageUsersBtn');
         if (manageUsersBtn) {
-          manageUsersBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.href = '/admin/users.html';
+          manageUsersBtn.addEventListener('click', () => {
+            window.location.href = '/admin/users';
           });
         }
 
         // Gerenciar senha de configurações
         this.bindPasswordEvents();
-        this.loadCompanies();
+        this.loadPasswordStatus();
 
         // Ações rápidas
         const quickUsersBtn = document.getElementById('quickUsersBtn');
         if (quickUsersBtn) {
+          console.log('Quick Users Button found:', quickUsersBtn);
           quickUsersBtn.addEventListener('click', (e) => {
+            console.log('Quick Users clicked');
             e.preventDefault();
             e.stopPropagation();
-            window.location.href = '/admin/users.html';
+            window.location.href = '/admin/users';
           });
         }
 
@@ -903,200 +703,9 @@
           quickIntegrationsBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            window.location.href = '/admin/integrations.html';
+            window.location.href = '/admin/integrations';
           });
         }
-
-        // Filtros de logs
-        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-        if (applyFiltersBtn) {
-          applyFiltersBtn.addEventListener('click', () => {
-            this.currentPage = 1;
-            this.loadLogs();
-          });
-        }
-
-        // Carregar logs ao inicializar
-        this.loadLogs();
-      }
-
-      async loadLogs() {
-        try {
-          const logsList = document.getElementById('logsList');
-          if (!logsList) return;
-
-          logsList.innerHTML = '<p style="text-align: center; color: var(--muted);">Carregando logs...</p>';
-
-          // Coletar filtros
-          const filters = {
-            page: this.currentPage,
-            limit: 20,
-            action: document.getElementById('filterAction')?.value || '',
-            entity_type: document.getElementById('filterEntityType')?.value || '',
-            start_date: document.getElementById('filterStartDate')?.value || '',
-            end_date: document.getElementById('filterEndDate')?.value || '',
-            search: document.getElementById('filterSearch')?.value || ''
-          };
-
-          // Remover filtros vazios
-          Object.keys(filters).forEach(key => {
-            if (filters[key] === '' && key !== 'page' && key !== 'limit') {
-              delete filters[key];
-            }
-          });
-
-          // Construir query string
-          const queryString = new URLSearchParams(filters).toString();
-          const response = await window.authManager.apiRequest(`/api/logs?${queryString}`);
-
-          if (response.success && response.data) {
-            const { logs, pagination } = response.data;
-            
-            if (logs.length === 0) {
-              logsList.innerHTML = '<p style="text-align: center; color: var(--muted);">Nenhum log encontrado.</p>';
-              document.getElementById('logsPagination').innerHTML = '';
-              return;
-            }
-
-            // Renderizar logs
-            logsList.innerHTML = logs.map(log => {
-              const actionIcons = {
-                'create_user': '➕',
-                'update_user': '✏️',
-                'delete_user': '🗑️',
-                'create_appointment': '📅',
-                'update_appointment': '✏️',
-                'delete_appointment': '🗑️',
-                'update_settings': '⚙️',
-                'change_password': '🔐',
-                'login': '🔓',
-                'logout': '🔒'
-              };
-
-              const actionLabels = {
-                'create_user': 'Criar Usuário',
-                'update_user': 'Atualizar Usuário',
-                'delete_user': 'Deletar Usuário',
-                'create_appointment': 'Criar Agendamento',
-                'update_appointment': 'Atualizar Agendamento',
-                'delete_appointment': 'Deletar Agendamento',
-                'update_settings': 'Atualizar Configurações',
-                'change_password': 'Alterar Senha',
-                'login': 'Login',
-                'logout': 'Logout'
-              };
-
-              const icon = actionIcons[log.action] || '📝';
-              const label = actionLabels[log.action] || log.action;
-              const date = new Date(log.created_at);
-              const timeAgo = this.getTimeAgo(date);
-
-              let detailsHtml = '';
-              if (log.details && typeof log.details === 'object') {
-                detailsHtml = `<div style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; font-size: 12px; color: var(--muted);">
-                  <strong>Detalhes:</strong> <pre style="margin: 5px 0; white-space: pre-wrap;">${JSON.stringify(log.details, null, 2)}</pre>
-                </div>`;
-              }
-
-              return `
-                <div style="padding: 15px; border-bottom: 1px solid var(--border); transition: background 0.2s;" 
-                     onmouseover="this.style.background='rgba(0,0,0,0.02)'" 
-                     onmouseout="this.style.background='transparent'">
-                  <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
-                    <div style="flex: 1;">
-                      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
-                        <span style="font-size: 20px;">${icon}</span>
-                        <strong style="color: var(--text);">${label}</strong>
-                        <span style="padding: 2px 8px; background: rgba(0,145,255,0.1); color: #0091FF; border-radius: 4px; font-size: 11px; font-weight: 500;">
-                          ${log.entity_type}
-                        </span>
-                      </div>
-                      <p style="margin: 5px 0; color: var(--muted); font-size: 14px;">${log.description}</p>
-                      ${detailsHtml}
-                      <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
-                        <span>👤 ${log.user_name || log.user_email || 'Sistema'}</span>
-                        ${log.ip_address ? ` • 🌐 ${log.ip_address}` : ''}
-                      </div>
-                    </div>
-                    <div style="text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap;">
-                      ${timeAgo}
-                      <div style="margin-top: 5px; font-size: 11px;">
-                        ${date.toLocaleString('pt-BR')}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('');
-
-            // Renderizar paginação
-            this.renderPagination(pagination);
-          } else {
-            logsList.innerHTML = '<p style="text-align: center; color: var(--danger);">Erro ao carregar logs.</p>';
-          }
-        } catch (error) {
-          console.error('Erro ao carregar logs:', error);
-          const logsList = document.getElementById('logsList');
-          if (logsList) {
-            logsList.innerHTML = '<p style="text-align: center; color: var(--danger);">Erro ao carregar logs. Tente novamente.</p>';
-          }
-        }
-      }
-
-      renderPagination(pagination) {
-        const paginationEl = document.getElementById('logsPagination');
-        if (!paginationEl || pagination.totalPages <= 1) {
-          if (paginationEl) paginationEl.innerHTML = '';
-          return;
-        }
-
-        let html = '';
-        
-        // Botão anterior
-        if (pagination.page > 1) {
-          html += `<button class="admin-btn admin-btn-secondary" onclick="adminDashboard.goToPage(${pagination.page - 1})">← Anterior</button>`;
-        }
-
-        // Páginas
-        for (let i = 1; i <= pagination.totalPages; i++) {
-          if (i === 1 || i === pagination.totalPages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
-            html += `<button class="admin-btn ${i === pagination.page ? 'admin-btn-primary' : 'admin-btn-secondary'}" 
-                            onclick="adminDashboard.goToPage(${i})">${i}</button>`;
-          } else if (i === pagination.page - 3 || i === pagination.page + 3) {
-            html += `<span style="padding: 8px;">...</span>`;
-          }
-        }
-
-        // Botão próximo
-        if (pagination.page < pagination.totalPages) {
-          html += `<button class="admin-btn admin-btn-secondary" onclick="adminDashboard.goToPage(${pagination.page + 1})">Próximo →</button>`;
-        }
-
-        paginationEl.innerHTML = html;
-      }
-
-      goToPage(page) {
-        this.currentPage = page;
-        this.loadLogs();
-        // Scroll para o topo dos logs
-        const logsContainer = document.getElementById('logsContainer');
-        if (logsContainer) {
-          logsContainer.scrollTop = 0;
-        }
-      }
-
-      getTimeAgo(date) {
-        const now = new Date();
-        const diff = now - date;
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) return `${days}d atrás`;
-        if (hours > 0) return `${hours}h atrás`;
-        if (minutes > 0) return `${minutes}min atrás`;
-        return 'Agora';
       }
 
       async loadDashboardData() {
@@ -1132,11 +741,9 @@
     }
 
     // Inicializar dashboard quando DOM estiver pronto
-    let adminDashboard;
     document.addEventListener('DOMContentLoaded', async () => {
       // Inicializar diretamente - checkAdminAccess vai verificar o acesso
-      adminDashboard = new AdminDashboard();
-      window.adminDashboard = adminDashboard; // Tornar acessível globalmente
+      new AdminDashboard();
     });
   </script>
 </body>

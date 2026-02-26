@@ -48,6 +48,23 @@ class SeedService {
         console.log('ℹ️ Usuário de teste já existe: usuarioteste@gmail.com');
       }
 
+      // Usuário barbearia (para testes locais)
+      const barbeariaExists = await User.findOne({
+        where: { email: 'barbearia@gmail.com' }
+      });
+
+      if (!barbeariaExists) {
+        await User.create({
+          name: 'Barbearia',
+          email: 'barbearia@gmail.com',
+          password: 'barbearia123',
+          role: 'moderator'
+        });
+        console.log('✅ Usuário barbearia criado: barbearia@gmail.com / barbearia123');
+      } else {
+        console.log('ℹ️ Usuário barbearia já existe: barbearia@gmail.com');
+      }
+
       // Gerar API Keys automaticamente para empresas/moderators existentes sem API Key
       try {
         console.log('🔑 Verificando empresas sem API Key...');
