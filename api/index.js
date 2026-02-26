@@ -29,12 +29,22 @@ try {
 }
 
 // Handler para Vercel Serverless Functions
-// Quando o Vercel roteia para /api, ele remove o /api do path
-// Então /api/health chega aqui como /health
-// Precisamos restaurar o /api para que o Express encontre as rotas
+// O Vercel pode passar req.url como path (/api/health) ou URL completa; normalizamos para path.
+function getPathFromReq(req) {
+  let path = req.url || '/';
+  if (path.startsWith('http')) {
+    try {
+      path = new URL(path).pathname || '/';
+    } catch (_) {
+      path = '/';
+    }
+  }
+  return path.startsWith('/') ? path : '/' + path;
+}
+
 module.exports = (req, res) => {
-  // Log sempre para debug
-  console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url} (original: ${req.originalUrl || req.url})`);
+  const path = getPathFromReq(req);
+  console.log(`📥 [${new Date().toISOString()}] ${req.method} ${path}`);
   
   if (!app) {
     console.error('❌ App não está disponível!');
@@ -44,26 +54,19 @@ module.exports = (req, res) => {
   }
   
   try {
-    // Ajustar o path
-    const originalUrl = req.url || '/';
-    
-    // Se for a raiz, manter como está (já temos rota GET /)
-    if (originalUrl === '/' || originalUrl === '') {
-      req.url = '/';
-      req.originalUrl = req.originalUrl || '/';
-    } else if (!originalUrl.startsWith('/api')) {
-      // Adicionar /api ao início
-      const path = originalUrl.startsWith('/') ? originalUrl : '/' + originalUrl;
-      req.url = '/api' + path;
-      req.originalUrl = '/api' + (req.originalUrl && req.originalUrl.startsWith('/') ? req.originalUrl : '/' + (req.originalUrl || originalUrl));
-      console.log(`🔧 Path ajustado: ${originalUrl} → ${req.url}`);
+    // Express espera rotas sob /api (ex: /api/health, /api/auth/login)
+    let targetPath = path;
+    if (path === '/' || path === '') {
+      targetPath = '/';
+    } else if (!path.startsWith('/api')) {
+      targetPath = '/api' + (path === '/' ? '' : path);
     }
+    req.url = targetPath;
+    req.originalUrl = req.originalUrl || targetPath;
     
-    // Chamar o app Express
     return app(req, res);
   } catch (error) {
     console.error('❌ Erro no handler:', error);
-    console.error('❌ Stack:', error.stack);
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Erro interno do servidor',
