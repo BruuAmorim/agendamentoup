@@ -96,10 +96,9 @@ ORDER BY tablename;
 -- PRÓXIMOS PASSOS:
 -- =====================================================
 -- 1. Execute este arquivo no SQL Editor do Supabase
--- 2. Configure as variáveis de ambiente no Render:
+-- 2. Configure as variáveis de ambiente no Vercel (ou outro host):
 --    - DATABASE_URL=postgres://usuario:senha@host:porta/banco
 --    - NODE_ENV=production
---    - PORT=3000
 --    - JWT_SECRET=sua_chave_segura
--- 3. Faça o deploy no Render
+-- 3. Faça o deploy do backend (ex.: Vercel)
 -- =====================================================
