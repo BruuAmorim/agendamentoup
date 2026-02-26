@@ -3,6 +3,9 @@
 
 process.env.VERCEL = '1';
 
+// Carregar pg e pg-hstore antes do server para o Vercel incluir na bundle (Sequelize usa dinamicamente).
+try { require('pg'); require('pg-hstore'); } catch (_) {}
+
 let app;
 let appLoadError = null;
 
