@@ -1,24 +1,29 @@
-// api.js - FRONTEND (respeita config-api.js quando carregado antes)
+// api.js - FRONTEND (adicionar no início)
 (function() {
     console.log("🔧 Iniciando configuração da API...");
-
-    // Não sobrescrever API_CONFIG se config-api.js já definiu (ex.: produção Vercel/Firebase)
-    const endpoints = {
-        auth: { login: '/auth/login', register: '/auth/register' },
-        users: { list: '/users', get: '/users/:id' },
-        appointments: { list: '/appointments', create: '/appointments' }
-    };
-    if (!window.API_CONFIG || !window.API_CONFIG.baseUrl) {
-        const BACKEND_PORT = 3000;
-        window.API_CONFIG = {
-            baseUrl: `http://localhost:${BACKEND_PORT}/api`,
-            endpoints
-        };
-    } else {
-        window.API_CONFIG.endpoints = window.API_CONFIG.endpoints || endpoints;
-    }
-    const BASE_URL = window.API_CONFIG.baseUrl;
+    
+    const BACKEND_PORT = 3000;
+    const BASE_URL = `http://localhost:${BACKEND_PORT}/api`;
+    
     console.log("🔧 Base URL configurada:", BASE_URL);
+
+    window.API_CONFIG = {
+        baseUrl: BASE_URL,
+        endpoints: {
+            auth: {
+                login: '/auth/login',
+                register: '/auth/register'
+            },
+            users: {
+                list: '/users',
+                get: '/users/:id'
+            },
+            appointments: {
+                list: '/appointments',
+                create: '/appointments'
+            }
+        }
+    };
 
     // DEBUG: Mostrar todos os endpoints
     console.log("🔧 Endpoints configurados:", window.API_CONFIG.endpoints);
