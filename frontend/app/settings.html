@@ -492,7 +492,7 @@
       <button class="tab-btn" data-tab="form">📝 Formulário</button>
       <button class="tab-btn" data-tab="services">🛠️ Serviços</button>
       <button class="tab-btn" data-tab="schedule">📅 Agenda</button>
-      <button class="tab-btn" data-tab="integrations" id="integrationsTabBtn" style="display: none;">🔗 Integrações</button>
+      <!-- Tab de Integrações removida: API Key não é mais gerenciada aqui -->
     </div>
 
     <!-- Tab: Geral -->
@@ -638,64 +638,6 @@
             <input type="number" id="slotInterval" value="30" min="15" step="15" required>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Tab: Integrações (apenas para empresas) -->
-    <div class="tab-content" id="integrations-tab">
-      <h2>🔐 API Key</h2>
-      <p style="color: #666; margin-bottom: 20px;">Gere sua API Key para integrações externas (n8n, webhooks, etc.)</p>
-      
-      <div class="form-group">
-        <label>Status da API Key</label>
-        <div style="background: #f9f9f9; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span id="apiKeyStatusBadge" class="status-badge" style="padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 500;">Não configurada</span>
-          </div>
-          <div id="apiKeyPrefixDisplay" style="font-family: monospace; color: #666; font-size: 0.9rem; display: none;">
-            Prefixo: <span id="apiKeyPrefixValue">-</span>
-          </div>
-          <div id="apiKeyDates" style="margin-top: 12px; font-size: 0.85rem; color: #666; display: none;">
-            <div>Criada em: <span id="apiKeyCreatedAt">-</span></div>
-            <div>Última regeneração: <span id="apiKeyLastRegenerated">-</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <button type="button" class="add-field-btn" id="regenerateApiKeyBtn" style="width: 100%; padding: 12px;">
-          🔁 Gerar Nova API Key
-        </button>
-      </div>
-
-      <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; border-radius: 8px; margin-top: 20px;">
-        <strong>⚠️ Importante:</strong>
-        <ul style="margin: 8px 0 0 20px; padding: 0;">
-          <li>A API Key será exibida apenas uma vez após a geração</li>
-          <li>Guarde a chave em local seguro</li>
-          <li>Use no header <code>x-api-key</code> nas requisições</li>
-          <li>Formato: <code>AEVUM_&lt;empresaId&gt;_&lt;randomString&gt;</code></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal para exibir nova API Key -->
-  <div id="apiKeyModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
-      <div class="modal-header">
-        <h3>🔑 Nova API Key Gerada</h3>
-      </div>
-      <div class="modal-body">
-        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <strong>⚠️ IMPORTANTE:</strong> Guarde esta chave com segurança. Ela não será exibida novamente após fechar este modal.
-        </div>
-        <label>Sua nova API Key:</label>
-        <div id="newApiKeyDisplay" style="background: #f9f9f9; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; word-break: break-all; margin: 10px 0 20px 0; border: 2px solid #0091FF;"></div>
-      </div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-        <button type="button" class="btn-secondary" id="closeApiKeyModalBtn" style="padding: 10px 20px; border: none; border-radius: 8px; background: #f0f0f0; cursor: pointer;">Fechar</button>
-        <button type="button" class="add-field-btn" id="copyApiKeyModalBtn" style="padding: 10px 20px;">📋 Copiar API Key</button>
       </div>
     </div>
   </div>

@@ -27,6 +27,10 @@ class Aevum {
     }
 
     init() {
+        // Aplicar nome da empresa do localStorage logo no init para evitar piscar "Sistema de Agendamentos" no F5
+        const storedName = this.getStoredCompanyName();
+        if (storedName) this.updateCompanyTitle(storedName);
+
         this.bindEvents();
         this.setTheme(this.currentTheme);
         this.loadInitialData();
@@ -356,6 +360,24 @@ class Aevum {
             this.availableSlots = availableSlots;
             this.displayAvailableSlots();
             document.getElementById('availableSlots').style.display = 'block';
+
+            // Se o cliente já digitou um horário manualmente, avisar se ele não estiver na lista de disponíveis
+            const timeInput = document.getElementById('appointment_time');
+            const rawTime = timeInput ? timeInput.value : '';
+            if (rawTime) {
+                const typedTime = this.formatTime(rawTime);
+                const existsInSlots = (this.availableSlots || []).some(slot => {
+                    const slotTime = typeof slot === 'string' ? slot : slot.time;
+                    return this.formatTime(slotTime) === typedTime;
+                });
+
+                if (!existsInSlots) {
+                    this.showToast(
+                        `O horário ${typedTime} não está disponível para esta data. Selecione outro horário na lista de horários disponíveis.`,
+                        'warning'
+                    );
+                }
+            }
         } catch (error) {
             console.error('Erro ao verificar disponibilidade:', error);
             this.showToast('Erro ao verificar disponibilidade', 'error');
@@ -1156,9 +1178,9 @@ class Aevum {
             return;
         }
 
-        // Criar estrutura do modal
+        // Criar estrutura do modal (usa estilos próprios para não interferir nos outros modais)
         const modalHTML = `
-            <div id="appointmentModal" class="modal" style="display: none;">
+            <div id="appointmentModal" class="modal">
                 <div class="modal-content" style="max-width: 600px; margin: 50px auto; background: white; border-radius: 12px; padding: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
                     <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
                         <h3 style="margin: 0; color: var(--text);">Detalhes do Agendamento</h3>
@@ -1175,24 +1197,24 @@ class Aevum {
         // Adicionar ao body
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         
-        // Adicionar estilos se não existirem
-        if (!document.getElementById('modalStyles')) {
+        // Adicionar estilos específicos apenas para o modal de detalhes criado dinamicamente
+        if (!document.getElementById('appointmentModalStyles')) {
             const style = document.createElement('style');
-            style.id = 'modalStyles';
+            style.id = 'appointmentModalStyles';
             style.textContent = `
-                .modal {
+                #appointmentModal {
+                    display: none;
                     position: fixed;
                     top: 0;
                     left: 0;
                     width: 100%;
                     height: 100%;
                     background: rgba(0, 0, 0, 0.5);
-                    z-index: 1000;
-                    display: flex;
+                    z-index: 2000;
                     align-items: center;
                     justify-content: center;
                 }
-                .modal.show {
+                #appointmentModal.show {
                     display: flex;
                 }
             `;
@@ -2609,23 +2631,34 @@ class Aevum {
     }
 
     /**
-     * Atualiza o título da página com o nome da empresa
+     * Atualiza o título da página com o nome da empresa.
+     * Se companyName for vazio, não sobrescreve com "Sistema de Agendamentos" para evitar
+     * alternância no F5 quando uma resposta async chega sem company_name.
      */
     updateCompanyTitle(companyName) {
-        if (companyName) {
-            document.title = `${companyName} - Aevum`;
-            // Atualizar também o título no header se existir
-            const headerTitle = document.querySelector('.header-title span');
-            if (headerTitle) {
-                headerTitle.textContent = companyName;
-            }
-        } else {
-            document.title = 'Sistema de Agendamentos - Aevum';
-            const headerTitle = document.querySelector('.header-title span');
-            if (headerTitle) {
-                headerTitle.textContent = 'Sistema de Agendamentos';
-            }
+        const headerTitle = document.querySelector('.header-title span');
+        const name = (companyName && String(companyName).trim()) || this.getStoredCompanyName();
+        if (name) {
+            document.title = `${name} - Aevum`;
+            if (headerTitle) headerTitle.textContent = name;
         }
+        // Se não tiver nome, não alterar: evita sobrescrever "Barbearia" com "Sistema de Agendamentos"
+    }
+
+    getStoredCompanyName() {
+        try {
+            const v2 = localStorage.getItem('moderator_settings_v2');
+            if (v2) {
+                const p = JSON.parse(v2);
+                if (p && p.company_name) return String(p.company_name).trim();
+            }
+            const legacy = localStorage.getItem('moderator_settings');
+            if (legacy) {
+                const p = JSON.parse(legacy);
+                if (p && (p.company_name || p.companyName)) return String(p.company_name || p.companyName).trim();
+            }
+        } catch (e) { /* ignore */ }
+        return '';
     }
 
     updateCompanyLogo(logoData) {

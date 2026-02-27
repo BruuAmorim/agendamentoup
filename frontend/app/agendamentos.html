@@ -295,10 +295,8 @@
         dateInput.setAttribute('min', todayStr);
       }
 
-      // Inicializar funcionalidades do app
-      if (window.app) {
-        window.app.init();
-      }
+      // `window.app` já é inicializado em /js/app.js (new Aevum).
+      // Não chamar init() novamente aqui para evitar eventos duplicados.
     });
   </script>
 
