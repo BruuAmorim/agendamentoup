@@ -213,7 +213,18 @@ class AuthManager {
             } else {
                 if (settingsBtn) settingsBtn.style.display = 'none';
                 if (usersBtn) usersBtn.style.display = 'none';
-                if (title) title.textContent = 'Sistema de Agendamentos';
+                // Não sobrescrever o título para empresa/moderator: app.js define pelo nome salvo (ex: "Barbearia")
+                // Deixar como está ou aplicar nome do localStorage se já existir
+                if (title) {
+                    try {
+                        const stored = localStorage.getItem('moderator_settings_v2') || localStorage.getItem('moderator_settings');
+                        if (stored) {
+                            const parsed = JSON.parse(stored);
+                            const name = parsed.company_name || parsed.companyName;
+                            if (name) title.textContent = name;
+                        }
+                    } catch (e) { /* manter texto atual */ }
+                }
             }
 
             if (adminLogoutBtn) adminLogoutBtn.style.display = 'inline-block';

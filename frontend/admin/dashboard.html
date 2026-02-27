@@ -909,8 +909,14 @@
         const currentPassword = document.getElementById('currentPasswordInput').value;
         const companySelect = document.getElementById('companySelect');
         const companyId = companySelect && companySelect.value ? companySelect.value : this.selectedCompanyId;
+        const isCreating = document.getElementById('currentPasswordField').style.display === 'none' || !document.getElementById('currentPasswordField').offsetParent;
 
         // Validações
+        if (isCreating && (!companyId || companySelect?.value === '')) {
+          alert('❌ Selecione a empresa para criar a senha de configurações.');
+          if (companySelect) companySelect.focus();
+          return;
+        }
         if (!newPassword || newPassword.length < 4) {
           alert('❌ A senha deve ter pelo menos 4 caracteres.');
           return;
@@ -1350,14 +1356,11 @@
 
                 if (companies.length > 0) {
                   companySelectContainer.style.display = 'block';
-
-                  // Garantir que haja uma empresa selecionada
+                  // Não auto-selecionar: empresa é obrigatória ao criar senha
                   if (this.selectedCompanyId) {
                     companySelect.value = String(this.selectedCompanyId);
-                  }
-                  if (!companySelect.value && companies[0]) {
-                    companySelect.value = String(companies[0].id);
-                    this.selectedCompanyId = companies[0].id;
+                  } else {
+                    companySelect.value = '';
                   }
                 } else {
                   companySelectContainer.style.display = 'none';

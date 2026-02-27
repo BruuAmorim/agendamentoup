@@ -217,16 +217,18 @@
             }
         },
 
-        // Obter horários disponíveis
-        getAvailableSlots: async function(date) {
+        // Obter horários disponíveis (backend usa horário de funcionamento e conflitos da empresa)
+        getAvailableSlots: async function(date, durationMinutes = 60) {
             try {
-                const response = await fetch(`${BASE_URL}/slots/${date}`, {
+                const url = `${BASE_URL}/appointments/available/${encodeURIComponent(date)}?duration=${durationMinutes}`;
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: this.getHeaders()
                 });
 
                 const data = await response.json();
-                return { success: response.ok, data: data.data || data.slots || data || [] };
+                const slots = (data.data && data.data.available_slots) ? data.data.available_slots : (data.data || data.slots || data || []);
+                return { success: response.ok && data.success !== false, data: Array.isArray(slots) ? slots : [] };
             } catch (error) {
                 console.error('Erro ao obter horários disponíveis:', error);
                 return { success: false, error: error.message, data: [] };

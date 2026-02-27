@@ -297,6 +297,13 @@ class Aevum {
 
     async loadInitialData() {
         try {
+            // Bloquear datas passadas no formulário de novo agendamento
+            const dateInput = document.getElementById('appointment_date');
+            if (dateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.setAttribute('min', today);
+            }
+
             // Verificar conexão com API (opcional - não bloqueia a aplicação)
             try {
                 await API.testConnection();
@@ -330,15 +337,22 @@ class Aevum {
         }
 
         try {
-            // Garantir que os agendamentos do dia estejam carregados antes de calcular disponibilidade
             const filterDateEl = document.getElementById('filterDate');
             if (filterDateEl && filterDateEl.value !== date) {
-                filterDateEl.value = date; // YYYY-MM-DD
+                filterDateEl.value = date;
                 await this.loadAppointments();
             }
 
-            // Gerar horários disponíveis (8h às 18h, intervalos de 1 hora)
-            const availableSlots = this.generateAvailableSlots(date);
+            const duration = 60; // pode ser obtido do serviço selecionado no futuro
+            const apiResult = await API.getAvailableSlots(date, duration);
+            let availableSlots = [];
+
+            if (apiResult.success && Array.isArray(apiResult.data) && apiResult.data.length > 0) {
+                availableSlots = apiResult.data.map(s => ({ time: s.time || s, duration: s.duration || duration }));
+            } else {
+                availableSlots = this.generateAvailableSlots(date);
+            }
+
             this.availableSlots = availableSlots;
             this.displayAvailableSlots();
             document.getElementById('availableSlots').style.display = 'block';
@@ -405,12 +419,15 @@ class Aevum {
             const mins = minutes % 60;
             const timeString = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 
-            // Verificar se há conflito com agendamentos existentes
+            // Regra de conflito: novo_inicio < existente_fim AND novo_fim > existente_inicio
+            const newSlotDuration = 60;
+            const slotEndMinutes = minutes + newSlotDuration;
             const hasConflict = dateAppointments.some(apt => {
                 const aptTime = apt.appointment_time.split(':');
                 const aptMinutes = parseInt(aptTime[0]) * 60 + parseInt(aptTime[1] || 0);
-                // Verificar se o slot conflita (dentro de 30 minutos)
-                return Math.abs(aptMinutes - minutes) < 30;
+                const aptDuration = apt.duration_minutes || 60;
+                const aptEnd = aptMinutes + aptDuration;
+                return minutes < aptEnd && slotEndMinutes > aptMinutes;
             });
 
             if (!hasConflict) {
@@ -916,9 +933,12 @@ class Aevum {
 
         detailsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const fullAppointment = this.appointments.find(apt => apt.id === appointment.id);
+            const id = appointment.id;
+            const fullAppointment = this.appointments.find(apt => String(apt.id) === String(id));
             if (fullAppointment) {
                 this.openDetailsModal(fullAppointment);
+            } else {
+                this.showToast('Agendamento não encontrado na lista. Recarregue a página.', 'error');
             }
         });
 
@@ -937,7 +957,7 @@ class Aevum {
             if (!e.target.classList.contains('btn-details') && 
                 !e.target.classList.contains('btn-edit') && 
                 !e.target.classList.contains('btn-delete')) {
-                const fullAppointment = this.appointments.find(apt => apt.id === appointment.id);
+                const fullAppointment = this.appointments.find(apt => String(apt.id) === String(appointment.id));
                 if (fullAppointment) {
                     this.openAppointmentModal(fullAppointment);
                 }
@@ -1039,9 +1059,11 @@ class Aevum {
     }
 
     async editAppointment(id) {
-        const appointment = this.appointments.find(apt => apt.id === id);
+        const appointment = this.appointments.find(apt => String(apt.id) === String(id));
         if (appointment) {
             this.openEditAppointmentModal(appointment);
+        } else {
+            this.showToast('Agendamento não encontrado. Recarregue a lista.', 'error');
         }
     }
 
@@ -1945,38 +1967,6 @@ class Aevum {
 
         // Usar a função openEditAppointmentModal que já preenche todos os campos
         this.openEditAppointmentModal(appointment);
-    }
-
-    // Excluir agendamento
-    async deleteAppointment(appointmentId) {
-        if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`http://localhost:3000/api/appointments/${appointmentId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                }
-            });
-
-            if (response.ok) {
-                // Remover da lista local
-                this.appointments = this.appointments.filter(apt => apt.id !== appointmentId);
-
-                // Atualizar exibição
-                this.displayAppointments();
-
-                this.showToast('Agendamento excluído com sucesso!', 'success');
-            } else {
-                const errorData = await response.json();
-                this.showToast(errorData.message || 'Erro ao excluir agendamento', 'error');
-            }
-        } catch (error) {
-            console.error('Erro ao excluir agendamento:', error);
-            this.showToast('Erro ao excluir agendamento', 'error');
-        }
     }
 
     // ========== FUNCIONALIDADES DO MODERADOR ==========

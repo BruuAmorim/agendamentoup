@@ -32,11 +32,10 @@ class AppointmentController {
       // admin_master pode ver todos (empresa_id será null)
       let empresa_id = null;
       if (req.user) {
-        // empresa_id já vem no token JWT (calculado no generateToken)
-        empresa_id = req.user.empresa_id || null;
-        
-        // Se admin_master, empresa_id será null e verá todos
-        // Caso contrário, empresa_id será o ID da empresa do usuário
+        // empresa_id já vem no token JWT; para moderator/empresa usar id do usuário se ausente
+        empresa_id = req.user.empresa_id ?? (
+          (req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null
+        );
       }
 
       // CRÍTICO: Filtrar agendamentos apenas da empresa do usuário logado
@@ -79,7 +78,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -131,12 +130,10 @@ class AppointmentController {
 
       // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
       let empresa_id = null;
-      if (req.user) {
-        empresa_id = req.user.empresa_id || null;
-      }
-      // Também verificar se vem do middleware de API Key
-      if (!empresa_id && req.empresa_id) {
+      if (req.empresa_id) {
         empresa_id = req.empresa_id;
+      } else if (req.user) {
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar horários disponíveis apenas considerando agendamentos da mesma empresa
@@ -341,7 +338,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -425,7 +422,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -478,7 +475,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -537,7 +534,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
@@ -599,7 +596,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
@@ -747,7 +744,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamentos existentes apenas da empresa do usuário logado
@@ -795,7 +792,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -842,7 +839,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id || null;
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
       // Verificar se deve usar armazenamento em memória

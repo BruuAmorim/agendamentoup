@@ -1,4 +1,4 @@
-const { query, getClient } = require('../config/database');
+const { query } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 // Armazenamento em memória para desenvolvimento
@@ -283,16 +283,24 @@ class Appointment {
     if (!data.appointment_date) {
       errors.push('Data do agendamento é obrigatória');
     } else {
-      const appointmentDate = new Date(data.appointment_date + 'T00:00:00'); // Força horário 00:00
+      const appointmentDate = new Date(data.appointment_date + 'T00:00:00');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Comparar apenas AAAA-MM-DD (ignorar horário)
       const appointmentDateStr = appointmentDate.toISOString().split('T')[0];
       const todayStr = today.toISOString().split('T')[0];
 
       if (appointmentDateStr < todayStr) {
         errors.push('Data do agendamento não pode ser no passado');
+      }
+
+      // Validar que a data é um dia ativo (working_days da empresa)
+      const settings = await this.getCompanySettings(userId);
+      const dayOfWeek = appointmentDate.getDay();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayName = dayNames[dayOfWeek];
+      if (!settings.working_days.includes(dayName)) {
+        errors.push(`Não atendemos aos ${this.getDayNamePT(dayName)}. Escolha outro dia.`);
       }
     }
 
@@ -860,16 +868,25 @@ class Appointment {
   }
 
   // Buscar horários disponíveis para uma data
-  // userId opcional: ID da empresa para filtrar apenas agendamentos dessa empresa
+  // Usa horário de funcionamento e dias ativos da empresa (company_id)
   static async getAvailableSlots(date, duration = 60, userId = null) {
+    const settings = await this.getCompanySettings(userId);
+
+    // Validar dia da semana: só retornar slots em dias ativos
+    const dateObj = new Date(date + 'T00:00:00');
+    const dayOfWeek = dateObj.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[dayOfWeek];
+    if (!settings.working_days.includes(dayName)) {
+      return [];
+    }
+
     let bookedSlots;
 
     if (useMemoryStorage()) {
-      // Usar armazenamento em memória
       bookedSlots = memoryStorage
         .filter(apt => {
           if (apt.appointment_date !== date || apt.status === 'cancelled') return false;
-          // CRÍTICO: Filtrar por user_id para isolar dados por empresa
           if (userId && apt.user_id !== userId) return false;
           return true;
         })
@@ -878,30 +895,25 @@ class Appointment {
           duration_minutes: apt.duration_minutes
         }));
     } else {
-      // Usar PostgreSQL
       let queryText = `
         SELECT appointment_time, duration_minutes
         FROM appointments
         WHERE appointment_date = $1 AND status != 'cancelled'
       `;
       const params = [date];
-      
-      // CRÍTICO: Filtrar por user_id para isolar dados por empresa
       if (userId) {
         queryText += ' AND user_id = $2';
         params.push(userId);
       }
-      
       queryText += ' ORDER BY appointment_time ASC';
-
       const result = await query(queryText, params);
       bookedSlots = result.rows;
     }
 
-    // Horário de funcionamento: 8:00 às 18:00
-    const workStart = 8 * 60; // 8:00 em minutos
-    const workEnd = 18 * 60; // 18:00 em minutos
+    const workStart = this.timeToMinutes(settings.working_hours.start);
+    const workEnd = this.timeToMinutes(settings.working_hours.end);
     const slotDuration = duration;
+    const slotInterval = 30;
 
     const availableSlots = [];
     let currentTime = workStart;
@@ -910,11 +922,9 @@ class Appointment {
       const slotStart = currentTime;
       const slotEnd = currentTime + slotDuration;
 
-      // Verificar se há conflito com agendamentos existentes
       const hasConflict = bookedSlots.some(booking => {
         const bookingStart = this.timeToMinutes(booking.appointment_time);
-        const bookingEnd = bookingStart + booking.duration_minutes;
-
+        const bookingEnd = bookingStart + (booking.duration_minutes || 60);
         return (slotStart < bookingEnd && slotEnd > bookingStart);
       });
 
@@ -925,7 +935,7 @@ class Appointment {
         });
       }
 
-      currentTime += 30; // Intervalo de 30 minutos entre slots
+      currentTime += slotInterval;
     }
 
     return availableSlots;
