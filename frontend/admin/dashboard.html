@@ -189,6 +189,13 @@
       font-weight: 500;
     }
 
+    .stat-card small {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
     .dashboard-sections {
       display: grid;
       grid-template-columns: 1fr;
@@ -203,50 +210,160 @@
     }
 
 
-    .recent-activities {
-      list-style: none;
-      padding: 0;
-      margin: 0;
+    /* Seção de usuários dentro do dashboard */
+    .users-section {
+      margin-top: 40px;
+      padding-top: 40px;
+      border-top: 2px solid var(--border);
     }
 
-    .activity-item {
-      padding: 18px 0;
-      border-bottom: 1px solid var(--border);
+    .users-section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      transition: background 0.2s ease;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
 
-    .activity-item:hover {
-      background: var(--background);
-      margin: 0 -20px;
-      padding-left: 20px;
-      padding-right: 20px;
+    .users-section-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .users-search-input {
+      padding: 8px 12px;
       border-radius: 8px;
-    }
-
-    .activity-item:last-child {
-      border-bottom: none;
-    }
-
-    .activity-info h4 {
-      margin: 0 0 5px 0;
-      font-size: 1rem;
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .activity-info p {
-      margin: 0;
+      border: 1px solid var(--border);
+      min-width: 220px;
       font-size: 0.9rem;
-      color: var(--muted);
     }
 
-    .activity-time {
-      font-size: 0.85rem;
-      color: var(--muted);
+    .users-table-container {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      background: #fff;
+    }
+
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .users-table th,
+    .users-table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    .users-table th {
+      background: var(--background);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .users-table tbody tr:hover {
+      background: var(--background);
+    }
+
+    .user-role {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
       font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .role-admin_master {
+      background: #e91e63;
+      color: #fff;
+    }
+
+    .role-moderator,
+    .role-empresa {
+      background: #6f42c1;
+      color: #fff;
+    }
+
+    .user-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .status-active {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .status-inactive {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .user-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .user-action-btn {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .user-action-btn.btn-deactivate {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .user-action-btn.btn-activate {
+      background: var(--success);
+      color: #fff;
+    }
+
+    /* Modal genérico (novo usuário) */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal .modal-content {
+      width: 100%;
+      max-width: 480px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .modal .modal-header h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
     }
 
     .quick-actions {
@@ -302,9 +419,6 @@
     <div class="admin-header-content">
       <h1>🏢 Dashboard Administrativo</h1>
       <div class="admin-actions">
-        <a href="/admin/users" class="admin-btn admin-btn-primary" id="manageUsersBtn">
-          👥 Gerenciar Usuários
-        </a>
         <button class="admin-btn admin-btn-danger" id="adminLogoutBtn">
           🚪 Sair
         </button>
@@ -334,6 +448,11 @@
               <h3 id="totalAppointments">0</h3>
               <p>Agendamentos Hoje</p>
             </div>
+            <div class="stat-card">
+              <h3 id="healthScore">-</h3>
+              <p>Score de Saúde da Empresa</p>
+              <small id="healthScoreLabel">Carregando...</small>
+            </div>
           </div>
         </section>
 
@@ -353,6 +472,45 @@
         </section>
       </div>
 
+      <!-- Gerenciar Usuários (agora dentro do dashboard) -->
+      <section id="usersManagementSection" class="users-section">
+        <div class="users-section-header">
+          <h2 class="section-title" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+            👥 Gerenciar Usuários
+          </h2>
+          <div class="users-section-controls">
+            <input
+              type="text"
+              id="searchUsersDashboard"
+              class="users-search-input"
+              placeholder="Buscar por nome ou e-mail"
+            />
+            <button type="button" class="admin-btn admin-btn-primary" id="addUserBtnDashboard">
+              ➕ Novo Usuário
+            </button>
+          </div>
+        </div>
+
+        <div class="users-table-container">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Perfil</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+        <div id="usersEmptyState" style="display: none; padding: 16px; color: var(--muted);">
+          Nenhum usuário encontrado.
+        </div>
+      </section>
+
       <!-- Gerenciar Senha de Configurações -->
       <section class="settings-password-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
         <h2 class="section-title">🔐 Senha de Configurações</h2>
@@ -366,6 +524,19 @@
 
         <form id="settingsPasswordForm" style="display: none;">
           <div style="display: grid; gap: 20px;">
+            <!-- Seleção de empresa (apenas para admin master) -->
+            <div id="companySelectContainer" style="display: none;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
+                Empresa *
+              </label>
+              <select id="companySelect"
+                      style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; background: white;">
+                <option value="">Selecione a empresa</option>
+              </select>
+              <small style="color: var(--muted); font-size: 12px; display: block; margin-top: 5px;">
+                Escolha para qual empresa esta senha de configurações será aplicada.
+              </small>
+            </div>
             <div id="currentPasswordField" style="display: none;">
               <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
                 Senha Atual *
@@ -416,35 +587,58 @@
         </div>
       </section>
 
-      <!-- Atividades Recentes -->
-      <section class="activities-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
-        <h2 class="section-title">📋 Atividades Recentes</h2>
-        <ul class="recent-activities" id="recentActivities">
-          <li class="activity-item">
-            <div class="activity-info">
-              <h4>Novo usuário cadastrado</h4>
-              <p>João Silva foi adicionado ao sistema</p>
-            </div>
-            <span class="activity-time">2h atrás</span>
-          </li>
-          <li class="activity-item">
-            <div class="activity-info">
-              <h4>Agendamento realizado</h4>
-              <p>Cliente Maria solicitou agendamento</p>
-            </div>
-            <span class="activity-time">4h atrás</span>
-          </li>
-          <li class="activity-item">
-            <div class="activity-info">
-              <h4>Integração configurada</h4>
-              <p>Webhook n8n foi atualizado</p>
-            </div>
-            <span class="activity-time">1d atrás</span>
-          </li>
-        </ul>
-      </section>
     </div>
   </main>
+
+  <!-- Modal simples para novo usuário -->
+  <div id="newUserModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="newUserModalTitle">Novo Usuário</h3>
+      </div>
+      <div class="modal-body">
+        <form id="newUserFormDashboard">
+          <div style="display: grid; gap: 16px;">
+            <div>
+              <label>Nome *</label>
+              <input type="text" id="newUserNameDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+            </div>
+            <div>
+              <label>Email *</label>
+              <input type="email" id="newUserEmailDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+            </div>
+            <div id="newUserPasswordGroupDashboard">
+              <label>Senha inicial *</label>
+              <input type="password" id="newUserPasswordDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+            </div>
+            <div>
+              <label>Perfil *</label>
+              <select id="newUserRoleDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                <option value="moderator">Empresa</option>
+                <option value="admin_master">Administrador</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
+                <input type="checkbox" id="createSettingsPasswordCheckbox" />
+                Criar também senha de configurações para esta empresa
+              </label>
+              <input
+                type="password"
+                id="settingsPasswordForUser"
+                placeholder="Senha de configurações"
+                style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; display: none;"
+              />
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button type="button" class="admin-btn admin-btn-secondary" id="cancelNewUserBtnDashboard">Cancelar</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="saveNewUserBtnDashboard">Salvar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="../js/config-api.js"></script>
@@ -454,6 +648,13 @@
     // Dashboard Administrativo
     class AdminDashboard {
       constructor() {
+        // Estado do usuário e empresa selecionada
+        this.currentUser = null;
+        this.isAdminMaster = false;
+        this.selectedCompanyId = null;
+        this.users = [];
+        this.filteredUsers = [];
+        this.editingUserId = null;
         this.init();
       }
 
@@ -513,6 +714,11 @@
         console.log('🔍 Tipo do role:', typeof user.role);
         console.log('🔍 Tipo do role normalizado:', typeof userRole);
         
+        // Guardar informações do usuário logado
+        this.currentUser = user;
+        this.isAdminMaster = (userRole === normalizedAdminRole);
+        this.selectedCompanyId = user.id;
+
         // Verificar se é admin - APENAS bloquear se NÃO for admin
         // Comparação case-insensitive e com trim
         if (userRole !== normalizedAdminRole) {
@@ -540,7 +746,19 @@
 
       async loadPasswordStatus() {
         try {
-          const response = await window.authManager.apiRequest('/api/settings-password');
+          // Descobrir empresa selecionada (quando houver seleção)
+          let companyId = this.selectedCompanyId;
+          const companySelect = document.getElementById('companySelect');
+          if (companySelect && companySelect.value) {
+            companyId = companySelect.value;
+          }
+
+          let url = '/api/settings-password';
+          if (companyId) {
+            url += `?companyId=${encodeURIComponent(companyId)}`;
+          }
+
+          const response = await window.authManager.apiRequest(url);
           
           if (response.success) {
             const hasPassword = response.data.hasPassword;
@@ -601,6 +819,24 @@
           });
         }
 
+        // Seleção de empresa (quando disponível)
+        const companySelect = document.getElementById('companySelect');
+        if (companySelect) {
+          companySelect.addEventListener('change', () => {
+            // Atualizar empresa selecionada e recarregar status
+            this.selectedCompanyId = companySelect.value || null;
+            // Esconder formulário ao trocar de empresa para evitar confusão
+            const formEl = document.getElementById('settingsPasswordForm');
+            const actionsEl = document.getElementById('passwordActions');
+            if (formEl && actionsEl) {
+              formEl.style.display = 'none';
+              actionsEl.style.display = 'block';
+              formEl.reset();
+            }
+            this.loadPasswordStatus();
+          });
+        }
+
         // Formulário de senha
         const passwordForm = document.getElementById('settingsPasswordForm');
         if (passwordForm) {
@@ -609,12 +845,52 @@
             await this.savePassword();
           });
         }
+
+        // Eventos da seção de usuários no dashboard
+        const searchInput = document.getElementById('searchUsersDashboard');
+        if (searchInput) {
+          searchInput.addEventListener('input', () => this.filterUsers());
+        }
+
+        const addUserBtn = document.getElementById('addUserBtnDashboard');
+        if (addUserBtn) {
+          addUserBtn.addEventListener('click', () => this.openNewUserModal());
+        }
+
+        const cancelNewUserBtn = document.getElementById('cancelNewUserBtnDashboard');
+        if (cancelNewUserBtn) {
+          cancelNewUserBtn.addEventListener('click', () => this.closeNewUserModal());
+        }
+
+        const saveNewUserBtn = document.getElementById('saveNewUserBtnDashboard');
+        if (saveNewUserBtn) {
+          saveNewUserBtn.addEventListener('click', (e) => this.saveNewUser(e));
+        }
+
+        const newUserForm = document.getElementById('newUserFormDashboard');
+        if (newUserForm) {
+          newUserForm.addEventListener('submit', (e) => this.saveNewUser(e));
+        }
+
+        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
+        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
+        if (createSettingsCheckbox && settingsPasswordInput) {
+          createSettingsCheckbox.addEventListener('change', () => {
+            const show = createSettingsCheckbox.checked;
+            settingsPasswordInput.style.display = show ? 'block' : 'none';
+            if (!show) {
+              settingsPasswordInput.value = '';
+            }
+          });
+        }
       }
 
       async savePassword() {
         const newPassword = document.getElementById('newPasswordInput').value;
         const confirmPassword = document.getElementById('confirmPasswordInput').value;
         const currentPassword = document.getElementById('currentPasswordInput').value;
+        const companySelect = document.getElementById('companySelect');
+        const companyId = companySelect && companySelect.value ? companySelect.value : this.selectedCompanyId;
 
         // Validações
         if (!newPassword || newPassword.length < 4) {
@@ -635,23 +911,30 @@
         try {
           const hasCurrentPassword = document.getElementById('currentPasswordField').style.display !== 'none';
           
+          // Montar payload incluindo companyId quando houver
+          const payload = {
+            password: newPassword
+          };
+
+          if (hasCurrentPassword) {
+            payload.currentPassword = currentPassword;
+          }
+          if (companyId) {
+            payload.companyId = companyId;
+          }
+
           let response;
           if (hasCurrentPassword) {
             // Atualizar senha existente
             response = await window.authManager.apiRequest('/api/settings-password', {
               method: 'PUT',
-              body: JSON.stringify({
-                password: newPassword,
-                currentPassword: currentPassword
-              })
+              body: JSON.stringify(payload)
             });
           } else {
             // Criar nova senha
             response = await window.authManager.apiRequest('/api/settings-password', {
               method: 'POST',
-              body: JSON.stringify({
-                password: newPassword
-              })
+              body: JSON.stringify(payload)
             });
           }
 
@@ -673,6 +956,305 @@
         }
       }
 
+      filterUsers() {
+        const searchTerm = (document.getElementById('searchUsersDashboard')?.value || '').toLowerCase();
+        this.filteredUsers = this.users.filter(user => {
+          const name = (user.name || '').toLowerCase();
+          const email = (user.email || '').toLowerCase();
+          return name.includes(searchTerm) || email.includes(searchTerm);
+        });
+        this.renderUsers();
+      }
+
+      renderUsers() {
+        const tbody = document.getElementById('usersTableBody');
+        const emptyState = document.getElementById('usersEmptyState');
+        if (!tbody) return;
+
+        if (!this.filteredUsers || this.filteredUsers.length === 0) {
+          tbody.innerHTML = '';
+          if (emptyState) emptyState.style.display = 'block';
+          return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        tbody.innerHTML = this.filteredUsers.map(user => {
+          const role = String(user.role || '').trim().toLowerCase();
+          const isActive = !!user.isActive;
+
+          let roleLabel = 'Desconhecido';
+          if (role === 'admin_master') roleLabel = 'Administrador';
+          else if (role === 'moderator') roleLabel = 'Empresa';
+
+          const createdAt = user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : '-';
+
+          return `
+            <tr>
+              <td>${user.name || '-'}</td>
+              <td>${user.email || '-'}</td>
+              <td>
+                <span class="user-role role-${role}">
+                  ${roleLabel}
+                </span>
+              </td>
+            <td>
+              <span class="user-status ${isActive ? 'status-active' : 'status-inactive'}">
+                ${isActive ? 'Ativo' : 'Inativo'}
+              </span>
+            </td>
+            <td>${createdAt}</td>
+            <td>
+              <div class="user-actions">
+                ${role === 'admin_master' ? '' : `
+                  <button
+                    type="button"
+                    class="user-action-btn btn-edit"
+                    data-user-id="${user.id}"
+                    data-action="edit"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="user-action-btn btn-delete"
+                    data-user-id="${user.id}"
+                    data-action="delete"
+                  >
+                    🗑️ Excluir
+                  </button>
+                  <button
+                    type="button"
+                    class="user-action-btn ${isActive ? 'btn-deactivate' : 'btn-activate'}"
+                    data-user-id="${user.id}"
+                    data-active="${isActive ? '1' : '0'}"
+                    data-action="toggle"
+                  >
+                    ${isActive ? '🚫 Desativar' : '✅ Reativar'}
+                  </button>
+                `}
+              </div>
+            </td>
+            </tr>
+          `;
+        }).join('');
+
+        // Bind dos botões de ações
+        tbody.querySelectorAll('.user-action-btn').forEach(btn => {
+          const action = btn.getAttribute('data-action');
+          btn.addEventListener('click', async () => {
+            const userId = parseInt(btn.getAttribute('data-user-id'), 10);
+            if (!userId) return;
+
+            if (action === 'edit') {
+              const user = this.users.find(u => u.id === userId);
+              if (user) {
+                this.openNewUserModal(user);
+              }
+            } else if (action === 'delete') {
+              await this.deleteUser(userId);
+            } else if (action === 'toggle') {
+              const isActive = btn.getAttribute('data-active') === '1';
+              await this.toggleUserStatus(userId, !isActive);
+            }
+          });
+        });
+      }
+
+      openNewUserModal(user = null) {
+        const modal = document.getElementById('newUserModal');
+        const titleEl = document.getElementById('newUserModalTitle');
+        const form = document.getElementById('newUserFormDashboard');
+        const passwordGroup = document.getElementById('newUserPasswordGroupDashboard');
+        const passwordInput = document.getElementById('newUserPasswordDashboard');
+        const roleSelect = document.getElementById('newUserRoleDashboard');
+        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
+        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
+
+        if (!modal || !form) return;
+
+        form.reset();
+        this.editingUserId = user && user.id ? user.id : null;
+
+        if (passwordGroup) passwordGroup.style.display = this.editingUserId ? 'none' : 'block';
+        if (passwordInput) passwordInput.value = '';
+
+        if (createSettingsCheckbox && settingsPasswordInput) {
+          // Opção de criar senha de configurações só faz sentido na criação
+          const shouldShowOption = !this.editingUserId;
+          createSettingsCheckbox.checked = false;
+          settingsPasswordInput.value = '';
+          settingsPasswordInput.style.display = 'none';
+          createSettingsCheckbox.parentElement.style.display = shouldShowOption ? 'flex' : 'none';
+        }
+
+        if (user) {
+          if (titleEl) titleEl.textContent = 'Editar Usuário';
+          document.getElementById('newUserNameDashboard').value = user.name || '';
+          document.getElementById('newUserEmailDashboard').value = user.email || '';
+          if (roleSelect) {
+            roleSelect.value = user.role || 'moderator';
+          }
+        } else {
+          if (titleEl) titleEl.textContent = 'Novo Usuário';
+          if (roleSelect) {
+            roleSelect.value = 'moderator';
+          }
+        }
+
+        modal.classList.add('show');
+        document.getElementById('newUserNameDashboard')?.focus();
+      }
+
+      closeNewUserModal() {
+        const modal = document.getElementById('newUserModal');
+        if (modal) {
+          modal.classList.remove('show');
+        }
+        this.editingUserId = null;
+      }
+
+      async saveNewUser(e) {
+        if (e) e.preventDefault();
+
+        const name = (document.getElementById('newUserNameDashboard')?.value || '').trim();
+        const email = (document.getElementById('newUserEmailDashboard')?.value || '').trim().toLowerCase();
+        const password = (document.getElementById('newUserPasswordDashboard')?.value || '');
+        const role = (document.getElementById('newUserRoleDashboard')?.value || 'moderator');
+        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
+        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
+        const wantSettingsPassword = createSettingsCheckbox && createSettingsCheckbox.checked;
+        const settingsPassword = (settingsPasswordInput?.value || '').trim();
+
+        if (!name || !email || (!this.editingUserId && !password)) {
+          alert(this.editingUserId
+            ? 'Preencha nome e email.'
+            : 'Preencha nome, email e senha.');
+          return;
+        }
+
+        if (!this.editingUserId && wantSettingsPassword && !settingsPassword) {
+          alert('Informe a senha de configurações ou desmarque a opção.');
+          return;
+        }
+
+        const saveBtn = document.getElementById('saveNewUserBtnDashboard');
+        const originalText = saveBtn ? saveBtn.textContent : 'Salvar';
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Salvando...';
+        }
+
+        try {
+          let response;
+
+          if (this.editingUserId) {
+            // Atualizar usuário existente
+            const payload = { name, email, role };
+            if (password) {
+              payload.password = password;
+            }
+
+            response = await window.authManager.apiRequest(`/api/users/${this.editingUserId}`, {
+              method: 'PUT',
+              body: JSON.stringify(payload)
+            });
+
+            if (response.success) {
+              alert('Usuário atualizado com sucesso.');
+            }
+          } else {
+            // Criar novo usuário
+            response = await window.authManager.apiRequest('/api/users', {
+              method: 'POST',
+              body: JSON.stringify({ name, email, password, role })
+            });
+
+            if (response.success && wantSettingsPassword && settingsPassword && (role === 'moderator' || role === 'empresa')) {
+              try {
+                const createdUser = response.user;
+                if (createdUser && createdUser.id) {
+                  await window.authManager.apiRequest('/api/settings-password', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      password: settingsPassword,
+                      companyId: createdUser.id
+                    })
+                  });
+                }
+              } catch (err) {
+                console.error('Erro ao criar senha de configurações para nova empresa:', err);
+              }
+            }
+
+            if (response.success) {
+              alert('Usuário criado com sucesso.');
+            }
+          }
+
+          if (response && response.success) {
+            this.closeNewUserModal();
+            await this.loadDashboardData();
+          } else if (response) {
+            alert(response.message || 'Erro ao salvar usuário.');
+          }
+        } catch (error) {
+          console.error('Erro ao criar usuário:', error);
+          alert('Erro ao criar usuário.');
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+          }
+        }
+      }
+
+      async toggleUserStatus(userId, activate) {
+        if (!userId) return;
+
+        const confirmMsg = activate
+          ? 'Deseja realmente reativar este usuário?'
+          : 'Deseja realmente desativar este usuário?';
+
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+          const endpoint = activate ? `/api/users/${userId}/reactivate` : `/api/users/${userId}/deactivate`;
+          const response = await window.authManager.apiRequest(endpoint, { method: 'PATCH' });
+
+          if (response.success) {
+            await this.loadDashboardData();
+          } else {
+            alert(response.message || 'Erro ao alterar status do usuário.');
+          }
+        } catch (error) {
+          console.error('Erro ao alterar status do usuário:', error);
+          alert('Erro ao alterar status do usuário.');
+        }
+      }
+
+      async deleteUser(userId) {
+        if (!userId) return;
+        if (!window.confirm('Deseja realmente excluir este usuário? Esta ação não pode ser desfeita.')) {
+          return;
+        }
+
+        try {
+          const response = await window.authManager.apiRequest(`/api/users/${userId}`, {
+            method: 'DELETE'
+          });
+
+          if (response.success) {
+            await this.loadDashboardData();
+          } else {
+            alert(response.message || 'Erro ao excluir usuário.');
+          }
+        } catch (error) {
+          console.error('Erro ao excluir usuário:', error);
+          alert('Erro ao excluir usuário.');
+        }
+      }
+
       bindEvents() {
         // Botão de logout
         const logoutBtn = document.getElementById('adminLogoutBtn');
@@ -681,14 +1263,6 @@
             if (window.authManager) {
               window.authManager.logout();
             }
-          });
-        }
-
-        // Botão de gerenciar usuários
-        const manageUsersBtn = document.getElementById('manageUsersBtn');
-        if (manageUsersBtn) {
-          manageUsersBtn.addEventListener('click', () => {
-            window.location.href = '/admin/users';
           });
         }
 
@@ -704,7 +1278,10 @@
             console.log('Quick Users clicked');
             e.preventDefault();
             e.stopPropagation();
-            window.location.href = '/admin/users';
+            const section = document.getElementById('usersManagementSection');
+            if (section) {
+              section.scrollIntoView({ behavior: 'smooth' });
+            }
           });
         }
 
@@ -713,7 +1290,7 @@
           quickIntegrationsBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            window.location.href = '/admin/integrations';
+            window.location.href = '/admin/integrations.html';
           });
         }
       }
@@ -732,20 +1309,133 @@
 
             if (totalUsersEl) totalUsersEl.textContent = totalUsers;
             if (activeUsersEl) activeUsersEl.textContent = activeUsers;
+
+            // Se for admin master, preencher seleção de empresas para senha de configurações
+            if (this.isAdminMaster) {
+              const companySelect = document.getElementById('companySelect');
+              const companySelectContainer = document.getElementById('companySelectContainer');
+              if (companySelect && companySelectContainer) {
+                // Considerar como "empresa" os usuários com role empresa, moderator ou admin_master
+                const companies = users.filter(u => {
+                  const role = String(u.role || '').trim().toLowerCase();
+                  return ['empresa', 'moderator', 'admin_master'].includes(role);
+                });
+
+                companySelect.innerHTML = '<option value=\"\">Selecione a empresa</option>';
+
+                companies.forEach((company) => {
+                  const option = document.createElement('option');
+                  option.value = company.id;
+                  option.textContent = `${company.name} (${company.email})`;
+                  companySelect.appendChild(option);
+                });
+
+                if (companies.length > 0) {
+                  companySelectContainer.style.display = 'block';
+
+                  // Garantir que haja uma empresa selecionada
+                  if (this.selectedCompanyId) {
+                    companySelect.value = String(this.selectedCompanyId);
+                  }
+                  if (!companySelect.value && companies[0]) {
+                    companySelect.value = String(companies[0].id);
+                    this.selectedCompanyId = companies[0].id;
+                  }
+                } else {
+                  companySelectContainer.style.display = 'none';
+                }
+              }
+            }
+
+            // Atualizar lista de usuários no dashboard
+            this.users = users;
+            this.filteredUsers = [...users];
+            this.renderUsers();
           }
 
           // Carregar estatísticas de agendamentos (hoje)
           const today = new Date().toISOString().split('T')[0];
           const appointmentsResponse = await window.authManager.apiRequest(`/api/appointments?date=${today}`);
+          let totalAppointmentsToday = 0;
           if (appointmentsResponse.success) {
             const totalAppointmentsEl = document.getElementById('totalAppointments');
             if (totalAppointmentsEl) {
-              totalAppointmentsEl.textContent = appointmentsResponse.appointments?.length || 0;
+              totalAppointmentsToday = appointmentsResponse.appointments?.length || 0;
+              totalAppointmentsEl.textContent = totalAppointmentsToday;
             }
           }
 
+          // Calcular Score de Saúde da Empresa
+          await this.calculateHealthScore({
+            totalUsers: this.users.length,
+            activeUsers: this.users.filter(u => u.isActive).length,
+            appointmentsToday: totalAppointmentsToday
+          });
+
         } catch (error) {
           console.error('Erro ao carregar dados do dashboard:', error);
+        }
+      }
+
+      async calculateHealthScore({ totalUsers, activeUsers, appointmentsToday }) {
+        const scoreEl = document.getElementById('healthScore');
+        const labelEl = document.getElementById('healthScoreLabel');
+        if (!scoreEl || !labelEl) return;
+
+        try {
+          const logsStats = await window.authManager.apiRequest('/api/logs/stats');
+          let loginCount = 0;
+          let appointmentActivity = 0;
+          let featureActivity = 0;
+
+          if (logsStats.success && logsStats.data && Array.isArray(logsStats.data.by_action)) {
+            const map = {};
+            logsStats.data.by_action.forEach(item => {
+              map[item.action] = parseInt(item.count || 0);
+            });
+
+            loginCount = map['login'] || 0;
+            appointmentActivity = (map['create_appointment'] || 0) + (map['update_appointment'] || 0);
+            featureActivity = (map['update_settings'] || 0) + (map['create_user'] || 0);
+          }
+
+          // Heurísticas simples para score 0–100
+          const safeUsers = Math.max(1, totalUsers || 1);
+
+          // Frequência de login em relação ao número de usuários
+          let loginScore = 20;
+          const loginsPerUser = loginCount / safeUsers;
+          if (loginsPerUser >= 0.5) loginScore = 90;
+          else if (loginsPerUser >= 0.2) loginScore = 75;
+          else if (loginsPerUser >= 0.05) loginScore = 60;
+          else if (loginCount > 0) loginScore = 40;
+
+          // Quantidade de agendamentos do dia
+          let appointmentScore = 30;
+          if (appointmentsToday >= 10) appointmentScore = 95;
+          else if (appointmentsToday >= 5) appointmentScore = 80;
+          else if (appointmentsToday >= 1) appointmentScore = 60;
+
+          // Uso de recursos (configurações, criação de usuários, etc.)
+          const totalFeatureEvents = appointmentActivity + featureActivity;
+          let featureScore = 30;
+          if (totalFeatureEvents >= 15) featureScore = 95;
+          else if (totalFeatureEvents >= 5) featureScore = 80;
+          else if (totalFeatureEvents >= 1) featureScore = 60;
+
+          const finalScore = Math.round((loginScore + appointmentScore + featureScore) / 3);
+
+          let label = 'Saúde baixa';
+          if (finalScore >= 85) label = 'Saúde excelente';
+          else if (finalScore >= 70) label = 'Saúde muito boa';
+          else if (finalScore >= 55) label = 'Saúde razoável';
+
+          scoreEl.textContent = finalScore;
+          labelEl.textContent = `${label} • Logins: ${loginCount} • Agendamentos hoje: ${appointmentsToday}`;
+        } catch (error) {
+          console.error('Erro ao calcular score de saúde:', error);
+          scoreEl.textContent = '-';
+          labelEl.textContent = 'Não foi possível calcular o score agora.';
         }
       }
     }
