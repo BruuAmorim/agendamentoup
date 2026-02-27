@@ -265,7 +265,10 @@ class SettingsPasswordController {
 
       // Se existe senha, verificar senha atual
       if (checkResult.rows && checkResult.rows.length > 0) {
-        if (!currentPassword) {
+        const isAdminMaster = userRole === 'admin_master';
+
+        // Para admin_master permitimos resetar sem informar a senha atual
+        if (!currentPassword && !isAdminMaster) {
           return res.status(400).json({
             success: false,
             error: 'Senha atual necessária',
@@ -273,15 +276,17 @@ class SettingsPasswordController {
           });
         }
 
-        const currentHash = checkResult.rows[0].password_hash;
-        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentHash);
+        if (currentPassword) {
+          const currentHash = checkResult.rows[0].password_hash;
+          const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentHash);
 
-        if (!isCurrentPasswordValid) {
-          return res.status(401).json({
-            success: false,
-            error: 'Senha atual incorreta',
-            message: 'A senha atual informada está incorreta'
-          });
+          if (!isCurrentPasswordValid) {
+            return res.status(401).json({
+              success: false,
+              error: 'Senha atual incorreta',
+              message: 'A senha atual informada está incorreta'
+            });
+          }
         }
       }
 

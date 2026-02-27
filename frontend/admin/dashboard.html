@@ -585,13 +585,36 @@
             🔄 Alterar Senha
           </button>
         </div>
+
+        <!-- Lista de empresas com senha configurada -->
+        <div id="settingsPasswordsListContainer" style="margin-top: 32px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 1rem; font-weight: 600; color: var(--text);">
+            Empresas com senha de configurações
+          </h3>
+          <div id="settingsPasswordsEmpty" style="font-size: 0.9rem; color: var(--muted);">
+            Nenhuma empresa possui senha de configurações definida ainda.
+          </div>
+          <div class="users-table-container" id="settingsPasswordsTableWrapper" style="margin-top: 8px; display: none;">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th>Email</th>
+                  <th>Atualizada em</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="settingsPasswordsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
     </div>
   </main>
 
   <!-- Modal simples para novo usuário -->
-  <div id="newUserModal" class="modal" style="display: none;">
+  <div id="newUserModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="newUserModalTitle">Novo Usuário</h3>
@@ -1351,6 +1374,11 @@
             this.users = users;
             this.filteredUsers = [...users];
             this.renderUsers();
+
+            // Carregar status de senha de configurações por empresa
+            if (this.isAdminMaster) {
+              await this.loadSettingsPasswordsForCompanies();
+            }
           }
 
           // Carregar estatísticas de agendamentos (hoje)
@@ -1436,6 +1464,129 @@
           console.error('Erro ao calcular score de saúde:', error);
           scoreEl.textContent = '-';
           labelEl.textContent = 'Não foi possível calcular o score agora.';
+        }
+      }
+
+      async loadSettingsPasswordsForCompanies() {
+        const tableBody = document.getElementById('settingsPasswordsTableBody');
+        const emptyEl = document.getElementById('settingsPasswordsEmpty');
+        const wrapper = document.getElementById('settingsPasswordsTableWrapper');
+        if (!tableBody || !emptyEl || !wrapper) return;
+
+        try {
+          const companies = this.users.filter((u) => {
+            const role = String(u.role || '').trim().toLowerCase();
+            return ['empresa', 'moderator', 'admin_master'].includes(role);
+          });
+
+          const results = await Promise.all(
+            companies.map(async (company) => {
+              try {
+                const res = await window.authManager.apiRequest(`/api/settings-password?companyId=${company.id}`);
+                if (res.success && res.data && res.data.hasPassword) {
+                  return {
+                    company,
+                    hasPassword: true,
+                    updatedAt: res.data.updatedAt || res.data.createdAt || null
+                  };
+                }
+              } catch (e) {
+                console.error('Erro ao buscar status de senha para empresa', company.id, e);
+              }
+              return {
+                company,
+                hasPassword: false,
+                updatedAt: null
+              };
+            })
+          );
+
+          const withPassword = results.filter((r) => r.hasPassword);
+
+          if (!withPassword.length) {
+            emptyEl.style.display = 'block';
+            wrapper.style.display = 'none';
+            tableBody.innerHTML = '';
+            return;
+          }
+
+          emptyEl.style.display = 'none';
+          wrapper.style.display = 'block';
+
+          tableBody.innerHTML = withPassword
+            .map((item) => {
+              const { company, updatedAt } = item;
+              const dateStr = updatedAt ? new Date(updatedAt).toLocaleString('pt-BR') : '-';
+              return `
+                <tr>
+                  <td>${company.name || '-'}</td>
+                  <td>${company.email || '-'}</td>
+                  <td>${dateStr}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="user-action-btn btn-deactivate"
+                      data-company-id="${company.id}"
+                      data-action="reset-password"
+                    >
+                      🔁 Resetar senha
+                    </button>
+                  </td>
+                </tr>
+              `;
+            })
+            .join('');
+
+          // Bind dos botões de reset
+          tableBody.querySelectorAll('button[data-action="reset-password"]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+              const companyId = parseInt(btn.getAttribute('data-company-id'), 10);
+              if (!companyId) return;
+              await this.resetSettingsPasswordForCompany(companyId);
+            });
+          });
+        } catch (error) {
+          console.error('Erro ao carregar lista de senhas de configurações:', error);
+          emptyEl.style.display = 'block';
+          wrapper.style.display = 'none';
+          tableBody.innerHTML = '';
+        }
+      }
+
+      async resetSettingsPasswordForCompany(companyId) {
+        const company = this.users.find((u) => u.id === companyId);
+        const companyName = company ? company.name : 'empresa';
+
+        const confirmReset = window.confirm(
+          `Você deseja redefinir a senha de configurações para "${companyName}"?\n\nA senha atual deixará de funcionar.`
+        );
+        if (!confirmReset) return;
+
+        const newPassword = window.prompt('Digite a nova senha de configurações (mínimo 4 caracteres):');
+        if (!newPassword || newPassword.length < 4) {
+          alert('A nova senha deve ter pelo menos 4 caracteres.');
+          return;
+        }
+
+        try {
+          const response = await window.authManager.apiRequest('/api/settings-password', {
+            method: 'PUT',
+            body: JSON.stringify({
+              companyId,
+              password: newPassword
+              // currentPassword não é necessário para admin_master (tratado no backend)
+            })
+          });
+
+          if (response.success) {
+            alert('Senha de configurações redefinida com sucesso.');
+            await this.loadSettingsPasswordsForCompanies();
+          } else {
+            alert(response.message || 'Erro ao redefinir senha de configurações.');
+          }
+        } catch (error) {
+          console.error('Erro ao redefinir senha de configurações:', error);
+          alert('Erro ao redefinir senha de configurações.');
         }
       }
     }
