@@ -448,11 +448,6 @@
               <h3 id="totalAppointments">0</h3>
               <p>Agendamentos Hoje</p>
             </div>
-            <div class="stat-card">
-              <h3 id="healthScore">-</h3>
-              <p>Score de Saúde da Empresa</p>
-              <small id="healthScoreLabel">Carregando...</small>
-            </div>
           </div>
         </section>
 
@@ -1384,88 +1379,20 @@
           // Carregar estatísticas de agendamentos (hoje)
           const today = new Date().toISOString().split('T')[0];
           const appointmentsResponse = await window.authManager.apiRequest(`/api/appointments?date=${today}`);
-          let totalAppointmentsToday = 0;
           if (appointmentsResponse.success) {
             const totalAppointmentsEl = document.getElementById('totalAppointments');
             if (totalAppointmentsEl) {
-              totalAppointmentsToday = appointmentsResponse.appointments?.length || 0;
+              const totalAppointmentsToday = appointmentsResponse.appointments?.length || 0;
               totalAppointmentsEl.textContent = totalAppointmentsToday;
             }
           }
-
-          // Calcular Score de Saúde da Empresa
-          await this.calculateHealthScore({
-            totalUsers: this.users.length,
-            activeUsers: this.users.filter(u => u.isActive).length,
-            appointmentsToday: totalAppointmentsToday
-          });
 
         } catch (error) {
           console.error('Erro ao carregar dados do dashboard:', error);
         }
       }
 
-      async calculateHealthScore({ totalUsers, activeUsers, appointmentsToday }) {
-        const scoreEl = document.getElementById('healthScore');
-        const labelEl = document.getElementById('healthScoreLabel');
-        if (!scoreEl || !labelEl) return;
-
-        try {
-          const logsStats = await window.authManager.apiRequest('/api/logs/stats');
-          let loginCount = 0;
-          let appointmentActivity = 0;
-          let featureActivity = 0;
-
-          if (logsStats.success && logsStats.data && Array.isArray(logsStats.data.by_action)) {
-            const map = {};
-            logsStats.data.by_action.forEach(item => {
-              map[item.action] = parseInt(item.count || 0);
-            });
-
-            loginCount = map['login'] || 0;
-            appointmentActivity = (map['create_appointment'] || 0) + (map['update_appointment'] || 0);
-            featureActivity = (map['update_settings'] || 0) + (map['create_user'] || 0);
-          }
-
-          // Heurísticas simples para score 0–100
-          const safeUsers = Math.max(1, totalUsers || 1);
-
-          // Frequência de login em relação ao número de usuários
-          let loginScore = 20;
-          const loginsPerUser = loginCount / safeUsers;
-          if (loginsPerUser >= 0.5) loginScore = 90;
-          else if (loginsPerUser >= 0.2) loginScore = 75;
-          else if (loginsPerUser >= 0.05) loginScore = 60;
-          else if (loginCount > 0) loginScore = 40;
-
-          // Quantidade de agendamentos do dia
-          let appointmentScore = 30;
-          if (appointmentsToday >= 10) appointmentScore = 95;
-          else if (appointmentsToday >= 5) appointmentScore = 80;
-          else if (appointmentsToday >= 1) appointmentScore = 60;
-
-          // Uso de recursos (configurações, criação de usuários, etc.)
-          const totalFeatureEvents = appointmentActivity + featureActivity;
-          let featureScore = 30;
-          if (totalFeatureEvents >= 15) featureScore = 95;
-          else if (totalFeatureEvents >= 5) featureScore = 80;
-          else if (totalFeatureEvents >= 1) featureScore = 60;
-
-          const finalScore = Math.round((loginScore + appointmentScore + featureScore) / 3);
-
-          let label = 'Saúde baixa';
-          if (finalScore >= 85) label = 'Saúde excelente';
-          else if (finalScore >= 70) label = 'Saúde muito boa';
-          else if (finalScore >= 55) label = 'Saúde razoável';
-
-          scoreEl.textContent = finalScore;
-          labelEl.textContent = `${label} • Logins: ${loginCount} • Agendamentos hoje: ${appointmentsToday}`;
-        } catch (error) {
-          console.error('Erro ao calcular score de saúde:', error);
-          scoreEl.textContent = '-';
-          labelEl.textContent = 'Não foi possível calcular o score agora.';
-        }
-      }
+      // Removido cálculo de Score de Saúde da Empresa
 
       async loadSettingsPasswordsForCompanies() {
         const tableBody = document.getElementById('settingsPasswordsTableBody');
