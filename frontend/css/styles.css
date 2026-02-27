@@ -9,6 +9,11 @@
   --border: rgba(0,0,0,.08);
   --radius: 14px;
   --shadow: 0 10px 30px rgba(0,0,0,.08);
+  /* Cores padrão para botões administrativos */
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --secondary: #e5e7eb;
+  --secondary-dark: #d1d5db;
 }
 
 /* RESET */

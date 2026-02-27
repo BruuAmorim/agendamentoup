@@ -14,8 +14,25 @@ class SettingsPasswordController {
    */
   static async getPasswordStatus(req, res) {
     try {
-      const companyId = req.query.companyId;
-      
+      // Validar role permitida
+      const userRole = String(req.user?.role || '').trim().toLowerCase();
+      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado',
+          message: 'Apenas administradores e empresas podem gerenciar a senha de configurações'
+        });
+      }
+
+      // companyId pode vir pela query (?companyId=) ou, se não vier,
+      // usamos o próprio usuário autenticado (útil para admin_master em ambiente único)
+      let companyId = req.query.companyId;
+      const authUser = req.user || null;
+
+      if (!companyId && authUser) {
+        companyId = authUser.id;
+      }
+
       if (!companyId) {
         return res.status(400).json({
           success: false,
@@ -29,106 +46,30 @@ class SettingsPasswordController {
       // Obter dialect do sequelize
       const dialect = sequelize.getDialect();
       console.log('🔍 Dialect detectado:', dialect);
-      
-      // Primeiro, verificar se a tabela existe e se tem a coluna user_id
-      let tableExists = false;
-      let columnExists = false;
-      
-      try {
-        if (dialect === 'sqlite') {
-          const tableCheck = await query("SELECT name FROM sqlite_master WHERE type='table' AND name='system_config_password'", []);
-          tableExists = tableCheck.rows && tableCheck.rows.length > 0;
-          
-          if (tableExists) {
-            const tableInfo = await query("PRAGMA table_info(system_config_password)", []);
-            const existingColumns = tableInfo.rows.map(col => col.name);
-            columnExists = existingColumns.includes('user_id');
-          }
-        } else {
-          // PostgreSQL
-          const tableCheck = await query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' AND table_name = 'system_config_password'
-          `, []);
-          tableExists = tableCheck.rows && tableCheck.rows.length > 0;
-          
-          if (tableExists) {
-            const columnCheck = await query(`
-              SELECT column_name
-              FROM information_schema.columns
-              WHERE table_schema = 'public' 
-                AND table_name = 'system_config_password'
-                AND column_name = 'user_id'
-            `, []);
-            columnExists = columnCheck.rows && columnCheck.rows.length > 0;
-          }
-        }
-      } catch (checkError) {
-        console.warn('⚠️ Erro ao verificar estrutura da tabela:', checkError.message);
+
+      // Garantir que a tabela exista (sem lógica complexa de migração)
+      if (dialect === 'sqlite') {
+        await query(`
+          CREATE TABLE IF NOT EXISTS system_config_password (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            password_hash TEXT NOT NULL,
+            user_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `, []);
+      } else {
+        await query(`
+          CREATE TABLE IF NOT EXISTS system_config_password (
+            id SERIAL PRIMARY KEY,
+            password_hash VARCHAR(255) NOT NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )
+        `, []);
       }
-      
-      // Se a tabela não existe, criar
-      if (!tableExists) {
-        console.log('📝 Criando tabela system_config_password...');
-        if (dialect === 'sqlite') {
-          await query(`
-            CREATE TABLE IF NOT EXISTS system_config_password (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              password_hash TEXT NOT NULL,
-              user_id INTEGER,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-          `, []);
-        } else {
-          await query(`
-            CREATE TABLE IF NOT EXISTS system_config_password (
-              id SERIAL PRIMARY KEY,
-              password_hash VARCHAR(255) NOT NULL,
-              user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )
-          `, []);
-        }
-        console.log('✅ Tabela system_config_password criada');
-        columnExists = true; // Se criou a tabela, a coluna já existe
-      }
-      
-      // Se a coluna user_id não existe, adicionar
-      if (!columnExists) {
-        console.log('📝 Adicionando coluna user_id...');
-        if (dialect === 'sqlite') {
-          await query('ALTER TABLE system_config_password ADD COLUMN user_id INTEGER', []);
-        } else {
-          // Para PostgreSQL, verificar se há dados primeiro
-          const dataCheck = await query('SELECT COUNT(*) as count FROM system_config_password', []);
-          const hasData = dataCheck.rows[0] && parseInt(dataCheck.rows[0].count) > 0;
-          
-          if (hasData) {
-            // Se há dados, adicionar coluna sem constraint primeiro
-            await query('ALTER TABLE system_config_password ADD COLUMN user_id INTEGER', []);
-            // Depois adicionar constraint UNIQUE
-            try {
-              await query('ALTER TABLE system_config_password ADD CONSTRAINT system_config_password_user_id_unique UNIQUE (user_id)', []);
-            } catch (e) {
-              if (!e.message.includes('already exists')) throw e;
-            }
-            // Adicionar foreign key
-            try {
-              await query('ALTER TABLE system_config_password ADD CONSTRAINT system_config_password_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE', []);
-            } catch (e) {
-              if (!e.message.includes('already exists')) throw e;
-            }
-          } else {
-            // Se não há dados, adicionar tudo de uma vez
-            await query('ALTER TABLE system_config_password ADD COLUMN user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE', []);
-          }
-        }
-        console.log('✅ Coluna user_id adicionada');
-      }
-      
+
       // Agora fazer a query
       let result;
       if (dialect === 'sqlite') {
@@ -153,7 +94,9 @@ class SettingsPasswordController {
       res.status(500).json({
         success: false,
         error: 'Erro interno do servidor',
-        message: 'Erro ao verificar status da senha'
+        message: 'Erro ao verificar status da senha',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }
@@ -164,7 +107,21 @@ class SettingsPasswordController {
    */
   static async createPassword(req, res) {
     try {
-      const { password, companyId } = req.body;
+      const { password, companyId: bodyCompanyId } = req.body;
+
+      // Validar role permitida
+      const userRole = String(req.user?.role || '').trim().toLowerCase();
+      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado',
+          message: 'Apenas administradores e empresas podem criar a senha de configurações'
+        });
+      }
+
+      // companyId pode vir no body ou, se não vier, usar o próprio usuário autenticado
+      const authUser = req.user || null;
+      const companyId = bodyCompanyId || (authUser ? authUser.id : null);
 
       if (!companyId) {
         return res.status(400).json({
@@ -185,7 +142,8 @@ class SettingsPasswordController {
       // Verificar se a empresa existe e é do tipo empresa/moderator
       const { User } = require('../models');
       const company = await User.findByPk(companyId);
-      if (!company || (company.role !== 'empresa' && company.role !== 'moderator')) {
+      // Aceitar empresa, moderator OU admin_master (para ambientes com único admin/empresa)
+      if (!company || !['empresa', 'moderator', 'admin_master'].includes(company.role)) {
         return res.status(400).json({
           success: false,
           error: 'Empresa inválida',
@@ -248,7 +206,21 @@ class SettingsPasswordController {
    */
   static async updatePassword(req, res) {
     try {
-      const { password, currentPassword, companyId } = req.body;
+      const { password, currentPassword, companyId: bodyCompanyId } = req.body;
+
+      // Validar role permitida
+      const userRole = String(req.user?.role || '').trim().toLowerCase();
+      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado',
+          message: 'Apenas administradores e empresas podem alterar a senha de configurações'
+        });
+      }
+
+      // companyId pode vir no body ou, se não vir, usar o próprio usuário autenticado
+      const authUser = req.user || null;
+      const companyId = bodyCompanyId || (authUser ? authUser.id : null);
 
       if (!companyId) {
         return res.status(400).json({
@@ -269,7 +241,8 @@ class SettingsPasswordController {
       // Verificar se a empresa existe e é do tipo empresa/moderator
       const { User } = require('../models');
       const company = await User.findByPk(companyId);
-      if (!company || (company.role !== 'empresa' && company.role !== 'moderator')) {
+      // Aceitar empresa, moderator OU admin_master (para ambientes com único admin/empresa)
+      if (!company || !['empresa', 'moderator', 'admin_master'].includes(company.role)) {
         return res.status(400).json({
           success: false,
           error: 'Empresa inválida',

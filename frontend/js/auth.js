@@ -31,9 +31,19 @@ class AuthManager {
     // Método para obter URL da API dinamicamente
     getApiBaseUrl() {
         const hostname = window.location.hostname;
-        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+        const isLocal =
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            /^192\.168\.\d+\.\d+$/.test(hostname) ||
+            /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+            /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname);
 
-        if (isLocalhost) return 'http://localhost:3000';
+        // Em localhost ou IP de rede interna, usar o backend local nesta máquina
+        if (isLocal) {
+            return `http://${hostname}:3000`;
+        }
+
+        // Em produção (Firebase, Vercel, domínio público), usar API do Vercel
         return 'https://cloudd-agenda-backend.vercel.app';
     }
 

@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const SettingsPasswordController = require('../controllers/settingsPasswordController');
-const { verifyToken, requireAdminMaster } = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
 
 /**
- * Rotas para gerenciar senha de configurações
- * Apenas Admin Master pode acessar
+ * Rotas para gerenciar senha de configurações.
+ * Qualquer usuário autenticado do tipo admin_master, empresa ou moderator
+ * pode gerenciar a senha da SUA própria empresa. 
+ * Regras de permissão adicionais são tratadas no controller.
  */
 
-// Todas as rotas requerem autenticação e role admin_master
+// Todas as rotas requerem autenticação; o controller valida o role permitido
 router.use(verifyToken);
-router.use(requireAdminMaster);
 
 /**
  * @api {get} /api/settings-password Obter status da senha

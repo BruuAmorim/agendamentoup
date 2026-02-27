@@ -620,8 +620,18 @@
           cancelNewUserBtn.addEventListener('click', () => this.closeNewUserModal());
         }
 
+        // Form e botão de novo usuário
+        const newUserForm = document.getElementById('newUserForm');
+        if (newUserForm) {
+          newUserForm.addEventListener('submit', (e) => this.saveNewUser(e));
+        }
+
         const saveNewUserBtn = document.getElementById('saveNewUserBtn');
         if (saveNewUserBtn) {
+          // Garantir que o texto apareça sempre
+          if (!saveNewUserBtn.textContent || !saveNewUserBtn.textContent.trim()) {
+            saveNewUserBtn.textContent = 'Salvar';
+          }
           saveNewUserBtn.addEventListener('click', (e) => this.saveNewUser(e));
         }
 
@@ -638,6 +648,10 @@
 
         const saveEditUserBtn = document.getElementById('saveEditUserBtn');
         if (saveEditUserBtn) {
+          // Garantir que o texto apareça sempre
+          if (!saveEditUserBtn.textContent || !saveEditUserBtn.textContent.trim()) {
+            saveEditUserBtn.textContent = 'Salvar Alterações';
+          }
           saveEditUserBtn.addEventListener('click', (e) => this.saveEditUser(e));
         }
 
@@ -988,6 +1002,10 @@
       async saveNewUser(e) {
         e.preventDefault();
 
+        // Evitar envios duplicados
+        if (this._savingNewUser) return;
+        this._savingNewUser = true;
+
         const name = document.getElementById('newUserName').value.trim();
         const email = document.getElementById('newUserEmail').value.toLowerCase().trim();
         const password = document.getElementById('newUserPassword').value;
@@ -995,7 +1013,15 @@
 
         if (!name || !email || !password) {
           this.showToast('Preencha todos os campos obrigatórios', 'error');
+          this._savingNewUser = false;
           return;
+        }
+
+        const saveBtn = document.getElementById('saveNewUserBtn');
+        const originalText = saveBtn ? (saveBtn.textContent || 'Salvar') : 'Salvar';
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Salvando...';
         }
 
         try {
@@ -1014,6 +1040,12 @@
         } catch (error) {
           console.error('Erro ao criar usuário:', error);
           this.showToast('Erro ao criar usuário', 'error');
+        } finally {
+          this._savingNewUser = false;
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+          }
         }
       }
 
@@ -1048,6 +1080,10 @@
       async saveEditUser(e) {
         e.preventDefault();
 
+        // Evitar envios duplicados
+        if (this._savingEditUser) return;
+        this._savingEditUser = true;
+
         const id = document.getElementById('editUserId').value;
         const name = document.getElementById('editUserName').value.trim();
         const email = document.getElementById('editUserEmail').value.toLowerCase().trim();
@@ -1057,7 +1093,15 @@
 
         if (!name || !email) {
           this.showToast('Preencha todos os campos obrigatórios', 'error');
+          this._savingEditUser = false;
           return;
+        }
+
+        const saveBtn = document.getElementById('saveEditUserBtn');
+        const originalText = saveBtn ? (saveBtn.textContent || 'Salvar Alterações') : 'Salvar Alterações';
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Salvando...';
         }
 
         const updateData = { name, email, role, isActive };
@@ -1079,6 +1123,12 @@
         } catch (error) {
           console.error('Erro ao atualizar usuário:', error);
           this.showToast('Erro ao atualizar usuário', 'error');
+        } finally {
+          this._savingEditUser = false;
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+          }
         }
       }
 
