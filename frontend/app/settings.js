@@ -194,15 +194,34 @@ class ServiceManager {
   constructor(settingsManager) {
     this.settingsManager = settingsManager;
     this.data = {
+      // Cada serviço é { name: string, duration_minutes: number|null }
       servicos: []
     };
   }
 
   applySettings(data) {
     if (data.services) {
-      this.data.servicos = Array.isArray(data.services)
+      let rawServices = Array.isArray(data.services)
         ? data.services
         : JSON.parse(data.services || '[]');
+
+      // Normalizar para o novo formato com duração opcional
+      this.data.servicos = rawServices
+        .map(service => {
+          if (typeof service === 'string') {
+            return { name: service, duration_minutes: null };
+          }
+
+          if (service && typeof service === 'object') {
+            return {
+              name: service.name || service.nome || service.label || '',
+              duration_minutes: service.duration_minutes || service.duration || null
+            };
+          }
+
+          return null;
+        })
+        .filter(s => s && s.name);
     }
     this.render();
   }
@@ -215,9 +234,12 @@ class ServiceManager {
     
     this.data.servicos.forEach((service, index) => {
       const serviceId = `service_${index}`;
+      const name = typeof service === 'string' ? service : (service.name || '');
+      const duration = typeof service === 'object' && service.duration_minutes ? service.duration_minutes : '';
       const serviceHtml = `
         <div class="service-item" data-service-id="${serviceId}">
-          <input type="text" value="${service}" class="service-name" placeholder="Nome do serviço">
+          <input type="text" value="${name}" class="service-name" placeholder="Nome do serviço">
+          <input type="number" min="1" step="1" value="${duration}" class="service-duration" placeholder="Duração (min)" style="max-width: 140px; margin-left: 8px;">
           <button type="button" class="remove-service-btn">🗑️</button>
         </div>
       `;
@@ -233,6 +255,7 @@ class ServiceManager {
     const serviceHtml = `
       <div class="service-item" data-service-id="${serviceId}">
         <input type="text" placeholder="Nome do serviço" class="service-name">
+        <input type="number" min="1" step="1" class="service-duration" placeholder="Duração (min)" style="max-width: 140px; margin-left: 8px;">
         <button type="button" class="remove-service-btn">🗑️</button>
       </div>
     `;
@@ -250,11 +273,22 @@ class ServiceManager {
 
   collect() {
     this.data.servicos = [];
-    document.querySelectorAll('.service-name').forEach(input => {
-      const value = input.value.trim();
-      if (value) {
-        this.data.servicos.push(value);
-      }
+    document.querySelectorAll('.service-item').forEach(item => {
+      const nameInput = item.querySelector('.service-name');
+      const durationInput = item.querySelector('.service-duration');
+
+      if (!nameInput) return;
+
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      const rawDuration = durationInput ? parseInt(durationInput.value, 10) : NaN;
+      const durationMinutes = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : null;
+
+      this.data.servicos.push({
+        name,
+        duration_minutes: durationMinutes
+      });
     });
 
     return {
@@ -276,6 +310,8 @@ class ScheduleConfig {
         dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         inicio: '08:00',
         fim: '18:00',
+        almoco_inicio: '',
+        almoco_fim: '',
         slot: 30
     };
   }
@@ -288,6 +324,8 @@ class ScheduleConfig {
 
       if (hours.start) this.data.inicio = hours.start;
       if (hours.end) this.data.fim = hours.end;
+      if (hours.lunch_start) this.data.almoco_inicio = hours.lunch_start;
+      if (hours.lunch_end) this.data.almoco_fim = hours.lunch_end;
     }
 
     if (data.working_days) {
@@ -310,10 +348,14 @@ class ScheduleConfig {
     const startTimeInput = document.getElementById('startTime');
     const endTimeInput = document.getElementById('endTime');
     const slotIntervalInput = document.getElementById('slotInterval');
+    const lunchStartInput = document.getElementById('lunchStartTime');
+    const lunchEndInput = document.getElementById('lunchEndTime');
 
     if (startTimeInput) startTimeInput.value = this.data.inicio;
     if (endTimeInput) endTimeInput.value = this.data.fim;
     if (slotIntervalInput) slotIntervalInput.value = this.data.slot;
+    if (lunchStartInput) lunchStartInput.value = this.data.almoco_inicio || '';
+    if (lunchEndInput) lunchEndInput.value = this.data.almoco_fim || '';
 
     // Renderizar dias
     this.renderDays();
@@ -357,16 +399,22 @@ class ScheduleConfig {
     const startTimeInput = document.getElementById('startTime');
     const endTimeInput = document.getElementById('endTime');
     const slotIntervalInput = document.getElementById('slotInterval');
+    const lunchStartInput = document.getElementById('lunchStartTime');
+    const lunchEndInput = document.getElementById('lunchEndTime');
 
     if (startTimeInput) this.data.inicio = startTimeInput.value;
     if (endTimeInput) this.data.fim = endTimeInput.value;
     if (slotIntervalInput) this.data.slot = parseInt(slotIntervalInput.value) || 30;
+    if (lunchStartInput) this.data.almoco_inicio = lunchStartInput.value || '';
+    if (lunchEndInput) this.data.almoco_fim = lunchEndInput.value || '';
 
     return {
       working_days: this.data.dias,
       working_hours: {
         start: this.data.inicio,
-        end: this.data.fim
+        end: this.data.fim,
+        lunch_start: this.data.almoco_inicio || null,
+        lunch_end: this.data.almoco_fim || null
       },
       slot_interval: this.data.slot
     };

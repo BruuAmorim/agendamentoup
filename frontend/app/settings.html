@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configurações - Aevum</title>
+  <title>Configurações - Cloudd Agenda</title>
 
   <!-- Fonte -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -575,6 +575,13 @@
     <div class="tab-content" id="services-tab">
       <h2>Serviços Disponíveis</h2>
       
+      <div class="form-group" style="margin-bottom: 8px;">
+        <div style="display:flex; gap:8px; font-size:13px; color:#6b7280; font-weight:500;">
+          <span style="flex:1;">Nome do Serviço</span>
+          <span style="width:150px; text-align:left;">Duração (minutos)</span>
+        </div>
+      </div>
+
       <div class="services-list" id="servicesList">
         <!-- Serviços serão adicionados aqui dinamicamente -->
       </div>
@@ -636,6 +643,20 @@
           <div>
             <label>Intervalo (minutos)</label>
             <input type="number" id="slotInterval" value="30" min="15" step="15" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Horário de Almoço (opcional)</label>
+        <div class="time-inputs">
+          <div>
+            <label>Início do Almoço</label>
+            <input type="time" id="lunchStartTime" placeholder="12:00">
+          </div>
+          <div>
+            <label>Fim do Almoço</label>
+            <input type="time" id="lunchEndTime" placeholder="13:00">
           </div>
         </div>
       </div>

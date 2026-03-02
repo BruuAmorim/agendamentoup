@@ -136,7 +136,7 @@ class Appointment {
         // Buscar configurações específicas da empresa
         if (dialect === 'sqlite') {
           settingsQuery = `
-            SELECT working_hours, working_days
+            SELECT working_hours, working_days, slot_interval
             FROM moderator_settings
             WHERE user_id = ?
             LIMIT 1
@@ -144,7 +144,7 @@ class Appointment {
           params = [userId];
         } else {
           settingsQuery = `
-            SELECT working_hours, working_days
+            SELECT working_hours, working_days, slot_interval
             FROM moderator_settings
             WHERE user_id = $1
             LIMIT 1
@@ -154,7 +154,7 @@ class Appointment {
       } else {
         // Buscar primeira empresa disponível (compatibilidade)
         settingsQuery = `
-          SELECT working_hours, working_days
+          SELECT working_hours, working_days, slot_interval
           FROM moderator_settings
           WHERE user_id IN (SELECT id FROM users WHERE role = 'empresa')
           LIMIT 1
@@ -167,6 +167,7 @@ class Appointment {
         const row = result.rows[0];
         let workingHours = row.working_hours;
         let workingDays = row.working_days;
+        let slotInterval = row.slot_interval;
         
         // Parse JSON se necessário
         if (typeof workingHours === 'string') {
@@ -183,6 +184,10 @@ class Appointment {
             console.warn('Erro ao parsear working_days:', e);
           }
         }
+        if (typeof slotInterval === 'string') {
+          const parsed = parseInt(slotInterval, 10);
+          slotInterval = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        }
         
         // Validar estrutura
         if (!workingHours || typeof workingHours !== 'object' || !workingHours.start || !workingHours.end) {
@@ -193,11 +198,15 @@ class Appointment {
           console.warn('⚠️ working_days inválido, usando padrão');
           workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         }
+        if (!slotInterval || slotInterval < 5 || slotInterval > 480) {
+          slotInterval = 30;
+        }
         
-        console.log('✅ Configurações da empresa carregadas:', { workingHours, workingDays, userId });
+        console.log('✅ Configurações da empresa carregadas:', { workingHours, workingDays, slotInterval, userId });
         return {
           working_hours: workingHours,
-          working_days: workingDays
+          working_days: workingDays,
+          slot_interval: slotInterval
         };
       }
       
@@ -205,13 +214,15 @@ class Appointment {
       console.warn('⚠️ Nenhuma configuração encontrada, usando padrões');
       return {
         working_hours: { start: '09:00', end: '18:00' },
-        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        slot_interval: 30
       };
     } catch (error) {
       console.warn('❌ Erro ao buscar configurações da empresa, usando padrões:', error);
       return {
         working_hours: { start: '09:00', end: '18:00' },
-        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        slot_interval: 30
       };
     }
   }
@@ -252,6 +263,18 @@ class Appointment {
         endMinutesTotal,
         workingHours: settings.working_hours
       });
+    }
+
+    // Respeitar intervalo de almoço, se configurado
+    if (settings.working_hours.lunch_start && settings.working_hours.lunch_end) {
+      const [lunchStartH, lunchStartM] = settings.working_hours.lunch_start.split(':').map(Number);
+      const [lunchEndH, lunchEndM] = settings.working_hours.lunch_end.split(':').map(Number);
+      const lunchStartMinutes = lunchStartH * 60 + lunchStartM;
+      const lunchEndMinutes = lunchEndH * 60 + lunchEndM;
+
+      if (appointmentMinutes >= lunchStartMinutes && appointmentMinutes < lunchEndMinutes) {
+        errors.push(`Horário indisponível. Intervalo de almoço das ${settings.working_hours.lunch_start} às ${settings.working_hours.lunch_end}.`);
+      }
     }
     
     return errors;
@@ -334,21 +357,20 @@ class Appointment {
     return emailRegex.test(email);
   }
 
-  // Gerar protocolo único (formato curto: AG-XXXX onde AG é prefixo e XXXX são 4-6 caracteres alfanuméricos)
+  // Normalizar protocolo vindo de fora (garantir apenas dígitos e tamanho mínimo)
+  static normalizeProtocol(protocol) {
+    if (!protocol) return null;
+    const digits = String(protocol).replace(/\D/g, '');
+    if (!digits) return null;
+    // Usar no máximo 5 dígitos finais
+    return digits.slice(-5);
+  }
+
+  // Gerar protocolo único (4-5 dígitos numéricos, timestamp + aleatório)
   static generateProtocol() {
-    // Prefixo fixo para identificação
-    const prefix = 'AG';
-
-    // Gerar 4-6 caracteres aleatórios (letras maiúsculas e números, excluindo caracteres confusos)
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // Sem 0, O, I, 1
-    const randomLength = Math.floor(Math.random() * 3) + 4; // 4, 5 ou 6 caracteres
-
-    let randomStr = '';
-    for (let i = 0; i < randomLength; i++) {
-      randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    return `${prefix}-${randomStr}`;
+    const tsPart = String(Date.now()).slice(-4);
+    const randDigit = Math.floor(Math.random() * 10); // 0-9
+    return `${tsPart}${randDigit}`;
   }
 
   // Verificar se protocolo já existe (para garantir unicidade)
@@ -461,20 +483,22 @@ class Appointment {
       }
       
       console.log('✅ Appointment.create - Sem conflitos de horário (verificação tripla)');
-
-      // Gerar protocolo único
-      console.log('📅 Appointment.create - Gerando protocolo único...');
-      let protocol;
+      
+      // Definir protocolo: usar o fornecido (normalizado) ou gerar um novo
+      console.log('📅 Appointment.create - Gerando/normalizando protocolo...');
+      let protocol = Appointment.normalizeProtocol(data.protocol);
       let attempts = 0;
       do {
-        protocol = Appointment.generateProtocol();
+        if (!protocol) {
+          protocol = Appointment.generateProtocol();
+        }
         attempts++;
         // Limitar tentativas para evitar loop infinito (muito improvável)
         if (attempts > 10) {
           throw new Error('Não foi possível gerar um protocolo único');
         }
       } while (!(await Appointment.isProtocolUnique(protocol)));
-      console.log('✅ Appointment.create - Protocolo gerado:', protocol);
+      console.log('✅ Appointment.create - Protocolo definido:', protocol);
 
       const appointment = new Appointment({
         ...data,
@@ -912,8 +936,20 @@ class Appointment {
 
     const workStart = this.timeToMinutes(settings.working_hours.start);
     const workEnd = this.timeToMinutes(settings.working_hours.end);
-    const slotDuration = duration;
-    const slotInterval = 30;
+
+    let lunchStart = null;
+    let lunchEnd = null;
+    if (settings.working_hours.lunch_start && settings.working_hours.lunch_end) {
+      lunchStart = this.timeToMinutes(settings.working_hours.lunch_start);
+      lunchEnd = this.timeToMinutes(settings.working_hours.lunch_end);
+    }
+
+    // Duração efetiva do agendamento:
+    // - Se o frontend informar uma duração específica (serviço ou soma de serviços), usar essa;
+    // - Caso contrário, usar o intervalo padrão configurado na agenda (slot_interval).
+    const defaultSlot = settings.slot_interval || 30;
+    const slotDuration = duration && duration > 0 ? duration : defaultSlot;
+    const slotInterval = duration && duration > 0 ? duration : defaultSlot;
 
     const availableSlots = [];
     let currentTime = workStart;
@@ -921,6 +957,14 @@ class Appointment {
     while (currentTime + slotDuration <= workEnd) {
       const slotStart = currentTime;
       const slotEnd = currentTime + slotDuration;
+
+      // Bloquear intervalo de almoço, se configurado
+      if (lunchStart !== null && lunchEnd !== null) {
+        if (slotStart < lunchEnd && slotEnd > lunchStart) {
+          currentTime += slotInterval;
+          continue;
+        }
+      }
 
       const hasConflict = bookedSlots.some(booking => {
         const bookingStart = this.timeToMinutes(booking.appointment_time);

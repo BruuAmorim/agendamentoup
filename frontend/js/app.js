@@ -11,6 +11,16 @@ class Aevum {
         this.init();
     }
 
+    // Formata protocolo para exibição: remove letras e mantém apenas números
+    formatProtocolForDisplay(protocol) {
+        if (!protocol) return '';
+        const onlyDigits = String(protocol).replace(/\D/g, '');
+        if (!onlyDigits) return '';
+
+        // Sempre exibir com exatamente 4 dígitos (preenchendo com zeros à esquerda se necessário)
+        return onlyDigits.padStart(4, '0');
+    }
+
     // Função helper para formatar horário como HH:MM
     formatTime(time) {
         if (!time) return '00:00';
@@ -30,6 +40,8 @@ class Aevum {
         // Aplicar nome da empresa do localStorage logo no init para evitar piscar "Sistema de Agendamentos" no F5
         const storedName = this.getStoredCompanyName();
         if (storedName) this.updateCompanyTitle(storedName);
+
+        this.autoRefreshInterval = null;
 
         this.bindEvents();
         this.setTheme(this.currentTheme);
@@ -205,6 +217,23 @@ class Aevum {
             });
         }
 
+        // Botão para expandir/recolher card de agendamentos (tela cheia)
+        const fullscreenBtn = document.getElementById('toggleFullscreenAppointments');
+        const appointmentsCard = document.getElementById('appointmentsCard');
+        if (fullscreenBtn && appointmentsCard) {
+            fullscreenBtn.addEventListener('click', () => {
+                const isFullscreen = appointmentsCard.classList.toggle('fullscreen');
+                document.body.classList.toggle('fullscreen-mode', isFullscreen);
+                if (isFullscreen) {
+                    this.startAutoRefresh();
+                } else {
+                    this.stopAutoRefresh();
+                }
+                fullscreenBtn.textContent = isFullscreen ? '🡼 Tela normal' : '⛶ Tela cheia';
+                fullscreenBtn.title = isFullscreen ? 'Sair da tela cheia' : 'Expandir para tela cheia';
+            });
+        }
+
         const modalSave = document.getElementById('modalSave');
         if (modalSave) {
             modalSave.addEventListener('click', () => {
@@ -255,7 +284,7 @@ class Aevum {
             }
         });
 
-        // Atualizar horários disponíveis quando a data mudar
+        // Atualizar horários disponíveis quando a data ou o serviço mudar
         const dateInput = document.getElementById('appointment_date');
         if (dateInput) {
             dateInput.addEventListener('change', () => {
@@ -263,10 +292,9 @@ class Aevum {
             });
         }
 
-        // Atualizar duração quando mudar
-        const durationInput = document.getElementById('duration_minutes');
-        if (durationInput) {
-            durationInput.addEventListener('change', () => {
+        const serviceSelect = document.getElementById('serviceType');
+        if (serviceSelect) {
+            serviceSelect.addEventListener('change', () => {
                 this.updateAvailableTimes();
             });
         }
@@ -332,6 +360,51 @@ class Aevum {
         }
     }
 
+    startAutoRefresh() {
+        // Evitar múltiplos intervals
+        this.stopAutoRefresh();
+
+        const indicator = document.getElementById('autoRefreshIndicator');
+
+        const refreshFn = async () => {
+            try {
+                if (indicator) {
+                    indicator.style.display = 'inline-flex';
+                }
+
+                const filterDateInput = document.getElementById('filterDate');
+                if (filterDateInput && !filterDateInput.value) {
+                    const today = new Date().toISOString().split('T')[0];
+                    filterDateInput.value = today;
+                }
+
+                await this.loadAppointments();
+            } finally {
+                if (indicator) {
+                    // Esconder de forma suave após a atualização
+                    setTimeout(() => {
+                        indicator.style.display = 'none';
+                    }, 800);
+                }
+            }
+        };
+
+        // Executar uma vez imediatamente ao entrar em tela cheia
+        refreshFn();
+        this.autoRefreshInterval = setInterval(refreshFn, 60000); // 1 minuto
+    }
+
+    stopAutoRefresh() {
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+        }
+        const indicator = document.getElementById('autoRefreshIndicator');
+        if (indicator) {
+            indicator.style.display = 'none';
+        }
+    }
+
     async checkAvailability() {
         const date = document.getElementById('appointment_date').value;
 
@@ -347,14 +420,18 @@ class Aevum {
                 await this.loadAppointments();
             }
 
-            const duration = 60; // pode ser obtido do serviço selecionado no futuro
+            // Duração baseada no(s) serviço(s) selecionado(s) ou no intervalo padrão
+            const duration = this.getTotalSelectedDuration();
             const apiResult = await API.getAvailableSlots(date, duration);
             let availableSlots = [];
 
             if (apiResult.success && Array.isArray(apiResult.data) && apiResult.data.length > 0) {
-                availableSlots = apiResult.data.map(s => ({ time: s.time || s, duration: s.duration || duration }));
+                availableSlots = apiResult.data.map(s => ({
+                    time: s.time || s,
+                    duration: s.duration || duration
+                }));
             } else {
-                availableSlots = this.generateAvailableSlots(date);
+                availableSlots = this.generateAvailableSlots(date, duration);
             }
 
             this.availableSlots = availableSlots;
@@ -384,44 +461,98 @@ class Aevum {
         }
     }
 
-    generateAvailableSlots(selectedDate) {
+    // Retorna o dia da semana (0=dom..6=sáb) em horário local para uma data YYYY-MM-DD
+    getDayOfWeekLocal(dateStr) {
+        if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 0;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d).getDay();
+    }
+
+    generateAvailableSlots(selectedDate, durationMinutes) {
         const slots = [];
-        
-        // Carregar configurações do localStorage ou usar padrões
-        const settingsStr = localStorage.getItem('moderator_settings');
-        let settings = {
-            funcionamento: {
-                dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-                inicio: '08:00',
-                fim: '18:00',
-                slot: 30
-            }
-        };
-        
-        if (settingsStr) {
+
+        // ==== Carregar regras de horário/dias de atendimento ====
+        // 1) Novo formato (appSettings.rules.*)
+        let workDaysConfig = null;
+        let openingTime = '08:00';
+        let closingTime = '18:00';
+        let slotInterval = 30; // minutos
+
+        const appSettingsStr = localStorage.getItem('appSettings');
+        if (appSettingsStr) {
             try {
-                settings = JSON.parse(settingsStr);
+                const appSettings = JSON.parse(appSettingsStr);
+                const rules = appSettings.rules || {};
+
+                if (rules.businessHours) {
+                    openingTime = rules.businessHours.opening || openingTime;
+                    closingTime = rules.businessHours.closing || closingTime;
+                }
+
+                if (rules.workDays) {
+                    workDaysConfig = { ...rules.workDays };
+                }
             } catch (e) {
-                console.warn('Erro ao parsear configurações:', e);
+                console.warn('Erro ao parsear appSettings:', e);
             }
-        }
-        
-        // Verificar se o dia da semana está ativo
-        const selectedDateObj = new Date(selectedDate);
-        const dayOfWeek = selectedDateObj.getDay(); // 0 = Domingo, 1 = Segunda, etc.
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const dayName = dayNames[dayOfWeek];
-        
-        const workDays = settings.funcionamento?.dias || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-        if (!workDays.includes(dayName)) {
-            // Dia não está ativo
-            return []; // Retorna array vazio - será tratado na exibição
         }
 
-        // Obter horários de funcionamento
-        const openingTime = settings.funcionamento?.inicio || '08:00';
-        const closingTime = settings.funcionamento?.fim || '18:00';
-        const slotInterval = settings.funcionamento?.slot || 30; // Intervalo em minutos
+        // 2) Formato legado (moderator_settings.funcionamento)
+        const legacySettingsStr = localStorage.getItem('moderator_settings');
+        if (legacySettingsStr) {
+            try {
+                const legacy = JSON.parse(legacySettingsStr);
+                if (legacy.funcionamento) {
+                    openingTime = legacy.funcionamento.inicio || openingTime;
+                    closingTime = legacy.funcionamento.fim || closingTime;
+                    slotInterval = legacy.funcionamento.slot || slotInterval;
+
+                    if (Array.isArray(legacy.funcionamento.dias)) {
+                        if (!workDaysConfig) workDaysConfig = {};
+                        legacy.funcionamento.dias.forEach(day => {
+                            // Não sobrescrever dias explicitamente desativados nas novas regras
+                            if (workDaysConfig[day] !== false) {
+                                workDaysConfig[day] = true;
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Erro ao parsear configurações legadas:', e);
+            }
+        }
+
+        // 3) Padrão se nada configurado: segunda a sexta atendendo
+        if (!workDaysConfig) {
+            workDaysConfig = {
+                monday: true,
+                tuesday: true,
+                wednesday: true,
+                thursday: true,
+                friday: true,
+                saturday: false,
+                sunday: false
+            };
+        }
+
+        // Dia da semana em horário local (evita bug de fuso em new Date('YYYY-MM-DD'))
+        const dayOfWeek = this.getDayOfWeekLocal(selectedDate);
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayName = dayNames[dayOfWeek];
+
+        // Se estiver explicitamente desativado nas regras, não gerar slots
+        if (workDaysConfig[dayName] === false) {
+            return [];
+        }
+
+        // ==== Gerar slots dentro do horário de funcionamento ====
+
+        // Duração efetiva para o slot: se houver duração específica do serviço,
+        // usar ela; caso contrário, usar o intervalo padrão da agenda.
+        const defaultSlot = slotInterval || this.getDefaultSlotInterval();
+        const effectiveDuration = (durationMinutes && durationMinutes > 0)
+            ? durationMinutes
+            : defaultSlot;
 
         // Converter horários para minutos desde meia-noite
         const parseTime = (timeStr) => {
@@ -436,13 +567,14 @@ class Aevum {
         const dateAppointments = this.appointments.filter(apt => apt.appointment_date === selectedDate);
 
         // Gerar slots com intervalo configurado
-        for (let minutes = openingMinutes; minutes < closingMinutes; minutes += slotInterval) {
+        const step = effectiveDuration || defaultSlot;
+        for (let minutes = openingMinutes; minutes < closingMinutes; minutes += step) {
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
             const timeString = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 
             // Regra de conflito: novo_inicio < existente_fim AND novo_fim > existente_inicio
-            const newSlotDuration = 60;
+            const newSlotDuration = effectiveDuration;
             const slotEndMinutes = minutes + newSlotDuration;
             const hasConflict = dateAppointments.some(apt => {
                 const aptTime = apt.appointment_time.split(':');
@@ -455,7 +587,7 @@ class Aevum {
             if (!hasConflict) {
                 slots.push({
                     time: timeString,
-                    duration: 60
+                    duration: newSlotDuration
                 });
             }
         }
@@ -467,32 +599,52 @@ class Aevum {
         const container = document.getElementById('slotsContainer');
         container.innerHTML = '';
 
-        // Verificar se o dia está ativo
+        // Verificar se o dia está ativo (usar data em horário local para não errar o dia da semana)
         const selectedDate = document.getElementById('appointment_date').value;
+        let isNonWorkingDay = false;
+
         if (selectedDate) {
-            const selectedDateObj = new Date(selectedDate);
-            const dayOfWeek = selectedDateObj.getDay();
+            const dayOfWeek = this.getDayOfWeekLocal(selectedDate);
             const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             const dayName = dayNames[dayOfWeek];
             
-            // Usar configurações do localStorage em vez de SettingsManager
+            let workDays = null;
+
+            // 1) Novo formato (appSettings.rules.workDays)
+            const appSettingsStr = localStorage.getItem('appSettings');
+            if (appSettingsStr) {
+                try {
+                    const appSettings = JSON.parse(appSettingsStr);
+                    const rules = appSettings.rules || {};
+                    if (rules.workDays) {
+                        workDays = { ...rules.workDays };
+                    }
+                } catch (e) {
+                    console.warn('Erro ao parsear appSettings:', e);
+                }
+            }
+
+            // 2) Formatos legados (moderator_settings / moderator_settings_v2)
             const settingsStr = localStorage.getItem('moderator_settings') || localStorage.getItem('moderator_settings_v2');
-            let workDays = {};
             
             if (settingsStr) {
                 try {
                     const settings = JSON.parse(settingsStr);
                     // Suportar ambos os formatos
                     if (settings.working_days) {
-                        workDays = settings.working_days.reduce((acc, day) => {
-                            acc[day] = true;
-                            return acc;
-                        }, {});
+                        if (!workDays) workDays = {};
+                        settings.working_days.forEach(day => {
+                            if (workDays[day] !== false) {
+                                workDays[day] = true;
+                            }
+                        });
                     } else if (settings.funcionamento?.dias) {
-                        workDays = settings.funcionamento.dias.reduce((acc, day) => {
-                            acc[day] = true;
-                            return acc;
-                        }, {});
+                        if (!workDays) workDays = {};
+                        settings.funcionamento.dias.forEach(day => {
+                            if (workDays[day] !== false) {
+                                workDays[day] = true;
+                            }
+                        });
                     }
                 } catch (e) {
                     console.warn('Erro ao parsear configurações:', e);
@@ -500,24 +652,28 @@ class Aevum {
             }
             
             // Se não encontrou configurações, usar padrão (segunda a sexta)
-            if (Object.keys(workDays).length === 0) {
+            if (!workDays) {
                 workDays = {
                     monday: true,
                     tuesday: true,
                     wednesday: true,
                     thursday: true,
-                    friday: true
+                    friday: true,
+                    saturday: false,
+                    sunday: false
                 };
             }
             
-            if (workDays[dayName] !== true) {
-                container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-weight: 500;">⚠️ Não atendemos neste dia</p>';
-                return;
+            if (workDays[dayName] === false) {
+                isNonWorkingDay = true;
             }
         }
 
         if (this.availableSlots.length === 0) {
-            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">Nenhum horário disponível para esta data</p>';
+            const message = isNonWorkingDay
+                ? '⚠️ Não atendemos neste dia'
+                : 'Nenhum horário disponível para esta data';
+            container.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-weight: ${isNonWorkingDay ? '500' : '400'};">${message}</p>`;
             return;
         }
 
@@ -543,7 +699,7 @@ class Aevum {
     }
 
     // Verificar se um horário específico está disponível
-    isTimeSlotAvailable(date, time) {
+    isTimeSlotAvailable(date, time, durationOverride) {
         // Garantir que this.appointments é sempre um array
         if (!Array.isArray(this.appointments)) {
             console.warn('⚠️ this.appointments não é um array, inicializando como array vazio');
@@ -563,7 +719,9 @@ class Aevum {
         };
         
         const requestedMinutes = parseTime(time);
-        const duration = 60; // Duração padrão de 60 minutos
+        const duration = durationOverride && durationOverride > 0
+            ? durationOverride
+            : this.getDefaultSlotInterval(); // duração padrão baseada na agenda
         
         const hasConflict = dateAppointments.some(apt => {
             const aptMinutes = parseTime(apt.appointment_time);
@@ -613,16 +771,25 @@ class Aevum {
             const currentInstanceId = localStorage.getItem('currentInstanceId');
 
         // Coletar todos os campos do formulário (incluindo campos extras e CPF)
+        const totalDuration = this.getTotalSelectedDuration();
+        const serviceLabel = this.getSelectedServicesLabel();
+
+        // Gerar protocolo único (4-5 dígitos) com base em timestamp + aleatório
+        const timestampPart = String(Date.now()).slice(-4);
+        const randomDigit = Math.floor(Math.random() * 10); // 0-9
+        const generatedProtocol = `${timestampPart}${randomDigit}`;
+
         const appointmentData = {
             customer_name: formData.get('customer_name') || formData.get('customer_name'),
             customer_phone: formData.get('customer_phone') || null,
             customer_email: formData.get('customer_email') || null,
             customer_cpf: formData.get('customer_cpf') || null,
-            service_type: formData.get('service_type') || null,
+            service_type: serviceLabel,
             appointment_date: formData.get('appointment_date'),
             appointment_time: formData.get('appointment_time'),
-            duration_minutes: 60, // duração fixa de 1 hora
-            notes: formData.get('notes') || '' // observações do formulário
+            duration_minutes: totalDuration, // duração baseada no(s) serviço(s) selecionado(s)
+            notes: formData.get('notes') || '', // observações do formulário
+            protocol: generatedProtocol
         };
 
         // Coletar campos extras se existirem e salvar como JSON
@@ -672,7 +839,7 @@ class Aevum {
             // Recarregar agendamentos para garantir dados atualizados antes da verificação
             await this.loadAppointments();
             
-            if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time)) {
+            if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time, appointmentData.duration_minutes)) {
                 this.showToast(`Já existe um agendamento cadastrado para a data ${appointmentData.appointment_date} no horário ${appointmentData.appointment_time}. Por favor, escolha outro horário.`, 'error');
                 // Recarregar lista novamente para mostrar estado atualizado
                 await this.loadAppointments();
@@ -933,12 +1100,12 @@ class Aevum {
         // Normalizar horário para exibição (remover segundos se houver)
         const time = this.formatTime(appointment.appointment_time);
         const phone = appointment.customer_phone || 'Sem telefone';
-        const protocol = appointment.protocol || 'N/A';
+        const protocol = this.formatProtocolForDisplay(appointment.protocol) || 'N/A';
 
         div.innerHTML = `
             <div class="appointment-list-time">${time}</div>
             <div class="appointment-list-info">
-                <div class="appointment-list-name">${appointment.customer_name} <small style="color: var(--text-muted); font-weight: normal;">(${protocol})</small></div>
+                <div class="appointment-list-name">${appointment.customer_name} - <span class="appointment-protocol">Protocolo: ${protocol}</span></div>
                 <div class="appointment-list-phone">${phone}</div>
             </div>
             <div class="appointment-list-actions">
@@ -1108,27 +1275,38 @@ class Aevum {
             while (serviceSelect.options.length > 1) {
                 serviceSelect.remove(1);
             }
-            
+
             // Carregar serviços das configurações
             const settingsStr = localStorage.getItem('moderator_settings_v2') || localStorage.getItem('moderator_settings');
             if (settingsStr) {
                 try {
                     const settings = JSON.parse(settingsStr);
-                    const services = settings.services || [];
+                    const services = this.normalizeServices(settings.services || []);
                     services.forEach(service => {
                         const option = document.createElement('option');
-                        option.value = service;
-                        option.textContent = service;
+                        option.value = service.name;
+                        option.textContent = service.duration_minutes
+                            ? `${service.name} (${service.duration_minutes} min)`
+                            : service.name;
+                        if (service.duration_minutes) {
+                            option.dataset.durationMinutes = service.duration_minutes;
+                        }
                         serviceSelect.appendChild(option);
                     });
                 } catch (e) {
                     console.warn('Erro ao parsear configurações:', e);
                 }
             }
-            
-            // Selecionar o serviço do agendamento
+
+            // Selecionar o(s) serviço(s) do agendamento (suporta "Corte + Barba")
             if (appointment.service_type) {
-                serviceSelect.value = appointment.service_type;
+                const parts = appointment.service_type.split('+').map(p => p.trim()).filter(Boolean);
+                const options = Array.from(serviceSelect.options);
+                options.forEach(opt => {
+                    if (parts.includes(opt.value)) {
+                        opt.selected = true;
+                    }
+                });
             }
         }
 
@@ -1347,7 +1525,7 @@ class Aevum {
                     <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
                         <h4 style="margin: 0 0 15px 0; color: var(--text); font-size: 1.1rem;">📅 Dados do Agendamento</h4>
                         <div class="detail-row">
-                            <strong>Protocolo:</strong> ${appointment.protocol || 'N/A'}
+                            <strong>Protocolo:</strong> ${this.formatProtocolForDisplay(appointment.protocol) || 'N/A'}
                         </div>
                         <div class="detail-row">
                             <strong>Data:</strong> ${date}
@@ -1439,71 +1617,53 @@ class Aevum {
         this.selectedAppointment = null;
     }
 
-    exportAppointmentsToExcel() {
-        const filterDate = document.getElementById('filterDate')?.value;
+    /**
+     * Monta o Workbook de agendamentos (usado tanto para Excel quanto para PDF)
+     */
+    buildAppointmentsWorkbook(filterDate) {
+        // Criar workbook
+        const wb = XLSX.utils.book_new();
         
-        if (!filterDate) {
-            this.showToast('Selecione uma data primeiro para exportar os agendamentos', 'warning');
-            return;
-        }
+        // Preparar dados (inclui serviço e coloca protocolo por último)
+        const headers = ['Nome do Cliente', 'Telefone', 'Serviço', 'Data', 'Hora', 'Protocolo'];
+        const data = this.appointments.map(apt => [
+            String(apt.customer_name || ''),
+            String(apt.customer_phone || ''),
+            String(apt.service_type || ''),
+            apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+            this.formatTime(apt.appointment_time) || '',
+            this.formatProtocolForDisplay(apt.protocol || '')
+        ]);
 
-        if (!this.appointments || this.appointments.length === 0) {
-            this.showToast('Não há agendamentos para exportar nesta data', 'warning');
-            return;
-        }
+        const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
 
-        // Verificar se XLSX está disponível
-        if (typeof XLSX === 'undefined') {
-            // Fallback para CSV se XLSX não estiver disponível
-            this.exportAppointmentsToCsv();
-            return;
-        }
+        const wsData = [
+            ['Agendamentos do Dia'],
+            [`Data: ${dateFormatted}`],
+            [],
+            headers,
+            ...data
+        ];
 
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Larguras de coluna
+        ws['!cols'] = [
+            { wch: 30 }, // Nome
+            { wch: 18 }, // Telefone
+            { wch: 20 }, // Serviço
+            { wch: 12 }, // Data
+            { wch: 10 }, // Hora
+            { wch: 14 }  // Protocolo
+        ];
+
+        // Mesclas
+        if (!ws['!merges']) ws['!merges'] = [];
+        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } });
+
+        // Estilos (se o build do XLSX suportar)
         try {
-            // Criar workbook
-            const wb = XLSX.utils.book_new();
-            
-            // Preparar dados (mesmo formato do PDF)
-            const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
-            const data = this.appointments.map(apt => [
-                String(apt.customer_name || ''),
-                String(apt.customer_phone || ''),
-                String(apt.protocol || ''),
-                apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
-                this.formatTime(apt.appointment_time) || ''
-            ]);
-
-            // Formatar data
-            const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
-
-            // Criar worksheet com estrutura igual ao PDF
-            const wsData = [
-                ['Agendamentos do Dia'],  // Linha 1: Título
-                [`Data: ${dateFormatted}`],  // Linha 2: Data
-                [],  // Linha 3: Vazia
-                headers,  // Linha 4: Cabeçalhos
-                ...data  // Linhas seguintes: Dados
-            ];
-
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-            // Definir larguras das colunas (mesmas proporções do PDF)
-            ws['!cols'] = [
-                { wch: 30 },  // Nome do Cliente (40%)
-                { wch: 18 },  // Telefone (25%)
-                { wch: 12 },  // Protocolo (15%)
-                { wch: 12 },  // Data (10%)
-                { wch: 10 }   // Hora (10%)
-            ];
-
-            // Mesclar células do título (linha 1)
-            if (!ws['!merges']) ws['!merges'] = [];
-            ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
-            
-            // Mesclar células da data (linha 2)
-            ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
-
-            // Formatação do título (linha 1)
             const titleCell = ws['A1'];
             if (titleCell) {
                 titleCell.s = {
@@ -1512,7 +1672,6 @@ class Aevum {
                 };
             }
 
-            // Formatação da data (linha 2)
             const dateCell = ws['A2'];
             if (dateCell) {
                 dateCell.s = {
@@ -1521,7 +1680,6 @@ class Aevum {
                 };
             }
 
-            // Formatação do cabeçalho (linha 4)
             headers.forEach((header, colIndex) => {
                 const cellRef = XLSX.utils.encode_cell({ r: 3, c: colIndex });
                 const cell = ws[cellRef];
@@ -1540,13 +1698,11 @@ class Aevum {
                 }
             });
 
-            // Formatação das linhas de dados
             data.forEach((row, rowIndex) => {
                 headers.forEach((header, colIndex) => {
                     const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 4, c: colIndex });
                     const cell = ws[cellRef];
                     if (cell) {
-                        // Fundo alternado (zebrado)
                         const bgColor = rowIndex % 2 === 0 ? 'F8F9FA' : 'FFFFFF';
                         cell.s = {
                             font: { sz: 10 },
@@ -1563,26 +1719,47 @@ class Aevum {
                 });
             });
 
-            // Adicionar altura para título e data
             ws['!rows'] = [
-                { hpt: 25 },  // Linha 1: Título
-                { hpt: 20 },  // Linha 2: Data
-                { hpt: 10 },  // Linha 3: Espaço
-                { hpt: 18 },  // Linha 4: Cabeçalho
-                ...data.map(() => ({ hpt: 15 }))  // Linhas de dados
+                { hpt: 25 },
+                { hpt: 20 },
+                { hpt: 10 },
+                { hpt: 18 },
+                ...data.map(() => ({ hpt: 15 }))
             ];
+        } catch (e) {
+            // Se o build não suportar estilos, seguimos sem quebrar
+            console.warn('Estilos do Excel não suportados neste build do XLSX:', e);
+        }
 
-            // Adicionar worksheet ao workbook
-            XLSX.utils.book_append_sheet(wb, ws, 'Agendamentos');
+        XLSX.utils.book_append_sheet(wb, ws, 'Agendamentos');
+        return wb;
+    }
 
-            // Gerar arquivo Excel
+    exportAppointmentsToExcel() {
+        const filterDate = document.getElementById('filterDate')?.value;
+        
+        if (!filterDate) {
+            this.showToast('Selecione uma data primeiro para exportar os agendamentos', 'warning');
+            return;
+        }
+
+        if (!this.appointments || this.appointments.length === 0) {
+            this.showToast('Não há agendamentos para exportar nesta data', 'warning');
+            return;
+        }
+
+        if (typeof XLSX === 'undefined') {
+            this.exportAppointmentsToCsv();
+            return;
+        }
+
+        try {
+            const wb = this.buildAppointmentsWorkbook(filterDate);
             const fileName = `agendamentos_${filterDate.replace(/-/g, '_')}.xlsx`;
             XLSX.writeFile(wb, fileName);
-
             this.showToast('Planilha Excel exportada com sucesso!', 'success');
         } catch (error) {
             console.error('Erro ao gerar Excel:', error);
-            // Fallback para CSV se houver erro
             this.exportAppointmentsToCsv();
         }
     }
@@ -1590,14 +1767,15 @@ class Aevum {
     exportAppointmentsToCsv() {
         const filterDate = document.getElementById('filterDate')?.value;
         const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
-        const headers = ['Nome do Cliente', 'Telefone', 'Protocolo', 'Data', 'Hora'];
+        const headers = ['Nome do Cliente', 'Telefone', 'Serviço', 'Data', 'Hora', 'Protocolo'];
         
         const data = this.appointments.map(apt => [
             String(apt.customer_name || ''),
             String(apt.customer_phone || ''),
-            String(apt.protocol || ''),
+            String(apt.service_type || ''),
             apt.appointment_date ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
-            this.formatTime(apt.appointment_time) || ''
+            this.formatTime(apt.appointment_time) || '',
+            this.formatProtocolForDisplay(apt.protocol || '')
         ]);
 
         const escapeCsvValue = (value) => {
@@ -1646,202 +1824,88 @@ class Aevum {
             return;
         }
 
-        // Verificar se jsPDF está disponível
-        if (typeof window.jspdf === 'undefined') {
-            this.showToast('Biblioteca PDF não carregada. Recarregue a página.', 'error');
-            return;
-        }
-
         try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a4'); // Retrato para melhor visualização
-
-            // Configurações
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 20;
-            const startY = 25;
-            let currentY = startY;
-            const rowHeight = 12;
-            const headerHeight = 14;
-            const cellPadding = 6;
-            const spacingAfterTitle = 8;
-            const spacingAfterDate = 15;
-
-            // Título
-            doc.setFontSize(20);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(0, 0, 0);
-            doc.text('Agendamentos do Dia', pageWidth / 2, currentY, { align: 'center' });
-            currentY += spacingAfterTitle;
-
-            // Data
-            doc.setFontSize(13);
-            doc.setFont('helvetica', 'normal');
-            const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
-            doc.text(`Data: ${dateFormatted}`, pageWidth / 2, currentY, { align: 'center' });
-            currentY += spacingAfterDate;
-
-            // Calcular larguras das colunas
-            const availableWidth = pageWidth - (margin * 2);
-            const headers = ['Nome', 'Telefone', 'Protocolo', 'Serviço', 'Horário'];
-            // Larguras proporcionais otimizadas para melhor visualização
-            const colProportions = [0.30, 0.20, 0.15, 0.20, 0.15];
-            const colWidths = colProportions.map(prop => availableWidth * prop);
-            const startX = margin;
-
-            // Função para desenhar cabeçalho
-            const drawHeader = (y) => {
-                // Fundo azul do cabeçalho
-                doc.setFillColor(0, 145, 234); // Azul mais escuro e profissional
-                doc.rect(startX, y - headerHeight + 2, availableWidth, headerHeight, 'F');
-                
-                // Texto do cabeçalho
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'bold');
-                
-                let xPos = startX + cellPadding;
-                headers.forEach((header, index) => {
-                    // Centralizar verticalmente no cabeçalho
-                    const textY = y - headerHeight + 2 + (headerHeight / 2) + 3;
-                    doc.text(header, xPos + cellPadding, textY);
-                    xPos += colWidths[index];
-                });
-            };
-
-            // Desenhar cabeçalho inicial
-            const headerY = currentY;
-            drawHeader(currentY);
-            currentY = headerY + 2; // Posição após cabeçalho
-
-            // Configurar para dados
-            doc.setTextColor(0, 0, 0);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setLineWidth(0.2);
-            doc.setDrawColor(200, 200, 200);
-
-            // Dados
-            this.appointments.forEach((apt, index) => {
-                // Verificar se precisa de nova página
-                if (currentY + rowHeight > pageHeight - 30) {
-                    doc.addPage();
-                    currentY = startY;
-                    const newHeaderY = currentY;
-                    drawHeader(newHeaderY);
-                    currentY = newHeaderY + 2;
-                }
-
-                // Preparar dados da linha
-                const customerName = String(apt.customer_name || 'N/A').trim();
-                const customerPhone = String(apt.customer_phone || '-').trim();
-                const protocol = String(apt.protocol || '-').trim();
-                const serviceType = String(apt.service_type || '-').trim();
-                const time = this.formatTime(apt.appointment_time) || '-';
-
-                const rowData = [
-                    customerName,
-                    customerPhone,
-                    protocol,
-                    serviceType,
-                    time
-                ];
-
-                // Fundo alternado para linhas (mais sutil)
-                if (index % 2 === 0) {
-                    doc.setFillColor(250, 250, 250);
-                } else {
-                    doc.setFillColor(255, 255, 255);
-                }
-                const rowY = currentY - rowHeight + 2;
-                doc.rect(startX, rowY, availableWidth, rowHeight, 'F');
-
-                // Desenhar células com dados
-                let xPos = startX;
-                rowData.forEach((cell, cellIndex) => {
-                    let cellText = String(cell || '-');
-                    const cellWidth = colWidths[cellIndex];
-                    const maxTextWidth = cellWidth - (cellPadding * 2);
-                    
-                    // Verificar largura do texto e ajustar se necessário
-                    doc.setFontSize(10);
-                    let textWidth = doc.getTextWidth(cellText);
-                    
-                    // Reduzir fonte apenas se realmente necessário (mínimo 9pt)
-                    if (textWidth > maxTextWidth) {
-                        let fontSize = 10;
-                        while (textWidth > maxTextWidth && fontSize > 9) {
-                            fontSize -= 0.3;
-                            doc.setFontSize(fontSize);
-                            textWidth = doc.getTextWidth(cellText);
-                        }
-                        
-                        // Se ainda não couber, truncar inteligentemente
-                        if (textWidth > maxTextWidth) {
-                            const ellipsis = '...';
-                            const ellipsisWidth = doc.getTextWidth(ellipsis);
-                            let truncatedText = cellText;
-                            
-                            while (doc.getTextWidth(truncatedText) + ellipsisWidth > maxTextWidth && truncatedText.length > 0) {
-                                truncatedText = truncatedText.substring(0, truncatedText.length - 1);
-                            }
-                            cellText = truncatedText + ellipsis;
-                        }
-                    }
-                    
-                    // Desenhar texto centralizado verticalmente na célula
-                    const textY = rowY + (rowHeight / 2) + 2;
-                    doc.text(cellText, xPos + cellPadding, textY);
-                    
-                    // Resetar tamanho da fonte
-                    doc.setFontSize(10);
-                    
-                    // Desenhar borda vertical entre colunas
-                    if (cellIndex < headers.length - 1) {
-                        doc.setDrawColor(220, 220, 220);
-                        doc.line(xPos + colWidths[cellIndex], rowY, xPos + colWidths[cellIndex], rowY + rowHeight);
-                    }
-                    
-                    xPos += colWidths[cellIndex];
-                });
-
-                // Linha horizontal inferior da linha
-                doc.setDrawColor(200, 200, 200);
-                doc.line(startX, rowY + rowHeight, startX + availableWidth, rowY + rowHeight);
-                
-                currentY = rowY + rowHeight + 1; // Próxima linha
-            });
-
-            // Borda externa da tabela (mais visível)
-            doc.setLineWidth(0.8);
-            doc.setDrawColor(0, 145, 234);
-            const tableTop = headerY - headerHeight + 2; // Topo do cabeçalho
-            const tableHeight = currentY - tableTop;
-            doc.rect(startX, tableTop, availableWidth, tableHeight);
-
-            // Rodapé em todas as páginas
-            const totalPages = doc.internal.pages.length - 1;
-            for (let i = 1; i <= totalPages; i++) {
-                doc.setPage(i);
-                doc.setFontSize(9);
-                doc.setTextColor(100, 100, 100);
-                doc.setFont('helvetica', 'normal');
-                doc.text(
-                    `Página ${i} de ${totalPages} - Total: ${this.appointments.length} agendamento(s)`,
-                    pageWidth / 2,
-                    pageHeight - 10,
-                    { align: 'center' }
-                );
+            if (!window.jspdf || typeof window.jspdf.jsPDF !== 'function') {
+                console.error('jsPDF não carregado corretamente:', window.jspdf);
+                this.showToast('Biblioteca de PDF não carregada. Recarregue a página.', 'error');
+                return;
             }
 
-            // Salvar PDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+
+            // Verificar se o plugin AutoTable está disponível na instância
+            if (typeof doc.autoTable !== 'function') {
+                console.error('Plugin jsPDF-AutoTable não carregado. doc.autoTable é', typeof doc.autoTable);
+                this.showToast('Biblioteca de tabela para PDF não carregada. Recarregue a página.', 'error');
+                return;
+            }
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const dateFormatted = new Date(filterDate + 'T00:00:00').toLocaleDateString('pt-BR');
+
+            // Título
+            doc.setFontSize(18);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Agendamentos do Dia', pageWidth / 2, 18, { align: 'center' });
+
+            // Data
+            doc.setFontSize(12);
+            doc.text(`Data: ${dateFormatted}`, pageWidth / 2, 26, { align: 'center' });
+
+            // Cabeçalhos da tabela (inclui serviço e protocolo por último)
+            const head = [['Nome do Cliente', 'Telefone', 'Serviço', 'Data', 'Hora', 'Protocolo']];
+
+            // Corpo da tabela (todos os agendamentos carregados para o dia)
+            const body = this.appointments.map(apt => {
+                const customerName = String(apt.customer_name || '').trim();
+                const customerPhone = String(apt.customer_phone || '').trim();
+                const service = String(apt.service_type || '').trim();
+                const dateCell = apt.appointment_date
+                    ? new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR')
+                    : '';
+                const time = this.formatTime(apt.appointment_time) || '';
+                const protocol = this.formatProtocolForDisplay(apt.protocol || '').trim();
+
+                return [customerName, customerPhone, service, dateCell, time, protocol];
+            });
+
+            // Tabela com AutoTable
+            doc.autoTable({
+                startY: 32,
+                head: head,
+                body: body,
+                theme: 'grid',
+                styles: {
+                    fontSize: 10,
+                    textColor: [0, 0, 0],
+                    halign: 'left',
+                    valign: 'middle',
+                    cellPadding: 3
+                },
+                headStyles: {
+                    fillColor: [0, 145, 234], // azul
+                    textColor: [255, 255, 255], // branco
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 249, 252]
+                },
+                margin: { top: 32, left: 15, right: 15 },
+                didDrawPage: (data) => {
+                    // Rodapé com paginação
+                    const str = `Página ${doc.internal.getNumberOfPages()}`;
+                    doc.setFontSize(9);
+                    doc.setTextColor(100);
+                    doc.text(str, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+                }
+            });
+
             const fileName = `agendamentos_${filterDate.replace(/-/g, '_')}.pdf`;
             doc.save(fileName);
-
             this.showToast('PDF exportado com sucesso!', 'success');
         } catch (error) {
-            console.error('Erro ao gerar PDF:', error);
+            console.error('Erro ao gerar PDF com jsPDF/AutoTable:', error);
             this.showToast('Erro ao gerar PDF. Verifique o console para mais detalhes.', 'error');
         }
     }
@@ -1871,11 +1935,11 @@ class Aevum {
             customer_phone: formData.get('customer_phone') || document.getElementById('editCustomerPhone').value || null,
             customer_email: formData.get('customer_email') || document.getElementById('editCustomerEmail').value || null,
             customer_cpf: formData.get('customer_cpf') || document.getElementById('editCustomerCpf').value || null,
-            service_type: formData.get('service_type') || document.getElementById('editServiceType').value || null,
+            service_type: this.getEditSelectedServicesLabel(),
             appointment_date: formData.get('appointment_date') || document.getElementById('editAppointmentDate').value,
             appointment_time: formData.get('appointment_time') || document.getElementById('editAppointmentTime').value,
             notes: formData.get('notes') || document.getElementById('editNotes').value || null,
-            duration_minutes: 60 // manter duração padrão
+            duration_minutes: this.getEditSelectedDuration()
         };
 
         // Coletar campos extras se existirem
@@ -2639,7 +2703,7 @@ class Aevum {
         const headerTitle = document.querySelector('.header-title span');
         const name = (companyName && String(companyName).trim()) || this.getStoredCompanyName();
         if (name) {
-            document.title = `${name} - Aevum`;
+            document.title = `${name} - Cloudd Agenda`;
             if (headerTitle) headerTitle.textContent = name;
         }
         // Se não tiver nome, não alterar: evita sobrescrever "Barbearia" com "Sistema de Agendamentos"
@@ -2863,6 +2927,124 @@ class Aevum {
     }
 
     /**
+     * Normaliza a lista de serviços vindos das configurações.
+     * Aceita tanto array de strings quanto de objetos.
+     */
+    normalizeServices(services) {
+        if (!Array.isArray(services)) return [];
+
+        return services
+            .map(service => {
+                if (typeof service === 'string') {
+                    return { name: service, duration_minutes: null };
+                }
+                if (service && typeof service === 'object') {
+                    return {
+                        name: service.name || service.nome || service.label || '',
+                        duration_minutes: service.duration_minutes || service.duration || null
+                    };
+                }
+                return null;
+            })
+            .filter(s => s && s.name);
+    }
+
+    /**
+     * Retorna o intervalo padrão da agenda (slot_interval) das configurações locais.
+     */
+    getDefaultSlotInterval() {
+        const settings = this.getLocalSettingsFallback() || {};
+        const slot = settings.slot_interval || (settings.funcionamento?.slot) || 0;
+        const parsed = parseInt(slot, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 60;
+    }
+
+    /**
+     * Obtém os serviços selecionados no formulário com suas durações efetivas.
+     */
+    getSelectedServicesWithDuration() {
+        const serviceSelect = document.getElementById('serviceType');
+        if (!serviceSelect) return [];
+
+        const defaultSlot = this.getDefaultSlotInterval();
+
+        const selectedOptions = Array.from(serviceSelect.selectedOptions)
+            .filter(opt => opt.value && opt.value !== 'Outro');
+
+        return selectedOptions.map(opt => {
+            const rawDuration = opt.dataset.durationMinutes;
+            const duration = rawDuration ? parseInt(rawDuration, 10) : NaN;
+            const durationMinutes = Number.isFinite(duration) && duration > 0 ? duration : defaultSlot;
+
+            return {
+                name: opt.value,
+                duration_minutes: durationMinutes
+            };
+        });
+    }
+
+    /**
+     * Calcula a duração total em minutos dos serviços selecionados.
+     */
+    getTotalSelectedDuration() {
+        const services = this.getSelectedServicesWithDuration();
+        if (services.length === 0) {
+            return this.getDefaultSlotInterval();
+        }
+        return services.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || this.getDefaultSlotInterval();
+    }
+
+    /**
+     * Retorna o texto para salvar no campo service_type
+     * (ex.: "Corte" ou "Corte + Barba").
+     */
+    getSelectedServicesLabel() {
+        const services = this.getSelectedServicesWithDuration();
+        if (services.length === 0) {
+            const serviceSelect = document.getElementById('serviceType');
+            return serviceSelect ? (serviceSelect.value || null) : null;
+        }
+        return services.map(s => s.name).join(' + ');
+    }
+
+    /**
+     * Obtém serviços selecionados no formulário de EDIÇÃO (editServiceType).
+     */
+    getEditSelectedServicesWithDuration() {
+        const serviceSelect = document.getElementById('editServiceType');
+        if (!serviceSelect) return [];
+
+        const defaultSlot = this.getDefaultSlotInterval();
+        const selectedOptions = Array.from(serviceSelect.selectedOptions)
+            .filter(opt => opt.value && opt.value !== 'Outro');
+
+        return selectedOptions.map(opt => {
+            const rawDuration = opt.dataset.durationMinutes;
+            const duration = rawDuration ? parseInt(rawDuration, 10) : NaN;
+            const durationMinutes = Number.isFinite(duration) && duration > 0 ? duration : defaultSlot;
+            return { name: opt.value, duration_minutes: durationMinutes };
+        });
+    }
+
+    /**
+     * Label e duração total para o formulário de edição.
+     */
+    getEditSelectedServicesLabel() {
+        const services = this.getEditSelectedServicesWithDuration();
+        if (services.length === 0) {
+            const el = document.getElementById('editServiceType');
+            return el ? (el.value || null) : null;
+        }
+        return services.map(s => s.name).join(' + ');
+    }
+
+    getEditSelectedDuration() {
+        const services = this.getEditSelectedServicesWithDuration();
+        if (services.length === 0) return this.getDefaultSlotInterval();
+        return services.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || this.getDefaultSlotInterval();
+    }
+
+    /**
      * Preenche o dropdown de serviços
      */
     populateServicesDropdown(services) {
@@ -2874,23 +3056,30 @@ class Aevum {
             serviceSelect.remove(1);
         }
 
+        const normalized = this.normalizeServices(services);
+
         // Adicionar serviços
-        services.forEach(service => {
+        normalized.forEach(service => {
             const option = document.createElement('option');
-            option.value = service;
-            option.textContent = service;
+            option.value = service.name;
+            option.textContent = service.duration_minutes
+                ? `${service.name} (${service.duration_minutes} min)`
+                : service.name;
+            if (service.duration_minutes) {
+                option.dataset.durationMinutes = service.duration_minutes;
+            }
             serviceSelect.appendChild(option);
         });
 
         // Adicionar opção "Outro" se houver serviços
-        if (services.length > 0) {
+        if (normalized.length > 0) {
             const otherOption = document.createElement('option');
             otherOption.value = 'Outro';
             otherOption.textContent = 'Outro (especificar em observações)';
             serviceSelect.appendChild(otherOption);
         }
 
-        console.log(`📋 Dropdown de serviços populado com ${services.length} opções`);
+        console.log(`📋 Dropdown de serviços populado com ${normalized.length} opções`);
     }
 }
 
