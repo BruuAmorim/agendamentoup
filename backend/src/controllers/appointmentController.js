@@ -110,7 +110,7 @@ class AppointmentController {
   async getAvailableSlots(req, res) {
     try {
       const { date } = req.params;
-      const { duration = 60 } = req.query;
+      const { duration = 60, employee_id: employeeIdParam } = req.query;
 
       if (!date) {
         return res.status(400).json({
@@ -136,8 +136,17 @@ class AppointmentController {
         empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
       }
 
+      // Normalizar employee_id (opcional)
+      const employeeId = employeeIdParam ? String(employeeIdParam) : null;
+
       // CRÍTICO: Buscar horários disponíveis apenas considerando agendamentos da mesma empresa
-      const availableSlots = await Appointment.getAvailableSlots(date, parseInt(duration), empresa_id);
+      // e, se informado, do mesmo funcionário
+      const availableSlots = await Appointment.getAvailableSlots(
+        date,
+        parseInt(duration),
+        empresa_id,
+        employeeId
+      );
 
       res.json({
         success: true,

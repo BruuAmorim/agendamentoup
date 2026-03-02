@@ -67,6 +67,14 @@
 
           <form id="appointmentForm">
             <div class="form-group">
+              <label>Profissional</label>
+              <select name="employee_id" id="employeeSelect">
+                <option value="">Qualquer profissional</option>
+                <!-- Funcionários serão carregados dinamicamente -->
+              </select>
+            </div>
+
+            <div class="form-group">
               <label>Nome do Cliente *</label>
               <input type="text" name="customer_name" placeholder="Nome completo" required>
             </div>
@@ -115,6 +123,13 @@
               <div class="filters-row">
                 <input type="date" id="filterDate">
                 <button type="button" class="btn-primary" id="refreshList">Atualizar Lista</button>
+              </div>
+              <div class="form-group" style="margin-top: 8px;">
+                <label>Profissional</label>
+                <select id="employeeFilter">
+                  <option value="">Todos os profissionais</option>
+                  <!-- Funcionários serão carregados dinamicamente -->
+                </select>
               </div>
             </div>
 
@@ -195,6 +210,13 @@
           <div class="form-group">
             <label>CPF</label>
             <input type="text" id="editCustomerCpf" name="customer_cpf">
+          </div>
+
+          <div class="form-group">
+            <label>Profissional</label>
+            <select id="editEmployeeSelect" name="employee_id">
+              <option value="">Qualquer profissional</option>
+            </select>
           </div>
 
           <div class="form-group">

@@ -103,6 +103,7 @@ class Appointment {
     this.id = data.id || uuidv4();
     this.protocol = data.protocol || this.generateProtocol();
     this.user_id = data.user_id || null; // ID da empresa que criou o agendamento
+    this.employee_id = data.employee_id || null; // ID do funcionário/profissional (novo)
     this.customer_name = data.customer_name;
     this.customer_email = data.customer_email;
     this.customer_phone = data.customer_phone;
@@ -443,13 +444,14 @@ class Appointment {
       // Verificar conflito de horário (verificação tripla para evitar race conditions)
       console.log('📅 Appointment.create - Verificando conflito de horário...');
       
-      // Primeira verificação (filtrar por userId para isolar por empresa)
+      // Primeira verificação (filtrar por userId para isolar por empresa e employeeId para isolar por funcionário)
       const conflict1 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
         data.duration_minutes,
         null, // excludeId
-        userId // userId para filtrar apenas agendamentos da mesma empresa
+        userId, // userId para filtrar apenas agendamentos da mesma empresa
+        data.employee_id || null // employeeId para isolar por funcionário (se enviado)
       );
       if (conflict1) {
         console.log('❌ Appointment.create - Conflito de horário detectado (primeira verificação)');
@@ -462,7 +464,8 @@ class Appointment {
         normalizedTime,
         data.duration_minutes,
         null, // excludeId
-        userId // userId para filtrar apenas agendamentos da mesma empresa
+        userId, // userId para filtrar apenas agendamentos da mesma empresa
+        data.employee_id || null
       );
       if (conflict2) {
         console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
@@ -475,7 +478,8 @@ class Appointment {
         normalizedTime,
         data.duration_minutes,
         null, // excludeId
-        userId // userId para filtrar apenas agendamentos da mesma empresa
+        userId, // userId para filtrar apenas agendamentos da mesma empresa
+        data.employee_id || null
       );
       if (conflict3) {
         console.log('❌ Appointment.create - Conflito de horário detectado (terceira verificação)');
@@ -560,10 +564,10 @@ class Appointment {
 
         const queryText = `
           INSERT INTO appointments (
-            id, protocol, user_id, customer_name, customer_email, customer_phone, customer_cpf, service_type,
+            id, protocol, user_id, employee_id, customer_name, customer_email, customer_phone, customer_cpf, service_type,
             appointment_date, appointment_time, duration_minutes,
             notes, extra_fields, status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING *
         `;
 
@@ -571,6 +575,7 @@ class Appointment {
           appointment.id,
           appointment.protocol,
           appointment.user_id || null,
+          appointment.employee_id || null,
           appointment.customer_name,
           appointment.customer_email || null,
           appointment.customer_phone || null,
@@ -626,6 +631,9 @@ class Appointment {
                 if (!columnName || columnName === 'extra_fields') {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS extra_fields JSONB');
                 }
+                if (!columnName || columnName === 'employee_id') {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES funcionarios(id)');
+                }
               } else if (isSQLite) {
                 // Para SQLite, verificar se existe antes de adicionar
                 const tableInfo = await query("PRAGMA table_info(appointments)", []);
@@ -643,6 +651,9 @@ class Appointment {
                 if (!existingColumns.includes('extra_fields')) {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN extra_fields TEXT');
                 }
+                if (!existingColumns.includes('employee_id')) {
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN employee_id INTEGER');
+                }
               } else {
                 // Fallback: tentar criar todas as colunas
                 console.log('⚠️ Dialect não reconhecido, tentando criar todas as colunas...');
@@ -651,11 +662,13 @@ class Appointment {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_type VARCHAR(100)');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS extra_fields JSONB');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES funcionarios(id)');
                 } else {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN user_id INTEGER');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN customer_cpf TEXT');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN service_type TEXT');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN extra_fields TEXT');
+                  columnsToAdd.push('ALTER TABLE appointments ADD COLUMN employee_id INTEGER');
                 }
               }
               
@@ -893,7 +906,8 @@ class Appointment {
 
   // Buscar horários disponíveis para uma data
   // Usa horário de funcionamento e dias ativos da empresa (company_id)
-  static async getAvailableSlots(date, duration = 60, userId = null) {
+  // employeeId opcional: filtra agenda por funcionário específico
+  static async getAvailableSlots(date, duration = 60, userId = null, employeeId = null) {
     const settings = await this.getCompanySettings(userId);
 
     // Validar dia da semana: só retornar slots em dias ativos
@@ -912,6 +926,7 @@ class Appointment {
         .filter(apt => {
           if (apt.appointment_date !== date || apt.status === 'cancelled') return false;
           if (userId && apt.user_id !== userId) return false;
+          if (employeeId && apt.employee_id && String(apt.employee_id) !== String(employeeId)) return false;
           return true;
         })
         .map(apt => ({
@@ -925,9 +940,15 @@ class Appointment {
         WHERE appointment_date = $1 AND status != 'cancelled'
       `;
       const params = [date];
+      let paramIndex = 2;
       if (userId) {
-        queryText += ' AND user_id = $2';
+        queryText += ` AND user_id = $${paramIndex}`;
         params.push(userId);
+        paramIndex++;
+      }
+      if (employeeId) {
+        queryText += ` AND (employee_id = $${paramIndex} OR employee_id IS NULL)`;
+        params.push(employeeId);
       }
       queryText += ' ORDER BY appointment_time ASC';
       const result = await query(queryText, params);
@@ -987,19 +1008,21 @@ class Appointment {
 
   // Verificar conflito de horário
   // userId opcional: ID da empresa para verificar conflitos apenas com agendamentos dessa empresa
-  static async checkTimeConflict(date, time, duration = 60, excludeId = null, userId = null) {
+  // employeeId opcional: verifica conflitos apenas dentro da agenda desse funcionário
+  static async checkTimeConflict(date, time, duration = 60, excludeId = null, userId = null, employeeId = null) {
     try {
       if (useMemoryStorage()) {
         // Usar armazenamento em memória
         const normalizedDate = this.normalizeDate(date);
         const normalizedTime = this.normalizeTime(time);
 
-        // Filtrar agendamentos da mesma data, mesma empresa e que não estão cancelados
+        // Filtrar agendamentos da mesma data, mesma empresa/funcionário e que não estão cancelados
         const sameDateAppointments = memoryStorage.filter(apt => {
           if (apt.status === 'cancelled') return false;
           if (excludeId && apt.id === excludeId) return false;
           // CRÍTICO: Filtrar por user_id para isolar dados por empresa
           if (userId && apt.user_id !== userId) return false;
+          if (employeeId && apt.employee_id && String(apt.employee_id) !== String(employeeId)) return false;
           const aptDate = this.normalizeDate(apt.appointment_date);
           return aptDate === normalizedDate;
         });
@@ -1035,7 +1058,7 @@ class Appointment {
         // Construir query com filtros necessários
         let paramIndex = 1;
         queryText = `
-          SELECT appointment_time, duration_minutes, id
+          SELECT appointment_time, duration_minutes, id, employee_id
           FROM appointments
           WHERE appointment_date = $${paramIndex}
             AND status != 'cancelled'
@@ -1047,6 +1070,12 @@ class Appointment {
         if (userId) {
           queryText += ` AND user_id = $${paramIndex}`;
           params.push(userId);
+          paramIndex++;
+        }
+
+        if (employeeId) {
+          queryText += ` AND (employee_id = $${paramIndex} OR employee_id IS NULL)`;
+          params.push(employeeId);
           paramIndex++;
         }
 
@@ -1102,7 +1131,7 @@ class Appointment {
       throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
     }
 
-    // RF02 - Se está mudando data/hora, verificar conflitos ANTES de atualizar
+      // RF02 - Se está mudando data/hora, verificar conflitos ANTES de atualizar
     if ((data.appointment_date && data.appointment_date !== this.appointment_date) ||
         (data.appointment_time && data.appointment_time !== this.appointment_time) ||
         (data.duration_minutes && data.duration_minutes !== this.duration_minutes)) {
@@ -1111,6 +1140,9 @@ class Appointment {
       const newTime = Appointment.normalizeTime(data.appointment_time || this.appointment_time);
       const newDuration = data.duration_minutes || this.duration_minutes;
 
+      // Manter o mesmo funcionário, ou usar o que vier no update (se houver)
+      const newEmployeeId = data.employee_id !== undefined ? data.employee_id : this.employee_id;
+
       console.log('🔄 Appointment.update - Verificando conflito para reagendamento:', {
         newDate,
         newTime,
@@ -1118,10 +1150,10 @@ class Appointment {
         excludeId: this.id
       });
 
-      // Verificar conflito considerando apenas agendamentos da mesma empresa
+      // Verificar conflito considerando apenas agendamentos da mesma empresa e mesmo funcionário
       // Usar userId passado como parâmetro, ou this.user_id como fallback
       const empresaId = userId || this.user_id;
-      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, empresaId);
+      const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, empresaId, newEmployeeId);
       if (conflict) {
         console.log('❌ Appointment.update - Conflito detectado no reagendamento');
         throw new Error(`Já existe um agendamento cadastrado para a data ${newDate} no horário ${newTime}. Por favor, escolha outro horário.`);
@@ -1157,8 +1189,9 @@ class Appointment {
           customer_name = $1, customer_email = $2, customer_phone = $3,
           customer_cpf = $4, service_type = $5,
           appointment_date = $6, appointment_time = $7, duration_minutes = $8,
-          notes = $9, extra_fields = $10, status = $11, updated_at = $12
-        WHERE id = $13
+          notes = $9, extra_fields = $10, status = $11, updated_at = $12,
+          employee_id = $13
+        WHERE id = $14
         RETURNING *
       `;
 
@@ -1175,6 +1208,7 @@ class Appointment {
         this.extra_fields || null,
         this.status || 'pending',
         this.updated_at || new Date(),
+        this.employee_id || null,
         this.id
       ];
 
@@ -1326,6 +1360,7 @@ class Appointment {
       id: this.id,
       protocol: this.protocol,
       user_id: this.user_id, // Incluir user_id no JSON
+      employee_id: this.employee_id,
       customer_name: this.customer_name,
       customer_email: this.customer_email,
       customer_phone: this.customer_phone,

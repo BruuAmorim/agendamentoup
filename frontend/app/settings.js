@@ -302,6 +302,314 @@ class ServiceManager {
   }
 }
 
+// Componente: StaffManager (Funcionários)
+class StaffManager {
+  constructor(settingsManager) {
+    this.settingsManager = settingsManager;
+    this.funcionarios = [];
+  }
+
+  getAllServiceNames() {
+    const servicesComponent = this.settingsManager.serviceManager;
+    if (!servicesComponent || !Array.isArray(servicesComponent.data?.servicos)) {
+      return [];
+    }
+    return servicesComponent.data.servicos
+      .map(s => (typeof s === 'string' ? s : (s.name || '')))
+      .filter(Boolean);
+  }
+
+  async loadStaff() {
+    try {
+      const response = await window.authManager.apiRequest('/api/staff');
+      if (response && response.success && Array.isArray(response.data)) {
+        this.funcionarios = response.data;
+      } else {
+        this.funcionarios = [];
+      }
+      this.renderList();
+    } catch (error) {
+      console.error('Erro ao carregar funcionários:', error);
+      this.funcionarios = [];
+      this.renderList();
+    }
+  }
+
+  renderList() {
+    const list = document.getElementById('staffList');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    if (!this.funcionarios.length) {
+      list.innerHTML = '<p style="font-size:13px; color:#6b7280;">Nenhum funcionário cadastrado ainda.</p>';
+      return;
+    }
+
+    this.funcionarios.forEach(func => {
+      const ativo = func.ativo !== false; // default true
+      const item = document.createElement('div');
+      item.className = 'staff-item';
+      item.dataset.id = func.id;
+      item.innerHTML = `
+        <div class="staff-main">
+          <div class="staff-name">${func.nome || func.name || 'Sem nome'}</div>
+          <div class="staff-role">${func.funcao ? func.funcao : '<span style="color:#9ca3af;">Função não informada</span>'}</div>
+        </div>
+        <div class="staff-actions">
+          <span class="status-badge ${ativo ? 'status-badge--active' : 'status-badge--inactive'}">
+            ${ativo ? 'Ativo' : 'Inativo'}
+          </span>
+          <button type="button" class="btn-edit" data-action="edit">Editar</button>
+          <button type="button" class="btn-toggle" data-action="toggle">
+            ${ativo ? 'Desativar' : 'Ativar'}
+          </button>
+          <button type="button" class="btn-toggle" data-action="delete" style="background:#fee2e2; color:#b91c1c;">
+            Excluir
+          </button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  openModal(funcionario = null) {
+    const modal = document.getElementById('staffModal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('staffModalTitle');
+    const idInput = document.getElementById('staffId');
+    const nameInput = document.getElementById('staffName');
+    const roleInput = document.getElementById('staffRole');
+    const activeInput = document.getElementById('staffActive');
+
+    const isEdit = !!(funcionario && funcionario.id);
+
+    if (titleEl) titleEl.textContent = isEdit ? 'Editar Funcionário' : 'Novo Funcionário';
+    if (idInput) idInput.value = isEdit ? funcionario.id : '';
+    if (nameInput) nameInput.value = isEdit ? (funcionario.nome || funcionario.name || '') : '';
+    if (roleInput) roleInput.value = isEdit ? (funcionario.funcao || '') : '';
+    if (activeInput) activeInput.checked = isEdit ? (funcionario.ativo !== false) : true;
+
+    // Renderizar lista de serviços com seleção
+    this.renderServicesInModal(funcionario);
+
+    modal.style.display = 'block';
+  }
+
+  closeModal() {
+    const modal = document.getElementById('staffModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  renderServicesInModal(funcionario = null, selectedFromApi = null) {
+    const container = document.getElementById('staffServicesList');
+    const emptyHint = document.getElementById('staffServicesEmpty');
+    if (!container) return;
+
+    const allServices = this.getAllServiceNames();
+    container.innerHTML = '';
+
+    if (!allServices.length) {
+      if (emptyHint) emptyHint.style.display = 'block';
+      return;
+    }
+
+    if (emptyHint) emptyHint.style.display = 'none';
+
+    let selectedNames = [];
+    if (Array.isArray(selectedFromApi)) {
+      selectedNames = selectedFromApi.map(s => String(s).trim());
+    }
+
+    allServices.forEach(name => {
+      const id = `staff_service_${name.replace(/\s+/g, '_').toLowerCase()}`;
+      const label = document.createElement('label');
+      label.className = 'staff-service-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = id;
+      checkbox.dataset.serviceName = name;
+      if (selectedNames.includes(name)) {
+        checkbox.checked = true;
+      }
+
+      const span = document.createElement('span');
+      span.className = 'staff-service-name';
+      span.textContent = name;
+
+      label.appendChild(checkbox);
+      label.appendChild(span);
+      container.appendChild(label);
+    });
+  }
+
+  collectSelectedServices() {
+    const container = document.getElementById('staffServicesList');
+    if (!container) return [];
+    const selected = [];
+    container.querySelectorAll('input[type="checkbox"][data-service-name]').forEach(input => {
+      if (input.checked) {
+        const name = input.getAttribute('data-service-name');
+        if (name) selected.push(name);
+      }
+    });
+    return selected;
+  }
+
+  async saveFromModal() {
+    if (!this.settingsManager.isPasswordVerified) {
+      alert('⚠️ Por favor, verifique sua senha primeiro.');
+      return;
+    }
+
+    const idInput = document.getElementById('staffId');
+    const nameInput = document.getElementById('staffName');
+    const roleInput = document.getElementById('staffRole');
+    const activeInput = document.getElementById('staffActive');
+
+    const nome = nameInput?.value.trim() || '';
+    const funcao = roleInput?.value.trim() || '';
+    const ativo = !!(activeInput && activeInput.checked);
+
+    if (!nome) {
+      alert('Informe o nome do funcionário.');
+      return;
+    }
+
+    const isEdit = !!(idInput && idInput.value);
+    const id = isEdit ? idInput.value : null;
+
+    try {
+      let savedId = id;
+      if (isEdit) {
+        const response = await window.authManager.apiRequest(`/api/staff/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ nome, funcao, ativo })
+        });
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Erro ao atualizar funcionário');
+        }
+        savedId = response.data?.id || id;
+      } else {
+        const response = await window.authManager.apiRequest('/api/staff', {
+          method: 'POST',
+          body: JSON.stringify({ nome, funcao, ativo })
+        });
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Erro ao criar funcionário');
+        }
+        savedId = response.data?.id;
+      }
+
+      // Salvar serviços vinculados
+      const services = this.collectSelectedServices();
+      if (savedId) {
+        await window.authManager.apiRequest(`/api/staff/${savedId}/services`, {
+          method: 'POST',
+          body: JSON.stringify({ services })
+        });
+      }
+
+      if (window.authManager?.showToast) {
+        window.authManager.showToast('Funcionário salvo com sucesso!', 'success');
+      } else {
+        alert('Funcionário salvo com sucesso!');
+      }
+
+      this.closeModal();
+      await this.loadStaff();
+    } catch (error) {
+      console.error('Erro ao salvar funcionário:', error);
+      alert('❌ Erro ao salvar funcionário: ' + (error.message || 'Erro desconhecido'));
+    }
+  }
+
+  async toggleActive(id) {
+    const funcionario = this.funcionarios.find(f => String(f.id) === String(id));
+    if (!funcionario) return;
+
+    const currentlyActive = funcionario.ativo !== false;
+
+    try {
+      if (currentlyActive) {
+        // Desativar via DELETE (soft delete)
+        const response = await window.authManager.apiRequest(`/api/staff/${id}`, {
+          method: 'DELETE'
+        });
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Erro ao desativar funcionário');
+        }
+      } else {
+        // Reativar via PUT
+        const response = await window.authManager.apiRequest(`/api/staff/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ ativo: true })
+        });
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Erro ao ativar funcionário');
+        }
+      }
+
+      await this.loadStaff();
+    } catch (error) {
+      console.error('Erro ao alterar status do funcionário:', error);
+      alert('❌ Erro ao alterar status do funcionário: ' + (error.message || 'Erro desconhecido'));
+    }
+  }
+
+  async deletePermanently(id) {
+    const funcionario = this.funcionarios.find(f => String(f.id) === String(id));
+    const nome = funcionario ? (funcionario.nome || funcionario.name || '') : '';
+
+    const confirmed = window.confirm(
+      `Tem certeza que deseja excluir permanentemente o funcionário${nome ? ` "${nome}"` : ''}?`
+      + '\n\nEssa ação não poderá ser desfeita.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await window.authManager.apiRequest(`/api/staff/${id}/hard`, {
+        method: 'DELETE'
+      });
+      if (!response || !response.success) {
+        throw new Error(response?.message || 'Erro ao excluir funcionário');
+      }
+      if (window.authManager?.showToast) {
+        window.authManager.showToast('Funcionário excluído com sucesso!', 'success');
+      } else {
+        alert('Funcionário excluído com sucesso!');
+      }
+      await this.loadStaff();
+    } catch (error) {
+      console.error('Erro ao excluir funcionário:', error);
+      alert('❌ Erro ao excluir funcionário: ' + (error.message || 'Erro desconhecido'));
+    }
+  }
+
+  async openEditWithServices(id) {
+    const funcionario = this.funcionarios.find(f => String(f.id) === String(id));
+    if (!funcionario) return;
+
+    try {
+      const response = await window.authManager.apiRequest(`/api/staff/${id}/services`);
+      let selectedServices = [];
+      if (response && response.success && response.data && Array.isArray(response.data.services)) {
+        selectedServices = response.data.services;
+      }
+      this.openModal(funcionario);
+      this.renderServicesInModal(funcionario, selectedServices);
+    } catch (error) {
+      console.error('Erro ao carregar serviços do funcionário:', error);
+      // Mesmo se falhar, abrir modal com dados básicos
+      this.openModal(funcionario);
+    }
+  }
+}
+
 // Componente: ScheduleConfig
 class ScheduleConfig {
   constructor(settingsManager) {
@@ -440,6 +748,7 @@ class SettingsManager {
     this.formBuilder = new FormBuilder(this);
     this.serviceManager = new ServiceManager(this);
     this.scheduleConfig = new ScheduleConfig(this);
+    this.staffManager = new StaffManager(this);
     
     this.init();
   }
@@ -829,7 +1138,7 @@ class SettingsManager {
     // Seção admin master para senha
     this.initAdminPasswordSection();
 
-    // Event delegation para botões dinâmicos (campos extras e serviços)
+    // Event delegation para botões dinâmicos (campos extras, serviços e funcionários)
     // Isso garante que funcionem mesmo se adicionados depois
     const handleDynamicButtonClick = (e) => {
       // Botões de remover campo extra
@@ -865,6 +1174,31 @@ class SettingsManager {
           return;
         }
       }
+
+      // Botões da lista de funcionários
+      const staffItem = e.target.closest('.staff-item');
+      if (staffItem && this.staffManager && this.isPasswordVerified) {
+        const id = staffItem.dataset.id;
+        const action = e.target.dataset.action;
+        if (action === 'edit') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.staffManager.openEditWithServices(id);
+          return;
+        }
+        if (action === 'toggle') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.staffManager.toggleActive(id);
+          return;
+        }
+        if (action === 'delete') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.staffManager.deletePermanently(id);
+          return;
+        }
+      }
     };
 
     // Usar o mesmo elemento para evitar múltiplos listeners
@@ -873,6 +1207,37 @@ class SettingsManager {
     } else {
       // Fallback para document se container não existir ainda
       document.addEventListener('click', handleDynamicButtonClick.bind(this));
+    }
+
+    // Botões do modal de funcionários
+    const addStaffBtn = document.getElementById('addStaffBtn');
+    if (addStaffBtn && this.staffManager) {
+      addStaffBtn.addEventListener('click', () => {
+        if (!this.isPasswordVerified) {
+          alert('⚠️ Por favor, verifique sua senha primeiro.');
+          return;
+        }
+        this.staffManager.openModal(null);
+      });
+    }
+
+    const staffCancelBtn = document.getElementById('staffCancelBtn');
+    if (staffCancelBtn && this.staffManager) {
+      staffCancelBtn.addEventListener('click', () => this.staffManager.closeModal());
+    }
+
+    const staffSaveBtn = document.getElementById('staffSaveBtn');
+    if (staffSaveBtn && this.staffManager) {
+      staffSaveBtn.addEventListener('click', () => this.staffManager.saveFromModal());
+    }
+
+    const staffModal = document.getElementById('staffModal');
+    if (staffModal && this.staffManager) {
+      staffModal.addEventListener('click', (e) => {
+        if (e.target === staffModal) {
+          this.staffManager.closeModal();
+        }
+      });
     }
   }
 
@@ -1050,6 +1415,11 @@ class SettingsManager {
         this.formBuilder.applySettings(data);
         this.serviceManager.applySettings(data);
         this.scheduleConfig.applySettings(data);
+      }
+
+      // Carregar funcionários após serviços (para ter lista de serviços disponível)
+      if (this.staffManager) {
+        await this.staffManager.loadStaff();
       }
 
       this.cachedSettings = this.collectAllSettings();

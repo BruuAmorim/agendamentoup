@@ -217,10 +217,13 @@
             }
         },
 
-        // Obter horários disponíveis (backend usa horário de funcionamento e conflitos da empresa)
-        getAvailableSlots: async function(date, durationMinutes = 60) {
+        // Obter horários disponíveis (backend usa horário de funcionamento, conflitos da empresa e, opcionalmente, do funcionário)
+        getAvailableSlots: async function(date, durationMinutes = 60, employeeId = null) {
             try {
-                const url = `${BASE_URL}/appointments/available/${encodeURIComponent(date)}?duration=${durationMinutes}`;
+                let url = `${BASE_URL}/appointments/available/${encodeURIComponent(date)}?duration=${durationMinutes}`;
+                if (employeeId) {
+                    url += `&employee_id=${encodeURIComponent(employeeId)}`;
+                }
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: this.getHeaders()

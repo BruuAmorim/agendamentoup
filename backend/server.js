@@ -20,6 +20,7 @@ const integrationRoutes = require('./src/routes/integrationRoutes');
 const n8nRoutes = require('./src/routes/n8nRoutes');
 const dashboardRoutes = require('./src/routes/dashboard');
 const moderatorRoutes = require('./src/routes/moderator');
+const staffRoutes = require('./src/routes/staffRoutes');
 const settingsPasswordRoutes = require('./src/routes/settingsPasswordRoutes');
 const logRoutes = require('./src/routes/logRoutes');
 
@@ -153,6 +154,7 @@ app.use('/api/empresa/api-key', require('./src/routes/empresaApiKeyRoutes')); //
 app.use('/api/n8n', n8nRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/moderator', moderatorRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/settings-password', settingsPasswordRoutes);
 app.use('/api/logs', logRoutes);
 
@@ -376,7 +378,7 @@ async function initializeDatabase() {
           console.log('✅ Tabela system_config_password criada/verificada (PostgreSQL)');
         }
 
-        // Criar tabela employees se não existir
+        // Criar tabela employees se não existir (vínculo moderador-usuário existente)
         if (dialect === 'sqlite') {
           const createEmployees = `
             CREATE TABLE IF NOT EXISTS employees (
@@ -403,6 +405,62 @@ async function initializeDatabase() {
           `;
           await query(createEmployees, []);
         }
+
+        // Criar tabela funcionarios (profissionais internos) se não existir
+        console.log('📋 Verificando/criando tabela funcionarios...');
+        if (dialect === 'sqlite') {
+          const createFuncionarios = `
+            CREATE TABLE IF NOT EXISTS funcionarios (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              empresa_id INTEGER NOT NULL,
+              nome TEXT NOT NULL,
+              funcao TEXT,
+              ativo INTEGER DEFAULT 1,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+          `;
+          await query(createFuncionarios, []);
+          await query('CREATE INDEX IF NOT EXISTS idx_funcionarios_empresa_ativo ON funcionarios (empresa_id, ativo)', []);
+          
+          const createFuncionarioServices = `
+            CREATE TABLE IF NOT EXISTS funcionario_services (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              funcionario_id INTEGER NOT NULL,
+              service_name TEXT NOT NULL,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(funcionario_id, service_name)
+            )
+          `;
+          await query(createFuncionarioServices, []);
+        } else {
+          const createFuncionarios = `
+            CREATE TABLE IF NOT EXISTS funcionarios (
+              id SERIAL PRIMARY KEY,
+              empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              nome VARCHAR(255) NOT NULL,
+              funcao VARCHAR(255),
+              ativo BOOLEAN DEFAULT TRUE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+          `;
+          await query(createFuncionarios, []);
+          await query('CREATE INDEX IF NOT EXISTS idx_funcionarios_empresa_ativo ON funcionarios (empresa_id, ativo)', []);
+
+          const createFuncionarioServices = `
+            CREATE TABLE IF NOT EXISTS funcionario_services (
+              id SERIAL PRIMARY KEY,
+              funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+              service_name TEXT NOT NULL,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(funcionario_id, service_name)
+            )
+          `;
+          await query(createFuncionarioServices, []);
+        }
         
         // Criar tabela appointments se não existir
         console.log('📋 Verificando/criando tabela appointments...');
@@ -428,7 +486,8 @@ async function initializeDatabase() {
                   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                   cancelled_at TEXT,
-                  cancellation_reason TEXT
+                  cancellation_reason TEXT,
+                  employee_id INTEGER
                 )
               `;
               await query(createAppointments, []);
@@ -453,7 +512,8 @@ async function initializeDatabase() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 cancelled_at TIMESTAMP WITH TIME ZONE,
-                cancellation_reason TEXT
+                cancellation_reason TEXT,
+                employee_id INTEGER REFERENCES funcionarios(id)
               )
             `;
             await query(createAppointments, []);
@@ -546,6 +606,24 @@ async function initializeDatabase() {
               console.log('✅ Tabela appointments já existe (ignorando erro)');
             }
           }
+        }
+        
+        // Garantir coluna employee_id em appointments (migração incremental)
+        console.log('📋 Verificando coluna employee_id em appointments...');
+        try {
+          if (dialect === 'sqlite') {
+            const info = await query("PRAGMA table_info(appointments)", []);
+            const cols = info.rows.map(c => c.name);
+            if (!cols.includes('employee_id')) {
+              await query('ALTER TABLE appointments ADD COLUMN employee_id INTEGER', []);
+              console.log('✅ Coluna employee_id adicionada em appointments (SQLite)');
+            }
+          } else {
+            await query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES funcionarios(id)', []);
+            console.log('✅ Coluna employee_id verificada/criada em appointments (PostgreSQL)');
+          }
+        } catch (e) {
+          console.warn('⚠️ Não foi possível verificar/adicionar employee_id em appointments:', e.message);
         }
         
         // Verificar novamente se a tabela appointments foi criada

@@ -7,6 +7,10 @@ class Aevum {
         this.availableSlots = [];
         this.selectedAppointment = null;
         this.currentTheme = localStorage.getItem('theme') || 'dark';
+        this.employees = [];
+        this.employeeServices = {};
+        this.currentEmployeeFilter = null;
+        this.allServices = [];
 
         this.init();
     }
@@ -109,6 +113,9 @@ class Aevum {
         
         // Carregar configurações do moderador
         this.loadModeratorSettings();
+
+        // Carregar funcionários para uso na agenda (selects e filtros)
+        this.loadEmployeesForAgenda();
     }
 
     bindEvents() {
@@ -144,6 +151,24 @@ class Aevum {
         if (refreshListBtn) {
             refreshListBtn.addEventListener('click', () => {
                 this.loadAppointments();
+            });
+        }
+
+        // Filtro por profissional na lista
+        const employeeFilter = document.getElementById('employeeFilter');
+        if (employeeFilter) {
+            employeeFilter.addEventListener('change', () => {
+                this.currentEmployeeFilter = employeeFilter.value || null;
+                this.displayAppointments();
+            });
+        }
+
+        // Profissional no formulário de novo agendamento
+        const employeeSelect = document.getElementById('employeeSelect');
+        if (employeeSelect) {
+            employeeSelect.addEventListener('change', async () => {
+                const employeeId = employeeSelect.value || null;
+                await this.onEmployeeChangeForNew(employeeId);
             });
         }
 
@@ -422,7 +447,10 @@ class Aevum {
 
             // Duração baseada no(s) serviço(s) selecionado(s) ou no intervalo padrão
             const duration = this.getTotalSelectedDuration();
-            const apiResult = await API.getAvailableSlots(date, duration);
+            const employeeSelect = document.getElementById('employeeSelect');
+            const employeeId = employeeSelect ? (employeeSelect.value || null) : null;
+
+            const apiResult = await API.getAvailableSlots(date, duration, employeeId);
             let availableSlots = [];
 
             if (apiResult.success && Array.isArray(apiResult.data) && apiResult.data.length > 0) {
@@ -431,7 +459,7 @@ class Aevum {
                     duration: s.duration || duration
                 }));
             } else {
-                availableSlots = this.generateAvailableSlots(date, duration);
+                availableSlots = this.generateAvailableSlots(date, duration, employeeId);
             }
 
             this.availableSlots = availableSlots;
@@ -468,7 +496,7 @@ class Aevum {
         return new Date(y, m - 1, d).getDay();
     }
 
-    generateAvailableSlots(selectedDate, durationMinutes) {
+    generateAvailableSlots(selectedDate, durationMinutes, employeeId = null) {
         const slots = [];
 
         // ==== Carregar regras de horário/dias de atendimento ====
@@ -563,8 +591,14 @@ class Aevum {
         const openingMinutes = parseTime(openingTime);
         const closingMinutes = parseTime(closingTime);
 
-        // Buscar agendamentos para a data selecionada
-        const dateAppointments = this.appointments.filter(apt => apt.appointment_date === selectedDate);
+        // Buscar agendamentos para a data selecionada (considerando funcionário se informado)
+        const dateAppointments = this.appointments.filter(apt => {
+            if (apt.appointment_date !== selectedDate || apt.status === 'cancelled') return false;
+            if (employeeId && apt.employee_id && String(apt.employee_id) !== String(employeeId)) {
+                return false;
+            }
+            return true;
+        });
 
         // Gerar slots com intervalo configurado
         const step = effectiveDuration || defaultSlot;
@@ -699,7 +733,9 @@ class Aevum {
     }
 
     // Verificar se um horário específico está disponível
-    isTimeSlotAvailable(date, time, durationOverride) {
+    // employeeId opcional: verifica conflitos apenas dentro da agenda deste profissional;
+    // agendamentos antigos sem employee_id continuam bloqueando todos.
+    isTimeSlotAvailable(date, time, durationOverride, employeeId = null) {
         // Garantir que this.appointments é sempre um array
         if (!Array.isArray(this.appointments)) {
             console.warn('⚠️ this.appointments não é um array, inicializando como array vazio');
@@ -707,9 +743,16 @@ class Aevum {
         }
         
         // Primeiro, garantir que temos os agendamentos carregados para esta data
-        const dateAppointments = this.appointments.filter(apt => 
-            apt.appointment_date === date && apt.status !== 'cancelled'
-        );
+        const dateAppointments = this.appointments.filter(apt => {
+            if (apt.appointment_date !== date || apt.status === 'cancelled') return false;
+            // Se employeeId foi informado e o agendamento já tem employee_id,
+            // só considerar conflitos do mesmo funcionário; agendamentos sem employee_id
+            // são considerados "globais" e continuam bloqueando todos.
+            if (employeeId && apt.employee_id && String(apt.employee_id) !== String(employeeId)) {
+                return false;
+            }
+            return true;
+        });
 
         // Verificar se há conflito com agendamentos existentes
         // Converter horário para minutos para verificação mais precisa
@@ -779,6 +822,9 @@ class Aevum {
         const randomDigit = Math.floor(Math.random() * 10); // 0-9
         const generatedProtocol = `${timestampPart}${randomDigit}`;
 
+        const employeeSelect = document.getElementById('employeeSelect');
+        const selectedEmployeeId = employeeSelect ? (employeeSelect.value || null) : null;
+
         const appointmentData = {
             customer_name: formData.get('customer_name') || formData.get('customer_name'),
             customer_phone: formData.get('customer_phone') || null,
@@ -791,6 +837,10 @@ class Aevum {
             notes: formData.get('notes') || '', // observações do formulário
             protocol: generatedProtocol
         };
+
+        if (selectedEmployeeId) {
+            appointmentData.employee_id = selectedEmployeeId;
+        }
 
         // Coletar campos extras se existirem e salvar como JSON
         const extraFields = {};
@@ -839,7 +889,12 @@ class Aevum {
             // Recarregar agendamentos para garantir dados atualizados antes da verificação
             await this.loadAppointments();
             
-            if (!this.isTimeSlotAvailable(appointmentData.appointment_date, appointmentData.appointment_time, appointmentData.duration_minutes)) {
+            if (!this.isTimeSlotAvailable(
+                appointmentData.appointment_date,
+                appointmentData.appointment_time,
+                appointmentData.duration_minutes,
+                selectedEmployeeId || null
+            )) {
                 this.showToast(`Já existe um agendamento cadastrado para a data ${appointmentData.appointment_date} no horário ${appointmentData.appointment_time}. Por favor, escolha outro horário.`, 'error');
                 // Recarregar lista novamente para mostrar estado atualizado
                 await this.loadAppointments();
@@ -1084,8 +1139,27 @@ class Aevum {
             return a.appointment_time.localeCompare(b.appointment_time);
         });
 
-        // Renderizar agendamentos ordenados
-        sortedAppointments.forEach(appointment => {
+        // Aplicar filtro por profissional, se selecionado
+        let filteredAppointments = sortedAppointments;
+        if (this.currentEmployeeFilter) {
+            filteredAppointments = sortedAppointments.filter(apt => {
+                return apt.employee_id && String(apt.employee_id) === String(this.currentEmployeeFilter);
+            });
+        }
+
+        if (filteredAppointments.length === 0) {
+            const formattedDate = formatDateToBR(filterDate);
+            const employeeName = this.getEmployeeNameById(this.currentEmployeeFilter);
+            listaContainer.innerHTML = `
+                <div class="no-appointments-message">
+                    <p>📭 Nenhum agendamento encontrado para ${formattedDate}${employeeName ? ` (${employeeName})` : ''}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Renderizar agendamentos ordenados (já filtrados)
+        filteredAppointments.forEach(appointment => {
             const listItem = this.createAppointmentListItem(appointment);
             listaContainer.appendChild(listItem);
         });
@@ -1101,12 +1175,19 @@ class Aevum {
         const time = this.formatTime(appointment.appointment_time);
         const phone = appointment.customer_phone || 'Sem telefone';
         const protocol = this.formatProtocolForDisplay(appointment.protocol) || 'N/A';
+        const employeeName = this.getEmployeeNameById(appointment.employee_id);
 
         div.innerHTML = `
             <div class="appointment-list-time">${time}</div>
             <div class="appointment-list-info">
-                <div class="appointment-list-name">${appointment.customer_name} - <span class="appointment-protocol">Protocolo: ${protocol}</span></div>
-                <div class="appointment-list-phone">${phone}</div>
+                <div class="appointment-list-name">
+                    ${appointment.customer_name}
+                    - <span class="appointment-protocol">Protocolo: ${protocol}</span>
+                </div>
+                <div class="appointment-list-phone">
+                    ${phone}
+                    ${employeeName ? ` • Profissional: ${employeeName}` : ''}
+                </div>
             </div>
             <div class="appointment-list-actions">
                 <button class="btn-details" data-id="${appointment.id}" title="Detalhes">🔍</button>
@@ -1268,7 +1349,18 @@ class Aevum {
         document.getElementById('editAppointmentTime').value = this.formatTime(appointment.appointment_time) || '';
         document.getElementById('editNotes').value = appointment.notes || '';
 
-        // Preencher serviço
+        // Preencher profissional
+        const editEmployeeSelect = document.getElementById('editEmployeeSelect');
+        if (editEmployeeSelect) {
+            // Garantir que dropdown está atualizado
+            this.populateEmployeeDropdowns();
+            const employeeId = appointment.employee_id ? String(appointment.employee_id) : '';
+            Array.from(editEmployeeSelect.options).forEach(opt => {
+                opt.selected = employeeId && opt.value === employeeId;
+            });
+        }
+
+        // Preencher serviço (lista será filtrada por profissional se possível)
         const serviceSelect = document.getElementById('editServiceType');
         if (serviceSelect) {
             // Limpar opções existentes (exceto a primeira)
@@ -1941,6 +2033,13 @@ class Aevum {
             notes: formData.get('notes') || document.getElementById('editNotes').value || null,
             duration_minutes: this.getEditSelectedDuration()
         };
+
+        const editEmployeeSelect = document.getElementById('editEmployeeSelect');
+        if (editEmployeeSelect && editEmployeeSelect.value) {
+            updateData.employee_id = editEmployeeSelect.value;
+        } else {
+            updateData.employee_id = null;
+        }
 
         // Coletar campos extras se existirem
         const extraFields = {};
@@ -2882,36 +2981,61 @@ class Aevum {
             'cpf': { id: 'customer_cpf', label: 'CPF', type: 'text', required: false }
         };
 
-        // Remover campos existentes (exceto serviço, data, horário e botões)
+        // Remover campos existentes (exceto serviço, profissional, nome/telefone fixos, data, horário e botões)
         const existingFields = form.querySelectorAll('.form-group');
         existingFields.forEach(field => {
             const input = field.querySelector('input, select');
-            if (input && !['service_type', 'appointment_date', 'appointment_time'].includes(input.name || input.id)) {
+            if (!input) return;
+
+            const nameOrId = input.name || input.id || '';
+            const isFixed =
+                nameOrId === 'customer_name' ||
+                nameOrId === 'customer_phone' ||
+                nameOrId === 'service_type' ||
+                nameOrId === 'serviceType' ||
+                nameOrId === 'appointment_date' ||
+                nameOrId === 'appointment_time' ||
+                nameOrId === 'employee_id' ||
+                nameOrId === 'employeeSelect';
+
+            if (!isFixed) {
                 field.remove();
             }
         });
 
         // Adicionar campos visíveis
         camposVisiveis.forEach(campo => {
-            if (fieldMap[campo]) {
-                const fieldData = fieldMap[campo];
-                const fieldHtml = `
-                    <div class="form-group">
-                        <label>${fieldData.label}</label>
-                        <input type="${fieldData.type}" name="${fieldData.id}" id="${fieldData.id}" 
-                               placeholder="${fieldData.label.replace('*', '')}" 
-                               ${fieldData.required ? 'required' : ''}>
-                    </div>
-                `;
-                const serviceField = form.querySelector('#serviceType')?.closest('.form-group');
-                if (serviceField) {
-                    serviceField.insertAdjacentHTML('beforebegin', fieldHtml);
-                }
+            // Para nome/telefone usamos os campos estáticos já presentes no HTML
+            if (campo === 'nome' || campo === 'telefone') {
+                return;
+            }
+            const professionalField = form.querySelector('#employeeSelect')?.closest('.form-group');
+            const serviceField = form.querySelector('#serviceType')?.closest('.form-group');
+            const anchor = professionalField || serviceField;
+            if (!fieldMap[campo] || !anchor) return;
+            const fieldData = fieldMap[campo];
+            const fieldHtml = `
+                <div class="form-group">
+                    <label>${fieldData.label}</label>
+                    <input type="${fieldData.type}" name="${fieldData.id}" id="${fieldData.id}" 
+                           placeholder="${fieldData.label.replace('*', '')}" 
+                           ${fieldData.required ? 'required' : ''}>
+                </div>
+            `;
+            // Inserir logo APÓS o campo de profissional para não alterar sua posição
+            if (professionalField) {
+                professionalField.insertAdjacentHTML('afterend', fieldHtml);
+            } else {
+                anchor.insertAdjacentHTML('beforebegin', fieldHtml);
             }
         });
 
         // Adicionar campos extras
         camposExtras.forEach((campoExtra, index) => {
+            const professionalField = form.querySelector('#employeeSelect')?.closest('.form-group');
+            const serviceField = form.querySelector('#serviceType')?.closest('.form-group');
+            const anchor = professionalField || serviceField;
+            if (!anchor) return;
             const fieldHtml = `
                 <div class="form-group">
                     <label>${campoExtra}</label>
@@ -2919,9 +3043,10 @@ class Aevum {
                            placeholder="${campoExtra}">
                 </div>
             `;
-            const serviceField = form.querySelector('#serviceType')?.closest('.form-group');
-            if (serviceField) {
-                serviceField.insertAdjacentHTML('beforebegin', fieldHtml);
+            if (professionalField) {
+                professionalField.insertAdjacentHTML('afterend', fieldHtml);
+            } else {
+                anchor.insertAdjacentHTML('beforebegin', fieldHtml);
             }
         });
     }
@@ -3057,6 +3182,7 @@ class Aevum {
         }
 
         const normalized = this.normalizeServices(services);
+        this.allServices = normalized;
 
         // Adicionar serviços
         normalized.forEach(service => {
@@ -3080,6 +3206,175 @@ class Aevum {
         }
 
         console.log(`📋 Dropdown de serviços populado com ${normalized.length} opções`);
+    }
+
+    /**
+     * Carrega lista de funcionários para uso na tela de agendamentos.
+     */
+    async loadEmployeesForAgenda() {
+        try {
+            if (!window.authManager || !window.authManager.currentUser) {
+                return;
+            }
+            const response = await window.authManager.apiRequest('/api/staff');
+            if (response && response.success && Array.isArray(response.data)) {
+                this.employees = response.data;
+            } else {
+                this.employees = [];
+            }
+            this.populateEmployeeDropdowns();
+        } catch (error) {
+            console.error('Erro ao carregar funcionários para agenda:', error);
+            this.employees = [];
+            this.populateEmployeeDropdowns();
+        }
+    }
+
+    /**
+     * Preenche selects de profissionais (novo agendamento, edição e filtro).
+     */
+    populateEmployeeDropdowns() {
+        const selects = [
+            document.getElementById('employeeSelect'),
+            document.getElementById('editEmployeeSelect'),
+            document.getElementById('employeeFilter')
+        ];
+
+        selects.forEach((select, index) => {
+            if (!select) return;
+            const currentValue = select.value;
+
+            // Preservar primeira opção
+            const firstOption = select.options[0] ? select.options[0].cloneNode(true) : null;
+            while (select.options.length > 0) {
+                select.remove(0);
+            }
+            if (firstOption) {
+                select.appendChild(firstOption);
+            }
+
+            this.employees.forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.id;
+                const name = emp.nome || emp.name || `Funcionário ${emp.id}`;
+                const ativo = emp.ativo !== false;
+                opt.textContent = ativo ? name : `${name} (inativo)`;
+                select.appendChild(opt);
+            });
+
+            // Restaurar valor se ainda existir
+            if (currentValue) {
+                Array.from(select.options).forEach(opt => {
+                    if (String(opt.value) === String(currentValue)) {
+                        opt.selected = true;
+                    }
+                });
+            }
+        });
+    }
+
+    getEmployeeNameById(id) {
+        if (!id || !Array.isArray(this.employees)) return null;
+        const emp = this.employees.find(e => String(e.id) === String(id));
+        if (!emp) return null;
+        const baseName = emp.nome || emp.name || null;
+        if (!baseName) return null;
+        return emp.ativo === false ? `${baseName} (inativo)` : baseName;
+    }
+
+    async loadEmployeeServices(employeeId) {
+        if (!employeeId) return [];
+        const cacheKey = String(employeeId);
+        if (this.employeeServices[cacheKey]) {
+            return this.employeeServices[cacheKey];
+        }
+        try {
+            const response = await window.authManager.apiRequest(`/api/staff/${employeeId}/services`);
+            let names = [];
+            if (response && response.success && response.data && Array.isArray(response.data.services)) {
+                names = response.data.services.map(s => String(s).trim()).filter(Boolean);
+            }
+            this.employeeServices[cacheKey] = names;
+            return names;
+        } catch (error) {
+            console.error('Erro ao carregar serviços do funcionário:', error);
+            this.employeeServices[cacheKey] = [];
+            return [];
+        }
+    }
+
+    async onEmployeeChangeForNew(employeeId) {
+        const serviceSelect = document.getElementById('serviceType');
+        if (!serviceSelect) return;
+        serviceSelect.disabled = false;
+
+        // Se ainda não temos allServices preenchido, construir a partir do select atual
+        if (!Array.isArray(this.allServices) || this.allServices.length === 0) {
+            const options = Array.from(serviceSelect.options).slice(1); // ignora "Selecione um serviço"
+            this.allServices = options
+                .map(opt => ({
+                    name: opt.value,
+                    duration_minutes: opt.dataset.durationMinutes
+                        ? parseInt(opt.dataset.durationMinutes, 10)
+                        : null
+                }))
+                .filter(s => s.name);
+        }
+
+        // Se o usuário limpar o profissional (voltar para vazio):
+        if (!employeeId) {
+            // Recria o select com todos os serviços
+            this.populateServicesDropdown(this.allServices);
+            serviceSelect.disabled = false;
+            serviceSelect.value = '';
+            return;
+        }
+
+        // Filtrar serviços permitidos para o profissional
+        let servicesToShow = this.allServices;
+        const allowedNames = await this.loadEmployeeServices(employeeId);
+
+        if (Array.isArray(allowedNames) && allowedNames.length > 0) {
+            const allowedSet = new Set(allowedNames.map(n => n.toLowerCase()));
+            servicesToShow = this.allServices.filter(s => allowedSet.has(s.name.toLowerCase()));
+        } else {
+            servicesToShow = [];
+        }
+
+        // Limpar todas as opções menos a primeira ("Selecione um serviço")
+        while (serviceSelect.options.length > 1) {
+            serviceSelect.remove(1);
+        }
+
+        if (servicesToShow.length === 0) {
+            // Nenhum serviço configurado para este profissional: desabilita select
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Nenhum serviço configurado para este profissional';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            serviceSelect.appendChild(placeholder);
+            serviceSelect.disabled = true;
+            return;
+        }
+
+        servicesToShow.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.name;
+            option.textContent = service.duration_minutes
+                ? `${service.name} (${service.duration_minutes} min)`
+                : service.name;
+            if (service.duration_minutes) {
+                option.dataset.durationMinutes = service.duration_minutes;
+            }
+            serviceSelect.appendChild(option);
+        });
+
+        // Mantém opção fixa "Outro"
+        const otherOption = document.createElement('option');
+        otherOption.value = 'Outro';
+        otherOption.textContent = 'Outro (especificar em observações)';
+        serviceSelect.appendChild(otherOption);
     }
 }
 

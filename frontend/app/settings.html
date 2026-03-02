@@ -393,6 +393,122 @@
       cursor: pointer;
     }
 
+    /* Funcionários */
+    .staff-list {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .staff-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      gap: 12px;
+    }
+
+    .staff-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .staff-name {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .staff-role {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .staff-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .staff-actions button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .staff-actions .btn-edit {
+      background: #e5f2ff;
+      color: #1d4ed8;
+    }
+
+    .staff-actions .btn-toggle {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .status-badge--active {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-badge--inactive {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .staff-modal-services {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .staff-service-item {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      width: 100%;
+      margin: 0;
+      padding: 4px 0;
+      cursor: pointer;
+      font-size: 13px;
+      color: #374151;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .staff-service-item:last-child {
+      border-bottom: none;
+    }
+
+    .staff-service-item input[type="checkbox"] {
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .staff-service-name {
+      text-align: left;
+      margin: 0;
+      white-space: normal;
+      word-break: break-word;
+      flex: 1;
+    }
+
     .days-selector {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -491,6 +607,7 @@
       <button class="tab-btn active" data-tab="general">📋 Geral</button>
       <button class="tab-btn" data-tab="form">📝 Formulário</button>
       <button class="tab-btn" data-tab="services">🛠️ Serviços</button>
+      <button class="tab-btn" data-tab="staff">👤 Funcionários</button>
       <button class="tab-btn" data-tab="schedule">📅 Agenda</button>
       <!-- Tab de Integrações removida: API Key não é mais gerenciada aqui -->
     </div>
@@ -591,6 +708,24 @@
       </button>
     </div>
 
+    <!-- Tab: Funcionários -->
+    <div class="tab-content" id="staff-tab">
+      <h2>Funcionários</h2>
+      <p style="font-size:13px; color:#6b7280; margin-top:4px;">
+        Cadastre os profissionais da empresa e defina quais serviços cada um realiza. A agenda poderá ser filtrada por funcionário.
+      </p>
+
+      <div class="form-group">
+        <button type="button" class="add-field-btn" id="addStaffBtn">
+          + Novo Funcionário
+        </button>
+      </div>
+
+      <div id="staffList" class="staff-list">
+        <!-- Funcionários serão carregados aqui -->
+      </div>
+    </div>
+
     <!-- Tab: Agenda -->
     <div class="tab-content" id="schedule-tab">
       <h2>Configurações de Funcionamento</h2>
@@ -658,6 +793,51 @@
             <label>Fim do Almoço</label>
             <input type="time" id="lunchEndTime" placeholder="13:00">
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Funcionário -->
+    <div class="modal" id="staffModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="staffModalTitle">Novo Funcionário</h3>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="staffId">
+
+          <div class="form-group">
+            <label>Nome do Funcionário *</label>
+            <input type="text" id="staffName" placeholder="Ex: Gustavo Silva">
+          </div>
+
+          <div class="form-group">
+            <label>Função</label>
+            <input type="text" id="staffRole" placeholder="Ex: Barbeiro, Cabeleireiro">
+          </div>
+
+          <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="staffActive" checked style="width:18px; height:18px;">
+            <label for="staffActive" style="margin:0;">Funcionário ativo</label>
+          </div>
+
+          <div class="form-group">
+            <label>Serviços que este funcionário realiza</label>
+            <div id="staffServicesList" class="staff-modal-services">
+              <!-- Checkboxes de serviços serão renderizados via JS -->
+              <p id="staffServicesEmpty" style="font-size:13px; color:#6b7280; margin:0;">
+                Nenhum serviço cadastrado ainda. Cadastre serviços na aba "Serviços".
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn-secondary" id="staffCancelBtn" style="border:none; border-radius:8px; padding:8px 16px;">
+            Cancelar
+          </button>
+          <button type="button" class="add-field-btn" id="staffSaveBtn">
+            Salvar
+          </button>
         </div>
       </div>
     </div>
