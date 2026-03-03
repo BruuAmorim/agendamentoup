@@ -13,13 +13,42 @@ class UserController {
   static async getAllUsers(req, res) {
     try {
       const users = await User.findAll({
-        attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        attributes: [
+          'id',
+          'name',
+          'email',
+          'role',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          // campos de API Key (para admin enxergar status das empresas)
+          'api_key_prefix',
+          'api_key_hash',
+          'api_key_created_at',
+          'api_key_last_regenerated'
+        ],
         order: [['createdAt', 'DESC']]
       });
 
+      // Mapear para não expor o hash completo na API
+      const safeUsers = users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        // informações de API Key apenas para visualização/admin
+        hasApiKey: !!user.api_key_hash,
+        apiKeyPrefix: user.api_key_prefix || null,
+        apiKeyCreatedAt: user.api_key_created_at || null,
+        apiKeyLastRegenerated: user.api_key_last_regenerated || null
+      }));
+
       res.json({
         success: true,
-        users: users
+        users: safeUsers
       });
 
     } catch (error) {

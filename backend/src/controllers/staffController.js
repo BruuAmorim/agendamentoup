@@ -33,6 +33,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao listar funcionários',
+        message: error.message || 'Erro interno ao listar funcionários',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -49,7 +50,7 @@ class StaffController {
         });
       }
 
-      const { nome, funcao, ativo = true } = req.body || {};
+      const { nome, funcao, ativo = true, lunch_start = null, lunch_end = null } = req.body || {};
       if (!nome || String(nome).trim().length < 2) {
         return res.status(400).json({
           success: false,
@@ -62,7 +63,9 @@ class StaffController {
         empresa_id: empresaId,
         nome: String(nome).trim(),
         funcao: funcao ? String(funcao).trim() : null,
-        ativo: !!ativo
+        ativo: !!ativo,
+        lunch_start: lunch_start || null,
+        lunch_end: lunch_end || null
       });
 
       res.json({
@@ -74,6 +77,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao criar funcionário',
+        message: error.message || 'Erro interno ao criar funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -93,7 +97,13 @@ class StaffController {
       const { id } = req.params;
       const data = req.body || {};
 
-      const updated = await Funcionario.update(id, empresaId, data);
+      const updated = await Funcionario.update(id, empresaId, {
+        nome: data.nome,
+        funcao: data.funcao,
+        ativo: data.ativo,
+        lunch_start: data.lunch_start || null,
+        lunch_end: data.lunch_end || null
+      });
       if (!updated) {
         return res.status(404).json({
           success: false,
@@ -111,6 +121,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao atualizar funcionário',
+        message: error.message || 'Erro interno ao atualizar funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -139,6 +150,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao remover funcionário',
+        message: error.message || 'Erro interno ao remover funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -168,6 +180,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao excluir funcionário',
+        message: error.message || 'Erro interno ao excluir funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -204,6 +217,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao buscar serviços do funcionário',
+        message: error.message || 'Erro interno ao buscar serviços do funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
@@ -242,6 +256,7 @@ class StaffController {
       res.status(500).json({
         success: false,
         error: error.message || 'Erro interno ao atualizar serviços do funcionário',
+        message: error.message || 'Erro interno ao atualizar serviços do funcionário',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }

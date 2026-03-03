@@ -415,6 +415,8 @@ async function initializeDatabase() {
               empresa_id INTEGER NOT NULL,
               nome TEXT NOT NULL,
               funcao TEXT,
+              lunch_start TEXT,
+              lunch_end TEXT,
               ativo INTEGER DEFAULT 1,
               created_at TEXT DEFAULT CURRENT_TIMESTAMP,
               updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -422,6 +424,20 @@ async function initializeDatabase() {
           `;
           await query(createFuncionarios, []);
           await query('CREATE INDEX IF NOT EXISTS idx_funcionarios_empresa_ativo ON funcionarios (empresa_id, ativo)', []);
+
+          // Garantir colunas de almoço em bancos já existentes
+          try {
+            const tableInfo = await query('PRAGMA table_info(funcionarios)', []);
+            const cols = tableInfo.rows.map(c => c.name);
+            if (!cols.includes('lunch_start')) {
+              await query('ALTER TABLE funcionarios ADD COLUMN lunch_start TEXT', []);
+            }
+            if (!cols.includes('lunch_end')) {
+              await query('ALTER TABLE funcionarios ADD COLUMN lunch_end TEXT', []);
+            }
+          } catch (e) {
+            console.warn('⚠️ Não foi possível verificar/adicionar colunas de almoço em funcionarios (SQLite):', e.message);
+          }
           
           const createFuncionarioServices = `
             CREATE TABLE IF NOT EXISTS funcionario_services (
@@ -441,6 +457,8 @@ async function initializeDatabase() {
               empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
               nome VARCHAR(255) NOT NULL,
               funcao VARCHAR(255),
+              lunch_start TIME,
+              lunch_end TIME,
               ativo BOOLEAN DEFAULT TRUE,
               created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
               updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -448,6 +466,14 @@ async function initializeDatabase() {
           `;
           await query(createFuncionarios, []);
           await query('CREATE INDEX IF NOT EXISTS idx_funcionarios_empresa_ativo ON funcionarios (empresa_id, ativo)', []);
+
+          // Garantir colunas de almoço em bancos já existentes
+          try {
+            await query('ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS lunch_start TIME', []);
+            await query('ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS lunch_end TIME', []);
+          } catch (e) {
+            console.warn('⚠️ Não foi possível verificar/adicionar colunas de almoço em funcionarios (PostgreSQL):', e.message);
+          }
 
           const createFuncionarioServices = `
             CREATE TABLE IF NOT EXISTS funcionario_services (

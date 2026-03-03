@@ -551,6 +551,50 @@
     #appointmentsCard.fullscreen .appointments-list {
       max-height: none;
     }
+
+    /* ===== Colunas por funcionário em tela cheia ===== */
+    .appointments-columns-grid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: flex-start;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .appointments-column {
+      min-width: 260px;
+      max-width: 320px;
+      flex: 1 0 260px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      padding: 10px 10px 8px;
+      box-sizing: border-box;
+    }
+
+    .appointments-column-header {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+
+    .appointments-column-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+
+    .appointments-column-subtitle {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .appointments-column-body .appointment-list-item {
+      margin-bottom: 6px;
+    }
   </style>
 
 </body>

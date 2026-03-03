@@ -1,5 +1,6 @@
 const { query } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const Funcionario = require('./Funcionario');
 
 // Armazenamento em memória para desenvolvimento
 let memoryStorage = [];
@@ -228,6 +229,38 @@ class Appointment {
     }
   }
 
+  /**
+   * Busca configurações efetivas considerando, se houver, o horário de almoço de um funcionário específico.
+   * Se o funcionário tiver lunch_start/lunch_end definidos, eles sobrescrevem o horário de almoço padrão da empresa.
+   */
+  static async getEffectiveSettings(userId = null, employeeId = null) {
+    const settings = await this.getCompanySettings(userId);
+    if (!employeeId) {
+      return settings;
+    }
+
+    try {
+      const funcionario = await Funcionario.findById(employeeId, userId);
+      if (funcionario && (funcionario.lunch_start || funcionario.lunch_end)) {
+        const workingHours = { ...(settings.working_hours || {}) };
+        if (funcionario.lunch_start) {
+          workingHours.lunch_start = funcionario.lunch_start;
+        }
+        if (funcionario.lunch_end) {
+          workingHours.lunch_end = funcionario.lunch_end;
+        }
+        return {
+          ...settings,
+          working_hours: workingHours
+        };
+      }
+    } catch (e) {
+      console.warn('⚠️ Não foi possível carregar horário de almoço do funcionário:', e.message);
+    }
+
+    return settings;
+  }
+
   // Validar horário de expediente
   static validateWorkingHours(appointmentDate, appointmentTime, settings) {
     const errors = [];
@@ -318,8 +351,8 @@ class Appointment {
         errors.push('Data do agendamento não pode ser no passado');
       }
 
-      // Validar que a data é um dia ativo (working_days da empresa)
-      const settings = await this.getCompanySettings(userId);
+      // Validar que a data é um dia ativo (working_days da empresa / funcionário)
+      const settings = await this.getEffectiveSettings(userId, data.employee_id || null);
       const dayOfWeek = appointmentDate.getDay();
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       const dayName = dayNames[dayOfWeek];
@@ -331,8 +364,8 @@ class Appointment {
     if (!data.appointment_time) {
       errors.push('Horário do agendamento é obrigatório');
     } else {
-      // Validar horário de expediente - buscar configurações da empresa específica
-      const settings = await this.getCompanySettings(userId);
+      // Validar horário de expediente - buscar configurações efetivas (empresa + almoço do funcionário, se houver)
+      const settings = await this.getEffectiveSettings(userId, data.employee_id || null);
       const workingHoursErrors = this.validateWorkingHours(
         data.appointment_date,
         data.appointment_time,
@@ -908,7 +941,7 @@ class Appointment {
   // Usa horário de funcionamento e dias ativos da empresa (company_id)
   // employeeId opcional: filtra agenda por funcionário específico
   static async getAvailableSlots(date, duration = 60, userId = null, employeeId = null) {
-    const settings = await this.getCompanySettings(userId);
+    const settings = await this.getEffectiveSettings(userId, employeeId);
 
     // Validar dia da semana: só retornar slots em dias ativos
     const dateObj = new Date(date + 'T00:00:00');

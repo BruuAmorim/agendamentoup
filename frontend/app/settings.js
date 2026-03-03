@@ -7,6 +7,24 @@ class GeneralSettings {
       company_name: '',
       logo: null
     };
+
+    // Flag para evitar que carregamentos assíncronos sobrescrevam o texto digitado
+    this.isUserEditingName = false;
+
+    // Anexa listeners leves diretamente no input de nome da empresa
+    window.addEventListener('DOMContentLoaded', () => {
+      const companyNameInput = document.getElementById('companyName');
+      if (companyNameInput) {
+        companyNameInput.addEventListener('input', () => {
+          this.isUserEditingName = true;
+        });
+        companyNameInput.addEventListener('blur', () => {
+          // Ao sair do campo, sincroniza o valor digitado com this.data
+          this.data.company_name = companyNameInput.value.trim();
+          this.isUserEditingName = false;
+        });
+      }
+    });
   }
 
   applySettings(data) {
@@ -18,7 +36,10 @@ class GeneralSettings {
   render() {
     const companyNameInput = document.getElementById('companyName');
     if (companyNameInput) {
-      companyNameInput.value = this.data.company_name;
+      // Não sobrescrever o que o usuário está digitando no momento
+      if (!this.isUserEditingName && document.activeElement !== companyNameInput) {
+        companyNameInput.value = this.data.company_name;
+      }
     }
 
     const logoPreview = document.getElementById('logoPreview');
@@ -382,6 +403,8 @@ class StaffManager {
     const nameInput = document.getElementById('staffName');
     const roleInput = document.getElementById('staffRole');
     const activeInput = document.getElementById('staffActive');
+    const lunchStartInput = document.getElementById('staffLunchStart');
+    const lunchEndInput = document.getElementById('staffLunchEnd');
 
     const isEdit = !!(funcionario && funcionario.id);
 
@@ -390,6 +413,8 @@ class StaffManager {
     if (nameInput) nameInput.value = isEdit ? (funcionario.nome || funcionario.name || '') : '';
     if (roleInput) roleInput.value = isEdit ? (funcionario.funcao || '') : '';
     if (activeInput) activeInput.checked = isEdit ? (funcionario.ativo !== false) : true;
+    if (lunchStartInput) lunchStartInput.value = isEdit && funcionario.lunch_start ? funcionario.lunch_start : '';
+    if (lunchEndInput) lunchEndInput.value = isEdit && funcionario.lunch_end ? funcionario.lunch_end : '';
 
     // Renderizar lista de serviços com seleção
     this.renderServicesInModal(funcionario);
@@ -429,6 +454,10 @@ class StaffManager {
       const label = document.createElement('label');
       label.className = 'staff-service-item';
 
+      const span = document.createElement('span');
+      span.className = 'staff-service-name';
+      span.textContent = name;
+
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = id;
@@ -437,12 +466,8 @@ class StaffManager {
         checkbox.checked = true;
       }
 
-      const span = document.createElement('span');
-      span.className = 'staff-service-name';
-      span.textContent = name;
-
-      label.appendChild(checkbox);
       label.appendChild(span);
+      label.appendChild(checkbox);
       container.appendChild(label);
     });
   }
@@ -470,10 +495,14 @@ class StaffManager {
     const nameInput = document.getElementById('staffName');
     const roleInput = document.getElementById('staffRole');
     const activeInput = document.getElementById('staffActive');
+    const lunchStartInput = document.getElementById('staffLunchStart');
+    const lunchEndInput = document.getElementById('staffLunchEnd');
 
     const nome = nameInput?.value.trim() || '';
     const funcao = roleInput?.value.trim() || '';
     const ativo = !!(activeInput && activeInput.checked);
+    const lunch_start = lunchStartInput?.value || null;
+    const lunch_end = lunchEndInput?.value || null;
 
     if (!nome) {
       alert('Informe o nome do funcionário.');
@@ -485,10 +514,12 @@ class StaffManager {
 
     try {
       let savedId = id;
+      const payload = { nome, funcao, ativo, lunch_start, lunch_end };
+
       if (isEdit) {
         const response = await window.authManager.apiRequest(`/api/staff/${id}`, {
           method: 'PUT',
-          body: JSON.stringify({ nome, funcao, ativo })
+          body: JSON.stringify(payload)
         });
         if (!response || !response.success) {
           throw new Error(response?.message || 'Erro ao atualizar funcionário');
@@ -497,7 +528,7 @@ class StaffManager {
       } else {
         const response = await window.authManager.apiRequest('/api/staff', {
           method: 'POST',
-          body: JSON.stringify({ nome, funcao, ativo })
+          body: JSON.stringify(payload)
         });
         if (!response || !response.success) {
           throw new Error(response?.message || 'Erro ao criar funcionário');
@@ -1531,9 +1562,6 @@ class SettingsManager {
             window.app.loadCompanyInfo();
           }, 500);
         }
-        
-        // RF04 - Recarregar configurações na própria página para garantir sincronização
-        await this.loadSettings();
         
         alert('✅ Configurações salvas com sucesso!');
         

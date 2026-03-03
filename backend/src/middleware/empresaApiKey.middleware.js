@@ -46,14 +46,14 @@ async function empresaApiKeyMiddleware(req, res, next) {
       });
     }
 
-    // Verificar formato da chave (AEVUM_<empresaId>_<randomString>)
-    if (!apiKey.startsWith('AEVUM_')) {
+    // Verificar formato da chave (CLOUDDAGENDA_<empresaId>_<randomString>)
+    if (!apiKey.startsWith('CLOUDDAGENDA_')) {
       console.log('❌ [empresaApiKeyMiddleware] Formato de API Key inválido:', apiKey.substring(0, 20));
       return res.status(401).json({
         success: false,
         error: 'API Key inválida',
-        message: 'Formato de API Key inválido. Deve começar com "AEVUM_"',
-        receivedPrefix: apiKey.substring(0, 10)
+        message: 'Formato de API Key inválido. Deve começar com "CLOUDDAGENDA_"',
+        receivedPrefix: apiKey.substring(0, 20)
       });
     }
 

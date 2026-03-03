@@ -256,6 +256,10 @@ class Aevum {
                 }
                 fullscreenBtn.textContent = isFullscreen ? '🡼 Tela normal' : '⛶ Tela cheia';
                 fullscreenBtn.title = isFullscreen ? 'Sair da tela cheia' : 'Expandir para tela cheia';
+
+                // Re-renderizar a lista ao entrar/sair da tela cheia
+                // para alternar corretamente entre lista única e colunas por funcionário.
+                this.displayAppointments();
             });
         }
 
@@ -505,6 +509,8 @@ class Aevum {
         let openingTime = '08:00';
         let closingTime = '18:00';
         let slotInterval = 30; // minutos
+        let lunchStart = null;
+        let lunchEnd = null;
 
         const appSettingsStr = localStorage.getItem('appSettings');
         if (appSettingsStr) {
@@ -591,6 +597,34 @@ class Aevum {
         const openingMinutes = parseTime(openingTime);
         const closingMinutes = parseTime(closingTime);
 
+        // Se o funcionário tiver horário de almoço próprio, usar ele; caso contrário, usar horário de almoço global (se existir nas configs v2)
+        let employeeLunchStartMinutes = null;
+        let employeeLunchEndMinutes = null;
+
+        if (employeeId && Array.isArray(this.employees)) {
+            const emp = this.employees.find(e => String(e.id) === String(employeeId));
+            if (emp && emp.lunch_start && emp.lunch_end) {
+                employeeLunchStartMinutes = parseTime(emp.lunch_start);
+                employeeLunchEndMinutes = parseTime(emp.lunch_end);
+            }
+        }
+
+        // Fallback: se não houver almoço específico por funcionário, tentar pegar do settings v2 (empresa_settings_v2 / moderator_settings_v2)
+        if (employeeLunchStartMinutes === null || employeeLunchEndMinutes === null) {
+            const v2Str = localStorage.getItem('empresa_settings_v2') || localStorage.getItem('moderator_settings_v2');
+            if (v2Str) {
+                try {
+                    const v2 = JSON.parse(v2Str);
+                    if (v2.working_hours && v2.working_hours.lunch_start && v2.working_hours.lunch_end) {
+                        employeeLunchStartMinutes = parseTime(v2.working_hours.lunch_start);
+                        employeeLunchEndMinutes = parseTime(v2.working_hours.lunch_end);
+                    }
+                } catch (e) {
+                    console.warn('Erro ao parsear configurações v2 para almoço:', e);
+                }
+            }
+        }
+
         // Buscar agendamentos para a data selecionada (considerando funcionário se informado)
         const dateAppointments = this.appointments.filter(apt => {
             if (apt.appointment_date !== selectedDate || apt.status === 'cancelled') return false;
@@ -607,9 +641,17 @@ class Aevum {
             const mins = minutes % 60;
             const timeString = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 
-            // Regra de conflito: novo_inicio < existente_fim AND novo_fim > existente_inicio
+            // Respeitar horário de almoço (funcionário específico ou padrão), se configurado
             const newSlotDuration = effectiveDuration;
             const slotEndMinutes = minutes + newSlotDuration;
+
+            if (employeeLunchStartMinutes !== null && employeeLunchEndMinutes !== null) {
+                if (minutes < employeeLunchEndMinutes && slotEndMinutes > employeeLunchStartMinutes) {
+                    continue;
+                }
+            }
+
+            // Regra de conflito: novo_inicio < existente_fim AND novo_fim > existente_inicio
             const hasConflict = dateAppointments.some(apt => {
                 const aptTime = apt.appointment_time.split(':');
                 const aptMinutes = parseInt(aptTime[0]) * 60 + parseInt(aptTime[1] || 0);
@@ -1158,11 +1200,86 @@ class Aevum {
             return;
         }
 
-        // Renderizar agendamentos ordenados (já filtrados)
-        filteredAppointments.forEach(appointment => {
-            const listItem = this.createAppointmentListItem(appointment);
-            listaContainer.appendChild(listItem);
+        // Verificar se estamos em modo de tela cheia (painel de visualização)
+        const appointmentsCard = document.getElementById('appointmentsCard');
+        const isFullscreen = document.body.classList.contains('fullscreen-mode') &&
+            appointmentsCard &&
+            appointmentsCard.classList.contains('fullscreen');
+
+        if (!isFullscreen) {
+            // ===== Modo normal: lista única =====
+            filteredAppointments.forEach(appointment => {
+                const listItem = this.createAppointmentListItem(appointment);
+                listaContainer.appendChild(listItem);
+            });
+            return;
+        }
+
+        // ===== Modo tela cheia: colunas por funcionário =====
+        const formattedDate = formatDateToBR(filterDate);
+
+        // Agrupar por funcionário (incluindo coluna "Sem profissional")
+        const groupsMap = new Map();
+
+        const getGroupKey = (apt) => {
+            return apt.employee_id ? String(apt.employee_id) : 'none';
+        };
+
+        filteredAppointments.forEach(apt => {
+            const key = getGroupKey(apt);
+            if (!groupsMap.has(key)) {
+                const name = apt.employee_id
+                    ? (this.getEmployeeNameById(apt.employee_id) || `Profissional ${apt.employee_id}`)
+                    : 'Sem profissional';
+                groupsMap.set(key, {
+                    id: key,
+                    name,
+                    appointments: []
+                });
+            }
+            groupsMap.get(key).appointments.push(apt);
         });
+
+        // Ordenar grupos por nome (deixar "Sem profissional" por último)
+        const groups = Array.from(groupsMap.values()).sort((a, b) => {
+            if (a.id === 'none') return 1;
+            if (b.id === 'none') return -1;
+            return a.name.localeCompare(b.name);
+        });
+
+        // Renderizar grade de colunas
+        const grid = document.createElement('div');
+        grid.className = 'appointments-columns-grid';
+
+        groups.forEach(group => {
+            const col = document.createElement('div');
+            col.className = 'appointments-column';
+
+            const header = document.createElement('div');
+            header.className = 'appointments-column-header';
+            header.innerHTML = `
+                <div class="appointments-column-title">
+                    ${group.name}
+                </div>
+                <div class="appointments-column-subtitle">
+                    ${formattedDate} • ${group.appointments.length} agendamento(s)
+                </div>
+            `;
+            col.appendChild(header);
+
+            const colBody = document.createElement('div');
+            colBody.className = 'appointments-column-body';
+
+            group.appointments.forEach(apt => {
+                const item = this.createAppointmentListItem(apt);
+                colBody.appendChild(item);
+            });
+
+            col.appendChild(colBody);
+            grid.appendChild(col);
+        });
+
+        listaContainer.appendChild(grid);
     }
 
     createAppointmentListItem(appointment) {

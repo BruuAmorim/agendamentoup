@@ -10,14 +10,14 @@ const { Op } = require('sequelize');
 class EmpresaApiKeyService {
 
   /**
-   * Gerar API Key no formato: AEVUM_<empresaId>_<randomString>
+   * Gerar API Key no formato: CLOUDDAGENDA_<empresaId>_<randomString>
    * @param {number} empresaId - ID da empresa
    * @returns {string} API Key completa
    */
   static generateApiKey(empresaId) {
     // Gerar string aleatória de 32 caracteres hexadecimais
     const randomString = crypto.randomBytes(16).toString('hex');
-    const apiKey = `AEVUM_${empresaId}_${randomString}`;
+    const apiKey = `CLOUDDAGENDA_${empresaId}_${randomString}`;
     console.log(`🔑 [EmpresaApiKeyService] API Key gerada para empresa ID: ${empresaId}`);
     return apiKey;
   }
@@ -77,8 +77,8 @@ class EmpresaApiKeyService {
       // Gerar nova API Key
       const apiKey = this.generateApiKey(empresaId);
       
-      // Extrair prefixo (AEVUM_<empresaId>)
-      const prefix = `AEVUM_${empresaId}`;
+      // Extrair prefixo (CLOUDDAGENDA_<empresaId>)
+      const prefix = `CLOUDDAGENDA_${empresaId}`;
       
       // Criar hash
       const hash = await this.hashApiKey(apiKey);
@@ -130,8 +130,8 @@ class EmpresaApiKeyService {
    */
   static async findEmpresaByApiKey(apiKey) {
     try {
-      // Extrair empresa_id do prefixo da chave (AEVUM_<empresaId>_<random>)
-      const prefixMatch = apiKey.match(/^AEVUM_(\d+)_/);
+      // Extrair empresa_id do prefixo da chave (CLOUDDAGENDA_<empresaId>_<random>)
+      const prefixMatch = apiKey.match(/^CLOUDDAGENDA_(\d+)_/);
       if (!prefixMatch) {
         console.log('⚠️ [EmpresaApiKeyService] Formato de API Key inválido');
         return null;
@@ -144,7 +144,7 @@ class EmpresaApiKeyService {
       const empresa = await User.findOne({
         where: {
           id: empresaId,
-          api_key_prefix: `AEVUM_${empresaId}`,
+          api_key_prefix: `CLOUDDAGENDA_${empresaId}`,
           api_key_hash: { [Op.ne]: null },
           role: { [Op.in]: ['empresa', 'moderator'] }
         },

@@ -8,10 +8,13 @@ const router = express.Router();
 router.use(verifyToken);
 router.use(requireAdminMaster);
 
-// Rotas de gerenciamento de integrações por empresa
+// Rotas de gerenciamento de integrações por empresa (admin master)
 router.get('/', AdminIntegrationController.getIntegrations);
 router.post('/generate-api-key', AdminIntegrationController.generateApiKey);
 router.post('/regenerate-api-key', AdminIntegrationController.generateApiKey); // Alias para compatibilidade
+
+// Nova rota: gerar/regenerar API Key para uma empresa específica (para uso com n8n, etc.)
+router.post('/company-api-key', AdminIntegrationController.generateCompanyApiKey);
 
 module.exports = router;
 

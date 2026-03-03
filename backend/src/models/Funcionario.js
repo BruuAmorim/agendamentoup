@@ -7,6 +7,8 @@ class Funcionario {
     this.empresa_id = row.empresa_id;
     this.nome = row.nome;
     this.funcao = row.funcao;
+    this.lunch_start = row.lunch_start || null;
+    this.lunch_end = row.lunch_end || null;
     // Garantir booleano consistente para ativo:
     // - Se vier null/undefined, considerar TRUE (ativo por padrão)
     // - Se vier 0 (SQLite) ou false (Postgres), considerar FALSE
@@ -32,6 +34,7 @@ class Funcionario {
       // ativo armazenado como INTEGER (0/1)
       text = `
         SELECT id, empresa_id, nome, funcao,
+               lunch_start, lunch_end,
                COALESCE(ativo, 1) AS ativo,
                created_at, updated_at
         FROM funcionarios
@@ -44,6 +47,7 @@ class Funcionario {
       // Postgres: ativo é BOOLEAN
       text = `
         SELECT id, empresa_id, nome, funcao,
+               lunch_start, lunch_end,
                COALESCE(ativo, TRUE) AS ativo,
                created_at, updated_at
         FROM funcionarios
@@ -67,6 +71,7 @@ class Funcionario {
     if (dialect === 'sqlite') {
       text = `
         SELECT id, empresa_id, nome, funcao,
+               lunch_start, lunch_end,
                COALESCE(ativo, 1) AS ativo,
                created_at, updated_at
         FROM funcionarios
@@ -77,6 +82,7 @@ class Funcionario {
     } else {
       text = `
         SELECT id, empresa_id, nome, funcao,
+               lunch_start, lunch_end,
                COALESCE(ativo, TRUE) AS ativo,
                created_at, updated_at
         FROM funcionarios
@@ -91,24 +97,24 @@ class Funcionario {
     return new Funcionario(result.rows[0]);
   }
 
-  static async create({ empresa_id, nome, funcao, ativo = true }) {
+  static async create({ empresa_id, nome, funcao, ativo = true, lunch_start = null, lunch_end = null }) {
     const dialect = sequelize.getDialect();
 
     const insertFuncionario = async () => {
       const text = dialect === 'sqlite'
         ? `
-          INSERT INTO funcionarios (empresa_id, nome, funcao, ativo)
-          VALUES (?, ?, ?, ?)
-          RETURNING id, empresa_id, nome, funcao, ativo, created_at, updated_at
+          INSERT INTO funcionarios (empresa_id, nome, funcao, ativo, lunch_start, lunch_end)
+          VALUES (?, ?, ?, ?, ?, ?)
+          RETURNING id, empresa_id, nome, funcao, lunch_start, lunch_end, ativo, created_at, updated_at
         `
         : `
-          INSERT INTO funcionarios (empresa_id, nome, funcao, ativo)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id, empresa_id, nome, funcao, ativo, created_at, updated_at
+          INSERT INTO funcionarios (empresa_id, nome, funcao, ativo, lunch_start, lunch_end)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, empresa_id, nome, funcao, lunch_start, lunch_end, ativo, created_at, updated_at
         `;
       const params = dialect === 'sqlite'
-        ? [empresa_id, nome, funcao || null, ativo ? 1 : 0]
-        : [empresa_id, nome, funcao || null, ativo];
+        ? [empresa_id, nome, funcao || null, ativo ? 1 : 0, lunch_start || null, lunch_end || null]
+        : [empresa_id, nome, funcao || null, ativo, lunch_start || null, lunch_end || null];
 
       const result = await query(text, params);
       return new Funcionario(result.rows[0]);
@@ -120,7 +126,38 @@ class Funcionario {
     } catch (error) {
       // Se a tabela ainda não existir (produção antiga), criar e tentar novamente
       const msg = error.message || '';
-      if (msg.includes('no such table') || msg.includes('does not exist') || msg.includes('relation \"funcionarios\"') ) {
+      // 1) Se a coluna de almoço ainda não existir, criar e tentar novamente
+      if (msg.includes('lunch_start') || msg.includes('lunch_end')) {
+        console.warn('⚠️ Colunas de almoço não encontradas em funcionarios, criando automaticamente...');
+
+        if (dialect === 'sqlite') {
+          try {
+            const info = await query('PRAGMA table_info(funcionarios)', []);
+            const cols = info.rows.map(c => c.name);
+            if (!cols.includes('lunch_start')) {
+              await query('ALTER TABLE funcionarios ADD COLUMN lunch_start TEXT', []);
+            }
+            if (!cols.includes('lunch_end')) {
+              await query('ALTER TABLE funcionarios ADD COLUMN lunch_end TEXT', []);
+            }
+          } catch (e) {
+            console.warn('⚠️ Erro ao adicionar colunas de almoço em funcionarios (SQLite):', e.message);
+          }
+        } else {
+          try {
+            await query('ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS lunch_start TIME', []);
+            await query('ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS lunch_end TIME', []);
+          } catch (e) {
+            console.warn('⚠️ Erro ao adicionar colunas de almoço em funcionarios (PostgreSQL):', e.message);
+          }
+        }
+
+        // Tentar novamente o insert após criar as colunas
+        return await insertFuncionario();
+      }
+
+      // 2) Se a tabela ainda não existir (produção antiga), criar e tentar novamente
+      if (msg.includes('no such table') || (msg.includes('relation \"funcionarios\"') && msg.includes('does not exist') && !msg.includes('column \"'))) {
         console.warn('⚠️ Tabela funcionarios não existe, criando automaticamente...');
 
         if (dialect === 'sqlite') {
@@ -130,6 +167,8 @@ class Funcionario {
               empresa_id INTEGER NOT NULL,
               nome TEXT NOT NULL,
               funcao TEXT,
+              lunch_start TEXT,
+              lunch_end TEXT,
               ativo INTEGER DEFAULT 1,
               created_at TEXT DEFAULT CURRENT_TIMESTAMP,
               updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -143,6 +182,8 @@ class Funcionario {
               empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
               nome VARCHAR(255) NOT NULL,
               funcao VARCHAR(255),
+              lunch_start TIME,
+              lunch_end TIME,
               ativo BOOLEAN DEFAULT TRUE,
               created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
               updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -167,25 +208,27 @@ class Funcionario {
     const nome = data.nome ?? existing.nome;
     const funcao = data.funcao ?? existing.funcao;
     const ativo = data.ativo !== undefined ? data.ativo : existing.ativo;
+    const lunch_start = data.lunch_start !== undefined ? data.lunch_start : existing.lunch_start;
+    const lunch_end = data.lunch_end !== undefined ? data.lunch_end : existing.lunch_end;
 
     const dialect = sequelize.getDialect();
     const text = dialect === 'sqlite'
       ? `
         UPDATE funcionarios
-        SET nome = ?, funcao = ?, ativo = ?, updated_at = CURRENT_TIMESTAMP
+        SET nome = ?, funcao = ?, ativo = ?, lunch_start = ?, lunch_end = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND empresa_id = ?
-        RETURNING id, empresa_id, nome, funcao, ativo, created_at, updated_at
+        RETURNING id, empresa_id, nome, funcao, lunch_start, lunch_end, ativo, created_at, updated_at
       `
       : `
         UPDATE funcionarios
-        SET nome = $1, funcao = $2, ativo = $3, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4 AND empresa_id = $5
-        RETURNING id, empresa_id, nome, funcao, ativo, created_at, updated_at
+        SET nome = $1, funcao = $2, ativo = $3, lunch_start = $4, lunch_end = $5, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6 AND empresa_id = $7
+        RETURNING id, empresa_id, nome, funcao, lunch_start, lunch_end, ativo, created_at, updated_at
       `;
 
     const params = dialect === 'sqlite'
-      ? [nome, funcao || null, ativo ? 1 : 0, id, empresaId]
-      : [nome, funcao || null, ativo, id, empresaId];
+      ? [nome, funcao || null, ativo ? 1 : 0, lunch_start || null, lunch_end || null, id, empresaId]
+      : [nome, funcao || null, ativo, lunch_start || null, lunch_end || null, id, empresaId];
 
     const result = await query(text, params);
     if (!result.rows.length) return null;
@@ -230,6 +273,8 @@ class Funcionario {
       empresa_id: this.empresa_id,
       nome: this.nome,
       funcao: this.funcao,
+      lunch_start: this.lunch_start,
+      lunch_end: this.lunch_end,
       ativo: !!this.ativo,
       created_at: this.created_at,
       updated_at: this.updated_at
