@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const moderatorController = require('../controllers/moderatorController');
 const empresaApiKeyMiddleware = require('../middleware/empresaApiKey.middleware');
+const Funcionario = require('../models/Funcionario');
 
 /**
  * Rotas públicas de informações da empresa (autenticadas por API Key)
@@ -67,6 +68,36 @@ router.get('/services', empresaApiKeyMiddleware, async (req, res) => {
       success: false,
       error: 'Erro interno do servidor',
       message: 'Não foi possível carregar os serviços'
+    });
+  }
+});
+
+// GET /api/public/company/staff - Listar profissionais (funcionários) da empresa via API Key
+router.get('/staff', empresaApiKeyMiddleware, async (req, res) => {
+  try {
+    const empresaId = req.empresa_id;
+
+    if (!empresaId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acesso negado',
+        message: 'Empresa não identificada'
+      });
+    }
+
+    // Buscar funcionários ativos da empresa
+    const funcionarios = await Funcionario.findAllByEmpresa(empresaId, { includeInactive: false });
+
+    res.json({
+      success: true,
+      data: funcionarios.map((f) => f.toJSON())
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar funcionários públicos da empresa:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      message: 'Não foi possível carregar os profissionais da empresa'
     });
   }
 });
