@@ -194,115 +194,104 @@ exports.search = async (req, res) => {
   }
 };
 
-// ── GET /api/n8n/patients?search=xxx  (autenticado por API Key) ──────────────
-// Busca por nome, telefone ou CPF (com normalização de dígitos).
-// Fallback: se não achar em patients, busca na tabela appointments pelo histórico.
+// ── GET /api/n8n/patients?search=xxx&phone=yyy  (autenticado por API Key) ────
+// search/q : CPF, telefone ou nome digitado pelo paciente
+// phone    : telefone do contato WhatsApp (opcional, para reforço)
 exports.searchN8n = async (req, res) => {
   try {
     const empresaId = req.empresa?.id;
     if (!empresaId) return res.status(403).json({ success: false, message: 'Acesso negado' });
     await ensureTable();
-    const q = String(req.query.search || req.query.q || '').trim();
-    if (q.length < 2) return res.json({ success: true, data: [] });
 
-    // debug: contar total de pacientes para confirmar empresa_id correto
-    const countR = await query('SELECT COUNT(*) as c FROM patients WHERE empresa_id = $1', [empresaId]);
-    const totalPatients = parseInt(countR.rows[0]?.c || 0);
+    const q         = String(req.query.search || req.query.q || '').trim();
+    const phoneRaw  = String(req.query.phone || '').trim();
 
-    const dialect = sequelize.getDialect();
-    const like = `%${q}%`;
-    const digits = q.replace(/\D/g, '');
-    const digitsLike = digits.length >= 3 ? `%${digits}%` : null;
+    // dígitos puros de cada entrada
+    const qDigits     = q.replace(/\D/g, '');
+    // para telefone com DDI (ex: 5516991504633) usar os últimos 11 dígitos
+    const phoneDigits = phoneRaw.replace(/\D/g, '').slice(-11);
 
-    // ── 1. Busca na tabela patients ──────────────────────────────────────────
-    let patientsSql, patientsParams;
-    if (dialect === 'sqlite') {
-      const stripCpf   = `REPLACE(REPLACE(REPLACE(cpf,   '.',''),'-',''),' ','')`;
-      const stripPhone  = `REPLACE(REPLACE(REPLACE(phone, '-',''),' ',''),'(','')`;
-      if (digitsLike) {
-        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' as source
-                       FROM patients
-                       WHERE empresa_id = ? AND (name LIKE ? OR ${stripCpf} LIKE ? OR ${stripPhone} LIKE ?)
-                       ORDER BY name ASC LIMIT 5`;
-        patientsParams = [empresaId, like, digitsLike, digitsLike];
-      } else {
-        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' as source
-                       FROM patients WHERE empresa_id = ? AND name LIKE ? ORDER BY name ASC LIMIT 5`;
-        patientsParams = [empresaId, like];
-      }
-    } else {
-      if (digitsLike) {
-        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' AS source
-                       FROM patients
-                       WHERE empresa_id = $1
-                         AND (name ILIKE $2
-                              OR REGEXP_REPLACE(cpf,   '[^0-9]','','g') ILIKE $3
-                              OR REGEXP_REPLACE(phone, '[^0-9]','','g') ILIKE $3)
-                       ORDER BY name ASC LIMIT 5`;
-        patientsParams = [empresaId, like, digitsLike];
-      } else {
-        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' AS source
-                       FROM patients WHERE empresa_id = $1 AND name ILIKE $2 ORDER BY name ASC LIMIT 5`;
-        patientsParams = [empresaId, like];
+    if (q.length < 2 && phoneDigits.length < 7) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // ── helpers para montar condições ────────────────────────────────────────
+    const isPostgres = sequelize.getDialect() !== 'sqlite';
+    const ph = (n) => isPostgres ? `$${n}` : '?'; // placeholder
+
+    // ── 1. Busca na tabela patients ───────────────────────────────────────────
+    const pConds = [];
+    const pVals  = [empresaId];
+
+    if (q.length >= 2) {
+      pConds.push(`name ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(pVals.length + 1)}`);
+      pVals.push(`%${q}%`);
+    }
+    if (qDigits.length >= 3) {
+      pConds.push(`cpf   ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(pVals.length + 1)}`);
+      pVals.push(`%${qDigits}%`);
+      pConds.push(`phone ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(pVals.length + 1)}`);
+      pVals.push(`%${qDigits}%`);
+    }
+    if (phoneDigits.length >= 7) {
+      pConds.push(`phone LIKE ${ph(pVals.length + 1)}`);
+      pVals.push(`%${phoneDigits}`);
+    }
+
+    if (pConds.length > 0) {
+      const pSql = `
+        SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes,
+               'patient' AS source
+        FROM patients
+        WHERE empresa_id = ${ph(1)} AND (${pConds.join(' OR ')})
+        ORDER BY name ASC LIMIT 5`;
+      const pr = await query(pSql, pVals);
+      if (pr.rows.length > 0) {
+        return res.json({ success: true, data: pr.rows });
       }
     }
 
-    const patientsResult = await query(patientsSql, patientsParams);
-    if (patientsResult.rows.length > 0) {
-      return res.json({ success: true, data: patientsResult.rows });
+    // ── 2. Fallback: busca em appointments ────────────────────────────────────
+    const aConds = [];
+    const aVals  = [empresaId];
+
+    if (q.length >= 2) {
+      aConds.push(`customer_name ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(aVals.length + 1)}`);
+      aVals.push(`%${q}%`);
+    }
+    if (qDigits.length >= 3) {
+      aConds.push(`customer_cpf   ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(aVals.length + 1)}`);
+      aVals.push(`%${qDigits}%`);
+      aConds.push(`customer_phone ${isPostgres ? 'ILIKE' : 'LIKE'} ${ph(aVals.length + 1)}`);
+      aVals.push(`%${qDigits}%`);
+    }
+    if (phoneDigits.length >= 7) {
+      aConds.push(`customer_phone LIKE ${ph(aVals.length + 1)}`);
+      aVals.push(`%${phoneDigits}`);
     }
 
-    // ── 2. Fallback: busca em appointments (histórico de agendamentos) ────────
-    // Retorna dados do cliente mais recente que bate com o identificador
-    let apptSql, apptParams;
-    if (dialect === 'sqlite') {
-      const stripCpf   = `REPLACE(REPLACE(REPLACE(customer_cpf,   '.',''),'-',''),' ','')`;
-      const stripPhone  = `REPLACE(REPLACE(REPLACE(customer_phone, '-',''),' ',''),'(','')`;
-      if (digitsLike) {
-        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
-                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
-                   FROM appointments
-                   WHERE user_id = ?
-                     AND (customer_name LIKE ? OR ${stripCpf} LIKE ? OR ${stripPhone} LIKE ?)
-                     AND status != 'cancelled'
-                   ORDER BY appointment_date DESC LIMIT 5`;
-        apptParams = [empresaId, like, digitsLike, digitsLike];
-      } else {
-        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
-                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
-                   FROM appointments
-                   WHERE user_id = ? AND customer_name LIKE ? AND status != 'cancelled'
-                   ORDER BY appointment_date DESC LIMIT 5`;
-        apptParams = [empresaId, like];
-      }
-    } else {
-      if (digitsLike) {
-        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
-                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
-                   FROM appointments
-                   WHERE user_id = $1
-                     AND (customer_name ILIKE $2
-                          OR REGEXP_REPLACE(customer_cpf,   '[^0-9]','','g') ILIKE $3
-                          OR REGEXP_REPLACE(customer_phone, '[^0-9]','','g') ILIKE $3)
-                     AND status != 'cancelled'
-                   ORDER BY appointment_date DESC LIMIT 5`;
-        apptParams = [empresaId, like, digitsLike];
-      } else {
-        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
-                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
-                   FROM appointments
-                   WHERE user_id = $1 AND customer_name ILIKE $2 AND status != 'cancelled'
-                   ORDER BY appointment_date DESC LIMIT 5`;
-        apptParams = [empresaId, like];
-      }
+    if (aConds.length === 0) {
+      return res.json({ success: true, data: [] });
     }
 
-    const apptResult = await query(apptSql, apptParams);
-    res.json({
+    const aSql = `
+      SELECT DISTINCT
+             customer_name  AS name,
+             customer_phone AS phone,
+             customer_email AS email,
+             customer_cpf   AS cpf,
+             user_id        AS empresa_id,
+             'appointment_history' AS source
+      FROM appointments
+      WHERE user_id = ${ph(1)} AND (${aConds.join(' OR ')})
+      ORDER BY name ASC LIMIT 5`;
+    const ar = await query(aSql, aVals);
+
+    return res.json({
       success: true,
-      data: apptResult.rows,
-      _debug: apptResult.rows.length === 0
-        ? { empresa_id_usado: empresaId, total_pacientes_empresa: totalPatients, busca: q }
+      data: ar.rows,
+      _debug: ar.rows.length === 0
+        ? { empresa_id: empresaId, q, qDigits, phoneDigits }
         : undefined
     });
   } catch (e) {
