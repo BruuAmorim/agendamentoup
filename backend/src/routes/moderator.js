@@ -11,7 +11,7 @@ const moderatorController = require('../controllers/moderatorController');
 const { verifyToken, requireRole } = require('../middleware/auth');
 
 // Middleware específico para moderadores e empresas
-const requireModerator = requireRole(['moderator', 'empresa']);
+const requireModerator = requireRole(['moderator']);
 
 /**
  * @api {get} /moderator/stats Estatísticas rápidas

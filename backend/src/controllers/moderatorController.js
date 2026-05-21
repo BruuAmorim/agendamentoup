@@ -13,9 +13,6 @@ class ModeratorController {
    */
   async getStats(req, res) {
     try {
-      console.log('📊 getStats - Iniciando para usuário:', req.user?.id, req.user?.role);
-
-      // Verificar se usuário é empresa ou funcionário (funcionários podem ver stats da empresa)
       const user = req.user;
       if (!user) {
         return res.status(401).json({
@@ -27,7 +24,7 @@ class ModeratorController {
       
       // Se for funcionário, usar o parent_user_id; se for empresa/moderador, usar o próprio id
       const targetUserId = (user.role === 'user' && user.parent_user_id) ? user.parent_user_id : 
-                          (user.role === 'empresa' || user.role === 'moderator' ? user.id : null);
+                          (user.role === 'moderator' ? user.id : null);
       
       if (!targetUserId) {
         return res.status(403).json({
@@ -38,7 +35,6 @@ class ModeratorController {
       }
 
       const today = new Date().toISOString().split('T')[0];
-      console.log('📅 getStats - Data de hoje:', today);
 
       // Query para total de agendamentos do dia
       const todayQuery = `
@@ -62,8 +58,6 @@ class ModeratorController {
         LIMIT 1
       `;
 
-      console.log('🔍 getStats - Executando queries para data:', today);
-
       let todayResult, topServiceResult;
       try {
         [todayResult, topServiceResult] = await Promise.all([
@@ -86,16 +80,9 @@ class ModeratorController {
         throw dbError; // Re-lançar se for outro erro
       }
 
-      console.log('📊 getStats - Resultados:', {
-        todayCount: todayResult.rows[0]?.total || 0,
-        topServiceCount: topServiceResult.rows.length
-      });
-
       const totalToday = parseInt(todayResult.rows[0]?.total || 0);
       const topService = topServiceResult.rows.length > 0 ?
         topServiceResult.rows[0] : { service: 'Nenhum agendamento', count: 0 };
-
-      console.log('✅ getStats - Retornando dados:', { totalToday, topService: topService.service });
 
       res.json({
         success: true,
@@ -107,11 +94,7 @@ class ModeratorController {
       });
 
     } catch (error) {
-      console.error('❌ Erro ao buscar estatísticas do moderador:', {
-        message: error.message,
-        stack: error.stack,
-        userId: req.user?.id
-      });
+      console.error('Erro ao buscar estatísticas do moderador:', error.message);
       res.status(500).json({
         success: false,
         error: 'Erro interno do servidor',
@@ -127,7 +110,6 @@ class ModeratorController {
    */
   async getSettings(req, res) {
     try {
-      console.log('⚙️ getSettings - Iniciando para usuário:', req.user?.id, req.user?.role);
 
       const user = req.user;
       if (!user) {
@@ -147,7 +129,7 @@ class ModeratorController {
       } else if (user.role === 'user' && user.parent_user_id) {
         // Funcionário - buscar configurações da empresa
         targetUserId = user.parent_user_id;
-      } else if (user.role === 'empresa' || user.role === 'moderator') {
+      } else if (user.role === 'moderator') {
         targetUserId = user.id;
       } else {
         return res.status(403).json({
@@ -157,7 +139,6 @@ class ModeratorController {
         });
       }
 
-      console.log('🔍 getSettings - Buscando configurações para user_id:', targetUserId);
       
       const settingsQuery = `
         SELECT company_name, services, working_hours, working_days, employee_limit, created_at, updated_at,
@@ -191,8 +172,6 @@ class ModeratorController {
         throw dbError; // Re-lançar se for outro erro
       }
       
-      console.log('📊 getSettings - Query executada, resultados:', result.rows.length);
-
       let settings = {
         company_name: null,
         services: [],
@@ -207,12 +186,6 @@ class ModeratorController {
 
       if (result.rows.length > 0) {
         const row = result.rows[0];
-        console.log('📋 getSettings - Dados encontrados:', {
-          company_name: row.company_name,
-          services_type: typeof row.services,
-          working_hours: row.working_hours,
-          working_days: row.working_days
-        });
 
         // Parse JSON se necessário (SQLite armazena como string)
         let services = row.services;
@@ -242,11 +215,8 @@ class ModeratorController {
           logo: row.logo || null,
           slot_interval: row.slot_interval || 30
         };
-      } else {
-        console.log('📋 getSettings - Nenhum registro encontrado, retornando padrão');
       }
 
-      console.log('✅ getSettings - Retornando:', settings);
       res.json({
         success: true,
         data: settings
@@ -268,8 +238,6 @@ class ModeratorController {
    */
   async updateSettings(req, res) {
     try {
-      console.log('🔧 updateSettings - Iniciando para usuário:', req.user?.id);
-
       const user = req.user;
       if (!user) {
         return res.status(401).json({
@@ -281,8 +249,7 @@ class ModeratorController {
       
       // Apenas empresas podem atualizar configurações (não funcionários)
       // Manter compatibilidade com 'moderator' para dados antigos
-      if (user.role !== 'empresa' && user.role !== 'moderator') {
-        console.log('❌ updateSettings - Acesso negado:', { userId: user?.id, role: user?.role });
+      if (user.role !== 'moderator') {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -291,20 +258,9 @@ class ModeratorController {
       }
 
       const { company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval } = req.body;
-      console.log('📝 updateSettings - Dados recebidos:', { 
-        company_name, 
-        services_count: services?.length,
-        working_hours,
-        working_days,
-        campos_visiveis,
-        campos_extras_count: campos_extras?.length,
-        has_logo: !!logo,
-        slot_interval
-      });
 
       // Validar dados
       if (typeof company_name !== 'string' && company_name !== null) {
-        console.log('❌ updateSettings - company_name inválido:', typeof company_name);
         return res.status(400).json({
           success: false,
           error: 'Dados inválidos',
@@ -313,7 +269,6 @@ class ModeratorController {
       }
 
       if (!Array.isArray(services)) {
-        console.log('❌ updateSettings - services não é array:', typeof services);
         return res.status(400).json({
           success: false,
           error: 'Dados inválidos',
@@ -352,18 +307,13 @@ class ModeratorController {
         }
       }
 
-      // Verificar se já existe configuração para este usuário
-      console.log('🔍 updateSettings - Verificando se configuração existe...');
       const checkQuery = 'SELECT id FROM moderator_settings WHERE user_id = $1';
       const checkResult = await query(checkQuery, [user.id]);
-      console.log('📊 updateSettings - Configuração existe:', checkResult.rows.length > 0);
 
       // Query para buscar configurações (usada em ambos os casos)
       const selectQuery = 'SELECT company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval FROM moderator_settings WHERE user_id = $1';
       
       if (checkResult.rows.length > 0) {
-        // Atualizar configuração existente
-        console.log('📝 updateSettings - Atualizando configuração existente...');
         // Preparar campos adicionais
         const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
         const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
@@ -389,7 +339,6 @@ class ModeratorController {
         
         // Buscar dados atualizados (usar SELECT separado para garantir compatibilidade com SQLite)
         let updateResult = await query(selectQuery, [user.id]);
-        console.log('✅ updateSettings - Configuração atualizada, linhas retornadas:', updateResult.rows.length);
 
         if (updateResult.rows.length === 0) {
           // Se não encontrou após atualização, tentar criar novamente
@@ -485,8 +434,6 @@ class ModeratorController {
         });
 
       } else {
-        // Criar nova configuração
-        console.log('📝 updateSettings - Criando nova configuração...');
         // Preparar campos adicionais
         const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
         const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
@@ -510,7 +457,6 @@ class ModeratorController {
         
         // Buscar dados inseridos (usar SELECT separado para garantir compatibilidade com SQLite)
         let insertResult = await query(selectQuery, [user.id]);
-        console.log('✅ updateSettings - Configuração criada, linhas retornadas:', insertResult.rows.length);
 
         if (insertResult.rows.length === 0) {
           // Tentar buscar novamente após um pequeno delay (para SQLite)
@@ -633,7 +579,7 @@ class ModeratorController {
           SELECT ms.company_name, ms.services
           FROM moderator_settings ms
           JOIN users u ON ms.user_id = u.id
-          WHERE (u.role = 'empresa' OR u.role = 'moderator') AND u."isActive" = true
+          WHERE u.role = 'moderator' AND u."isActive" = true
           LIMIT 1
         `;
 
@@ -673,7 +619,7 @@ class ModeratorController {
     try {
       const user = req.user;
       // Manter compatibilidade com 'moderator' para dados antigos
-      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
+      if (!user || (user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -712,7 +658,7 @@ class ModeratorController {
     try {
       const user = req.user;
       // Manter compatibilidade com 'moderator' para dados antigos
-      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
+      if (!user || (user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -805,7 +751,7 @@ class ModeratorController {
     try {
       const user = req.user;
       // Manter compatibilidade com 'moderator' para dados antigos
-      if (!user || (user.role !== 'empresa' && user.role !== 'moderator')) {
+      if (!user || (user.role !== 'moderator')) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',

@@ -40,81 +40,75 @@ if (useMemoryStorage) {
   });
 }
 
-// Função helper para executar queries SQL diretas
+// Função helper para executar queries SQL diretas.
+// Normaliza a interface entre SQLite e PostgreSQL retornando sempre { rows: [] }.
 async function query(sql, params = []) {
   try {
     const dialect = sequelize.getDialect();
-    
-    // Para SQLite, adaptar a sintaxe
+    const sqlUpper = sql.trim().toUpperCase();
+    const isReadOnly = sqlUpper.startsWith('SELECT') || sqlUpper.startsWith('PRAGMA') || sqlUpper.startsWith('WITH');
+    const hasReturning = /\bRETURNING\b/i.test(sql);
+
     if (dialect === 'sqlite') {
-      // Converter placeholders PostgreSQL ($1, $2) para SQLite (?)
-      let sqliteSql = sql;
+      // Converter placeholders PostgreSQL ($1, $2, ...) para SQLite (?)
       const sqliteParams = [];
-      
-      // Substituir $1, $2, etc. por ? e coletar parâmetros na ordem
-      sqliteSql = sqliteSql.replace(/\$(\d+)/g, (match, index) => {
-        const paramIndex = parseInt(index) - 1;
-        if (params[paramIndex] !== undefined) {
-          sqliteParams.push(params[paramIndex]);
-          return '?';
-        }
-        return match;
+      let sqliteSql = sql.replace(/\$(\d+)/g, (_, idx) => {
+        const val = params[parseInt(idx, 10) - 1];
+        if (val !== undefined) sqliteParams.push(val);
+        return '?';
       });
-      
-      // Remover tipos PostgreSQL (::date, ::text, etc.)
+
+      // Remover cast de tipo PostgreSQL (::text, ::date, ::jsonb, etc.)
       sqliteSql = sqliteSql.replace(/::\w+/g, '');
-      
-      // Verificar se é SELECT, INSERT, UPDATE ou DELETE
-      const sqlUpper = sql.trim().toUpperCase();
-      const isSelect = sqlUpper.startsWith('SELECT');
-      const isInsert = sqlUpper.startsWith('INSERT');
-      const isUpdate = sqlUpper.startsWith('UPDATE');
-      const hasReturning = sql.includes('RETURNING');
-      
-      // Remover RETURNING (não suportado no SQLite)
+
+      // SQLite não suporta RETURNING — removê-lo
       if (hasReturning) {
-        sqliteSql = sqliteSql.replace(/RETURNING\s+[\w\s,]+/gi, '');
+        sqliteSql = sqliteSql.replace(/\s+RETURNING\s+[\w\s,*]+/gi, '');
       }
-      
-      // Executar query
-      let results;
-      if (isSelect) {
-        results = await sequelize.query(sqliteSql, {
+
+      if (isReadOnly) {
+        const results = await sequelize.query(sqliteSql, {
           replacements: sqliteParams,
-          type: sequelize.QueryTypes.SELECT
+          type: sequelize.QueryTypes.SELECT,
         });
-        return { rows: Array.isArray(results) ? results : (results ? [results] : []) };
-      } else if (sqlUpper.startsWith('PRAGMA')) {
-        // PRAGMA queries retornam resultados especiais
-        results = await sequelize.query(sqliteSql, {
-          replacements: sqliteParams,
-          type: sequelize.QueryTypes.SELECT
-        });
-        return { rows: Array.isArray(results) ? results : (results ? [results] : []) };
-      } else {
-        // Para INSERT/UPDATE/DELETE, executar
-        await sequelize.query(sqliteSql, {
-          replacements: sqliteParams,
-          type: sequelize.QueryTypes.RAW
-        });
-        
-        // Sempre retornar vazio para INSERT/UPDATE/DELETE
-        // O código que chama a query deve fazer SELECT separado se precisar dos dados
-        return { rows: [] };
+        return { rows: Array.isArray(results) ? results : [] };
       }
-    } else {
-      // PostgreSQL - usar diretamente
-      const results = await sequelize.query(sql, {
-        bind: params,
-        type: sequelize.QueryTypes.SELECT
+
+      await sequelize.query(sqliteSql, {
+        replacements: sqliteParams,
+        type: sequelize.QueryTypes.RAW,
       });
-      
-      return { rows: Array.isArray(results) ? results : (results ? [results] : []) };
+      return { rows: [] };
+
+    } else {
+      // PostgreSQL
+      if (isReadOnly) {
+        const results = await sequelize.query(sql, {
+          bind: params,
+          type: sequelize.QueryTypes.SELECT,
+        });
+        return { rows: Array.isArray(results) ? results : [] };
+      }
+
+      if (hasReturning) {
+        // INSERT/UPDATE/DELETE com RETURNING — retorna linhas afetadas
+        const [rows] = await sequelize.query(sql, {
+          bind: params,
+          type: sequelize.QueryTypes.SELECT,
+        });
+        return { rows: Array.isArray(rows) ? rows : (rows ? [rows] : []) };
+      }
+
+      // Mutação pura sem RETURNING
+      await sequelize.query(sql, {
+        bind: params,
+        type: sequelize.QueryTypes.RAW,
+      });
+      return { rows: [] };
     }
   } catch (error) {
-    console.error('Erro ao executar query:', error);
-    console.error('SQL:', sql);
-    console.error('Params:', params);
+    console.error('[db] Erro ao executar query:', error.message);
+    console.error('[db] SQL:', sql);
     throw error;
   }
 }

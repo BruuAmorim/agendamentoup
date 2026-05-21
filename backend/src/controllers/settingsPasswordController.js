@@ -16,7 +16,7 @@ class SettingsPasswordController {
     try {
       // Validar role permitida
       const userRole = String(req.user?.role || '').trim().toLowerCase();
-      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+      if (!['admin_master', 'moderator'].includes(userRole)) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -111,7 +111,7 @@ class SettingsPasswordController {
 
       // Validar role permitida
       const userRole = String(req.user?.role || '').trim().toLowerCase();
-      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+      if (!['admin_master', 'moderator'].includes(userRole)) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -143,7 +143,7 @@ class SettingsPasswordController {
       const { User } = require('../models');
       const company = await User.findByPk(companyId);
       // Aceitar empresa, moderator OU admin_master (para ambientes com único admin/empresa)
-      if (!company || !['empresa', 'moderator', 'admin_master'].includes(company.role)) {
+      if (!company || !['moderator', 'admin_master'].includes(company.role)) {
         return res.status(400).json({
           success: false,
           error: 'Empresa inválida',
@@ -210,7 +210,7 @@ class SettingsPasswordController {
 
       // Validar role permitida
       const userRole = String(req.user?.role || '').trim().toLowerCase();
-      if (!['admin_master', 'empresa', 'moderator'].includes(userRole)) {
+      if (!['admin_master', 'moderator'].includes(userRole)) {
         return res.status(403).json({
           success: false,
           error: 'Acesso negado',
@@ -242,7 +242,7 @@ class SettingsPasswordController {
       const { User } = require('../models');
       const company = await User.findByPk(companyId);
       // Aceitar empresa, moderator OU admin_master (para ambientes com único admin/empresa)
-      if (!company || !['empresa', 'moderator', 'admin_master'].includes(company.role)) {
+      if (!company || !['moderator', 'admin_master'].includes(company.role)) {
         return res.status(400).json({
           success: false,
           error: 'Empresa inválida',

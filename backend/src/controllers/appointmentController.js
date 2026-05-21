@@ -34,7 +34,7 @@ class AppointmentController {
       if (req.user) {
         // empresa_id já vem no token JWT; para moderator/empresa usar id do usuário se ausente
         empresa_id = req.user.empresa_id ?? (
-          (req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null
+          (req.user.role === 'moderator') ? req.user.id : null
         );
       }
 
@@ -78,7 +78,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -133,7 +133,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // Normalizar employee_id (opcional)
@@ -169,46 +169,21 @@ class AppointmentController {
   // POST /api/appointments - Criar novo agendamento
   async createAppointment(req, res) {
     try {
-      // Logs detalhados para debug de integrações externas (n8n)
-      console.log('📅 ========================================');
-      console.log('📅 createAppointment - Nova requisição');
-      console.log('📅 ========================================');
-      console.log('📅 Headers:', JSON.stringify(req.headers, null, 2));
-      console.log('📅 Body recebido:', JSON.stringify(req.body, null, 2));
-      console.log('📅 Content-Type:', req.headers['content-type']);
-      console.log('📅 Origin:', req.headers.origin);
-      console.log('📅 User-Agent:', req.headers['user-agent']);
-      
       const appointmentData = req.body;
-      
-      // Validar se o body foi parseado corretamente
+
       if (!appointmentData || typeof appointmentData !== 'object') {
-        console.error('❌ Body inválido ou não parseado:', appointmentData);
         return res.status(400).json({
           success: false,
           error: 'Dados inválidos',
-          message: 'O corpo da requisição deve ser um JSON válido',
-          received: typeof appointmentData
+          message: 'O corpo da requisição deve ser um JSON válido'
         });
       }
 
-      console.log('📅 Dados processados:', appointmentData);
-      
-      // CRÍTICO: Obter empresa_id - pode vir de API Key (req.empresa_id) ou JWT (req.user)
-      let empresa_id = null;
-      
-      // Prioridade 1: API Key (rotas públicas)
-      if (req.empresa_id) {
-        empresa_id = req.empresa_id;
-        console.log('📅 Empresa identificada via API Key:', empresa_id);
-      }
-      // Prioridade 2: JWT Token (rotas autenticadas)
-      else if (req.user) {
+      let empresa_id = req.empresa_id || null;
+      if (!empresa_id && req.user) {
         empresa_id = req.user.empresa_id || req.user.id;
-        console.log('📅 Empresa identificada do token:', empresa_id);
       }
-      
-      // CRÍTICO: Validar que empresa_id está presente
+
       if (!empresa_id) {
         return res.status(403).json({
           success: false,
@@ -216,61 +191,30 @@ class AppointmentController {
           message: 'É necessário estar associado a uma empresa para criar agendamentos. Use API Key (x-api-key) ou faça login.'
         });
       }
-      
-      // CRÍTICO: Se admin_master forneceu empresa_id no body, usar esse (permite criar para outras empresas)
-      // Caso contrário, usar empresa_id já identificado
+
       if (req.user && req.user.role === 'admin_master' && appointmentData.empresa_id) {
         const bodyEmpresaId = parseInt(appointmentData.empresa_id);
         if (!isNaN(bodyEmpresaId)) {
           empresa_id = bodyEmpresaId;
-          console.log('📅 Admin master criando agendamento para empresa:', empresa_id);
-          // Remover empresa_id do body para não salvar diretamente
           delete appointmentData.empresa_id;
         }
       }
-      
-      console.log('📅 Chamando Appointment.create...');
-      
+
       let appointment;
       try {
-        // CRÍTICO: Passar empresa_id do token para garantir isolamento
         appointment = await Appointment.create(appointmentData, empresa_id);
-        console.log('✅ Agendamento criado com sucesso!');
       } catch (createError) {
-        console.error('❌ Erro ao criar agendamento:', createError);
-        
-        // Tratar erros específicos
         if (createError.message && createError.message.includes('Horário indisponível')) {
-          return res.status(409).json({
-            success: false,
-            error: 'Horário indisponível',
-            message: createError.message
-          });
+          return res.status(409).json({ success: false, error: 'Horário indisponível', message: createError.message });
         }
-        
         if (createError.message && createError.message.includes('fora do expediente')) {
-          return res.status(400).json({
-            success: false,
-            error: 'Horário fora do expediente',
-            message: createError.message
-          });
+          return res.status(400).json({ success: false, error: 'Horário fora do expediente', message: createError.message });
         }
-        
         if (createError.message && createError.message.includes('Não atendemos')) {
-          return res.status(400).json({
-            success: false,
-            error: 'Dia não disponível',
-            message: createError.message
-          });
+          return res.status(400).json({ success: false, error: 'Dia não disponível', message: createError.message });
         }
-        
-        // Re-lançar outros erros
         throw createError;
       }
-      console.log('✅ ID:', appointment.id);
-      console.log('✅ Protocolo:', appointment.protocol);
-      console.log('✅ Cliente:', appointment.customer_name);
-      console.log('✅ Data/Hora:', appointment.appointment_date, appointment.appointment_time);
 
       // Registrar log
       if (req.user) {
@@ -283,24 +227,14 @@ class AppointmentController {
       });
 
       // Retornar resposta padronizada com status 201 Created
-      const response = {
+      res.status(201).json({
         success: true,
         message: 'Agendamento criado com sucesso',
         data: appointment.toJSON()
-      };
-      
-      console.log('📤 Enviando resposta:', JSON.stringify(response, null, 2));
-      
-      res.status(201).json(response);
+      });
 
     } catch (error) {
-      console.error('❌ ========================================');
-      console.error('❌ Erro ao criar agendamento');
-      console.error('❌ ========================================');
-      console.error('❌ Erro:', error);
-      console.error('❌ Stack:', error.stack);
-      console.error('❌ Mensagem:', error.message);
-      console.error('❌ Body recebido:', JSON.stringify(req.body, null, 2));
+      console.error('Erro ao criar agendamento:', error.message);
 
       // Tratar erros de validação com status 400
       if (error.message.includes('Dados inválidos') ||
@@ -347,7 +281,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -431,7 +365,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -484,7 +418,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -543,19 +477,15 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
       const cleanProtocol = protocol.trim().toUpperCase();
 
-      console.log('🔍 Buscando agendamento com protocolo:', cleanProtocol);
-
-      // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
       const appointment = await Appointment.findByProtocol(cleanProtocol, empresa_id);
 
       if (!appointment) {
-        console.log('❌ Agendamento não encontrado com protocolo:', cleanProtocol);
         return res.status(404).json({
           success: false,
           error: 'Agendamento não encontrado com este protocolo',
@@ -605,19 +535,15 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // Limpar o protocolo: remover espaços e converter para maiúsculo
       const cleanProtocol = protocol.trim().toUpperCase();
 
-      console.log('🔍 Buscando agendamento com protocolo:', cleanProtocol);
-
-      // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
       const appointment = await Appointment.findByProtocol(cleanProtocol, empresa_id);
 
       if (!appointment) {
-        console.log('❌ Agendamento não encontrado com protocolo:', cleanProtocol);
         return res.status(404).json({
           success: false,
           error: 'Agendamento não encontrado com este protocolo',
@@ -626,50 +552,34 @@ class AppointmentController {
         });
       }
 
-      // Preparar os campos para atualização
       const updateData = {};
 
-      // Validar e adicionar data se foi fornecida (não undefined)
       if (date !== undefined) {
         if (date === null) {
-          // Se date for null, não atualiza (mantém valor antigo)
-          console.log('📅 Data mantida (null enviado)');
+          // manter valor antigo
         } else if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-          return res.status(400).json({
-            success: false,
-            error: 'Data deve estar no formato YYYY-MM-DD'
-          });
+          return res.status(400).json({ success: false, error: 'Data deve estar no formato YYYY-MM-DD' });
         } else {
           updateData.appointment_date = date;
-          console.log('📅 Data será atualizada para:', date);
         }
       }
 
-      // Validar e adicionar hora se foi fornecida (não undefined)
       if (time !== undefined) {
         if (time === null) {
-          // Se time for null, não atualiza (mantém valor antigo)
-          console.log('⏰ Horário mantido (null enviado)');
+          // manter valor antigo
         } else if (!/^\d{2}:\d{2}$/.test(time)) {
-          return res.status(400).json({
-            success: false,
-            error: 'Horário deve estar no formato HH:MM'
-          });
+          return res.status(400).json({ success: false, error: 'Horário deve estar no formato HH:MM' });
         } else {
           updateData.appointment_time = time;
-          console.log('⏰ Horário será atualizado para:', time);
         }
       }
 
-      // Se nenhum campo foi fornecido para atualização (todos null ou não enviados)
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({
           success: false,
           error: 'Pelo menos um campo (date ou time) deve ser fornecido com valor válido para atualização'
         });
       }
-
-      console.log('📝 Atualizando agendamento:', updateData);
 
       // Atualizar o agendamento com validação de empresa (empresa_id já foi obtido acima)
       const updatedAppointment = await appointment.update(updateData, empresa_id);
@@ -725,56 +635,24 @@ class AppointmentController {
         });
       }
 
-      console.log('📅 Consultando disponibilidade para:', date);
+      const HORARIO_INICIO = 9;
+      const HORARIO_FIM = 18;
+      const ALMOÇO_INICIO = 12;
+      const ALMOÇO_FIM = 13;
 
-      // Definir regras de negócio fixas
-      const HORARIO_INICIO = 9;    // 09:00
-      const HORARIO_FIM = 18;      // 18:00
-      const ALMOÇO_INICIO = 12;    // 12:00
-      const ALMOÇO_FIM = 13;       // 13:00
-      const DURACAO_AGENDAMENTO = 60; // 1 hora por agendamento
-
-      // Gerar lista de todos os horários possíveis (de hora em hora)
       const horariosPossiveis = [];
       for (let hora = HORARIO_INICIO; hora < HORARIO_FIM; hora++) {
-        // Pular horário de almoço (12:00 - 13:00)
-        if (hora >= ALMOÇO_INICIO && hora < ALMOÇO_FIM) {
-          continue;
-        }
-
-        const horarioFormatado = `${hora.toString().padStart(2, '0')}:00`;
-        horariosPossiveis.push(horarioFormatado);
+        if (hora >= ALMOÇO_INICIO && hora < ALMOÇO_FIM) continue;
+        horariosPossiveis.push(`${hora.toString().padStart(2, '0')}:00`);
       }
 
-      console.log('🕐 Horários possíveis do dia:', horariosPossiveis);
-
-      // CRÍTICO: Obter empresa_id do token ou API Key (nunca confiar no frontend)
-      let empresa_id = null;
-      if (req.empresa_id) {
-        empresa_id = req.empresa_id;
-      } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+      let empresa_id = req.empresa_id || null;
+      if (!empresa_id && req.user) {
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
-      // CRÍTICO: Buscar agendamentos existentes apenas da empresa do usuário logado
-      const agendamentosExistentes = await Appointment.find({ date: date }, empresa_id);
-
-      console.log(`📋 Encontrados ${agendamentosExistentes.length} agendamentos para ${date}`);
-      if (agendamentosExistentes.length > 0) {
-        console.log('📅 Horários ocupados:', agendamentosExistentes.map(a => a.appointment_time));
-      }
-
-      // Filtrar horários ocupados (comparar horário por horário)
-      const horariosLivres = horariosPossiveis.filter(horario => {
-        // Verificar se há conflito com algum agendamento existente
-        const conflito = agendamentosExistentes.some(agendamento => {
-          return agendamento.appointment_time === horario;
-        });
-
-        return !conflito;
-      });
-
-      console.log(`✅ ${horariosLivres.length} horários disponíveis:`, horariosLivres);
+      const agendamentosExistentes = await Appointment.find({ date }, empresa_id);
+      const horariosLivres = horariosPossiveis.filter(h => !agendamentosExistentes.some(a => a.appointment_time === h));
 
       // Retorno simples conforme solicitado
       res.json({
@@ -801,7 +679,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // CRÍTICO: Buscar agendamento apenas se pertencer à empresa do usuário
@@ -848,7 +726,7 @@ class AppointmentController {
       if (req.empresa_id) {
         empresa_id = req.empresa_id;
       } else if (req.user) {
-        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null);
+        empresa_id = req.user.empresa_id ?? ((req.user.role === 'moderator') ? req.user.id : null);
       }
 
       // Verificar se deve usar armazenamento em memória

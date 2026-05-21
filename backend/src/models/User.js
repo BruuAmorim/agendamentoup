@@ -1,5 +1,7 @@
 const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/jwt');
 
 module.exports = (sequelize) => {
   const User = sequelize.define('User', {
@@ -79,49 +81,23 @@ module.exports = (sequelize) => {
     hooks: {
       beforeCreate: async (user) => {
         try {
-          console.log('🔐 [User.beforeCreate] Preparando hash de senha...');
-          console.log('🔐 [User.beforeCreate] Dados do usuário:', { 
-            name: user.name, 
-            email: user.email, 
-            role: user.role,
-            hasPassword: !!user.password,
-            passwordType: typeof user.password
-          });
-          
-          if (user.password && typeof user.password === 'string') {
-            // Evitar double-hash (bcrypt geralmente começa com $2a/$2b/$2y)
-            if (!user.password.startsWith('$2')) {
-              const salt = await bcrypt.genSalt(12);
-              user.password = await bcrypt.hash(user.password, salt);
-              console.log('✅ [User.beforeCreate] Senha hasheada com sucesso');
-            } else {
-              console.log('ℹ️ [User.beforeCreate] Senha já parece hasheada, mantendo');
-            }
-          } else {
-            console.warn('⚠️ [User.beforeCreate] Senha não fornecida ou tipo inválido');
+          if (user.password && typeof user.password === 'string' && !user.password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(12);
+            user.password = await bcrypt.hash(user.password, salt);
           }
         } catch (error) {
-          console.error('❌ [User.beforeCreate] Erro ao hashear senha:', error);
-          console.error('❌ [User.beforeCreate] Stack:', error.stack);
+          console.error('Erro ao hashear senha (beforeCreate):', error);
           throw error;
         }
       },
       beforeUpdate: async (user) => {
         try {
-          if (user.changed('password')) {
-            console.log('🔐 [User.beforeUpdate] Senha alterada, preparando hash...');
-            if (user.password && typeof user.password === 'string') {
-              if (!user.password.startsWith('$2')) {
-                const salt = await bcrypt.genSalt(12);
-                user.password = await bcrypt.hash(user.password, salt);
-                console.log('✅ [User.beforeUpdate] Nova senha hasheada com sucesso');
-              } else {
-                console.log('ℹ️ [User.beforeUpdate] Nova senha já parece hasheada, mantendo');
-              }
-            }
+          if (user.changed('password') && user.password && typeof user.password === 'string' && !user.password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(12);
+            user.password = await bcrypt.hash(user.password, salt);
           }
         } catch (error) {
-          console.error('❌ [User.beforeUpdate] Erro ao hashear senha:', error);
+          console.error('Erro ao hashear senha (beforeUpdate):', error);
           throw error;
         }
       },
@@ -130,65 +106,35 @@ module.exports = (sequelize) => {
 
   // Método de instância para verificar senha
   User.prototype.checkPassword = async function(password) {
-    console.log('🔍 [User.checkPassword] Verificando senha...');
-    console.log('🔍 [User.checkPassword] Password recebido:', password ? 'Presente' : 'Ausente');
-    console.log('🔍 [User.checkPassword] this.password:', this.password ? 'Presente' : 'Ausente');
-    console.log('🔍 [User.checkPassword] Tipo de this.password:', typeof this.password);
-    
-    if (!this.password) {
-      console.error('❌ [User.checkPassword] this.password está undefined!');
-      return false;
-    }
-    
-    if (!password) {
-      console.error('❌ [User.checkPassword] password recebido está undefined!');
-      return false;
-    }
-    
+    if (!this.password || !password) return false;
     try {
-      const isValid = await bcrypt.compare(password, this.password);
-      console.log(`🔐 [User.checkPassword] Senha ${isValid ? 'VÁLIDA' : 'INVÁLIDA'}`);
-      return isValid;
+      return await bcrypt.compare(password, this.password);
     } catch (error) {
-      console.error('❌ [User.checkPassword] Erro ao verificar senha:', error);
-      console.error('❌ [User.checkPassword] Detalhes do erro:', {
-        message: error.message,
-        passwordType: typeof password,
-        thisPasswordType: typeof this.password,
-        passwordLength: password ? password.length : 0,
-        thisPasswordLength: this.password ? this.password.length : 0
-      });
+      console.error('Erro ao verificar senha:', error);
       return false;
     }
   };
 
   // Método de instância para gerar token JWT (será implementado no controller)
   User.prototype.generateToken = function() {
-    const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    
-    // Calcular empresa_id baseado no role e parent_user_id
     let empresa_id = null;
-    if (this.role === 'moderator' || this.role === 'empresa') {
-      // Empresa usa seu próprio ID
+    if (this.role === 'moderator') {
       empresa_id = this.id;
     } else if (this.role === 'user' && this.parent_user_id) {
-      // Funcionário usa o ID da empresa pai
       empresa_id = this.parent_user_id;
     }
-    // admin_master não tem empresa_id (pode ver todos)
-    
+
     return jwt.sign(
       {
         id: this.id,
         email: this.email,
         role: this.role,
         name: this.name,
-        empresa_id: empresa_id,
-        parent_user_id: this.parent_user_id || null
+        empresa_id,
+        parent_user_id: this.parent_user_id || null,
       },
       JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: JWT_EXPIRES_IN }
     );
   };
 

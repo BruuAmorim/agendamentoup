@@ -99,9 +99,6 @@ class UserController {
     try {
       const { name, email, password, role } = req.body;
 
-      console.log('🔍 DEBUG createUser - Input:', { name, email, role }); // DEBUG
-
-      // Validações
       if (!name || !email || !password) {
         return res.status(400).json({
           error: 'Dados inválidos',
@@ -109,19 +106,16 @@ class UserController {
         });
       }
 
-      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
-      if (role && !['admin_master', 'moderator', 'empresa', 'user'].includes(role)) {
-        console.log('❌ DEBUG - Role inválida:', role); // DEBUG
+      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
         return res.status(400).json({
           error: 'Role inválido',
-          message: 'Role deve ser admin_master, empresa, moderator ou user'
+          message: 'Role deve ser admin_master, moderator ou user'
         });
       }
 
-      // Verificar se email já existe (especificar apenas colunas que existem)
-      const existingUser = await User.findOne({ 
+      const existingUser = await User.findOne({
         where: { email: email.toLowerCase().trim() },
-        attributes: ['id', 'email', 'name', 'role', 'isActive'] // Não incluir parent_user_id se não existir
+        attributes: ['id']
       });
       if (existingUser) {
         return res.status(409).json({
@@ -130,43 +124,23 @@ class UserController {
         });
       }
 
-      // Garantir que a role seja válida e definida
-      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
-      const validRoles = ['admin_master', 'moderator', 'empresa', 'user'];
+      const validRoles = ['admin_master', 'moderator', 'user'];
       const userRole = role && validRoles.includes(role) ? role : 'user';
 
-      console.log('🔍 DEBUG - Role final:', userRole); // DEBUG
-
-      // Criar usuário
-      console.log('🔍 Criando usuário com dados:', { name: name.trim(), email: email.toLowerCase().trim(), role: userRole });
-      
       const newUser = await User.create({
         name: name.trim(),
         email: email.toLowerCase().trim(),
-        password: password,
+        password,
         role: userRole
       });
-      
-      console.log('✅ Usuário criado:', { id: newUser.id, email: newUser.email, role: newUser.role });
 
-      // CRÍTICO: Gerar API Key automaticamente para empresas/moderators
-      if (userRole === 'moderator' || userRole === 'empresa') {
+      if (userRole === 'moderator') {
         try {
-          console.log(`🔑 Gerando API Key automaticamente para empresa ID: ${newUser.id}`);
           await ApiKeyService.generateAndSaveApiKey(newUser.id);
-          console.log(`✅ API Key gerada automaticamente para empresa ID: ${newUser.id}`);
         } catch (apiKeyError) {
-          console.error('⚠️ Erro ao gerar API Key automaticamente:', apiKeyError);
-          // Não falhar a criação do usuário se a API Key falhar
-          // A API Key pode ser gerada depois via painel
+          console.error('Erro ao gerar API Key para nova empresa:', apiKeyError.message);
         }
       }
-
-      console.log('🔍 DEBUG - Usuário criado:', { id: newUser.id, role: newUser.role }); // DEBUG
-
-      // Verificar se o usuário foi realmente criado com a role correta
-      const createdUser = await User.findByPk(newUser.id);
-      console.log('🔍 DEBUG - Usuário do banco:', { id: createdUser.id, role: createdUser.role }); // DEBUG
 
       // Retornar usuário criado (sem senha)
       const userResponse = {
@@ -241,11 +215,10 @@ class UserController {
       }
 
       // Validações
-      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
-      if (role && !['admin_master', 'moderator', 'empresa', 'user'].includes(role)) {
+      if (role && !['admin_master', 'moderator', 'user'].includes(role)) {
         return res.status(400).json({
           error: 'Role inválido',
-          message: 'Role deve ser admin_master, empresa, moderator ou user'
+          message: 'Role deve ser admin_master, moderator ou user'
         });
       }
 
@@ -271,7 +244,7 @@ class UserController {
       if (typeof isActive === 'boolean') updateData.isActive = isActive;
       
       // Se for empresa/moderador e tiver employee_limit, atualizar nas configurações
-      if ((role === 'empresa' || role === 'moderator') && req.body.employee_limit !== undefined) {
+      if ((role === 'moderator') && req.body.employee_limit !== undefined) {
         const { query } = require('../config/database');
         const employeeLimit = parseInt(req.body.employee_limit);
         if (!isNaN(employeeLimit) && employeeLimit > 0) {
@@ -340,73 +313,44 @@ class UserController {
     try {
       const { id } = req.params;
 
-      console.log('🔍 deleteUser - ID:', id);
-      console.log('🔍 deleteUser - req.user:', req.user ? { id: req.user.id, role: req.user.role } : 'null');
-
       const user = await User.findByPk(id, {
         attributes: ['id', 'name', 'email', 'role', 'isActive']
       });
-      
+
       if (!user) {
-        console.log('❌ Usuário não encontrado:', id);
-        return res.status(404).json({
-          error: 'Usuário não encontrado',
-          message: 'Usuário não existe'
-        });
+        return res.status(404).json({ error: 'Usuário não encontrado', message: 'Usuário não existe' });
       }
 
-      console.log('✅ Usuário encontrado:', { id: user.id, email: user.email, role: user.role });
-
-      // Impedir que admin_master seja deletado por si mesmo
       if (user.role === 'admin_master' && req.user && req.user.id === parseInt(id)) {
-        console.log('❌ Tentativa de deletar próprio admin');
         return res.status(400).json({
           error: 'Operação não permitida',
           message: 'Não é possível excluir sua própria conta de administrador'
         });
       }
 
-      // Se for empresa/moderador, remover funcionários vinculados primeiro
-      if (user.role === 'empresa' || user.role === 'moderator') {
+      if (user.role === 'moderator') {
         try {
           const { query } = require('../config/database');
-          const deleteEmployeesQuery = 'DELETE FROM employees WHERE moderator_id = $1';
-          await query(deleteEmployeesQuery, [id]);
-          console.log('✅ Funcionários do moderador removidos');
+          await query('DELETE FROM employees WHERE moderator_id = $1', [id]);
         } catch (e) {
-          // Se a tabela não existe ou não há funcionários, continuar
-          if (!e.message || !e.message.includes('no such table')) {
-            console.warn('⚠️ Erro ao remover funcionários (continuando):', e.message);
+          if (e.message && !e.message.includes('no such table')) {
+            console.warn('Erro ao remover funcionários:', e.message);
           }
         }
       }
 
-      // Se for funcionário, remover vínculo
       try {
         const { query } = require('../config/database');
-        const deleteEmployeeLinkQuery = 'DELETE FROM employees WHERE user_id = $1';
-        await query(deleteEmployeeLinkQuery, [id]);
-        console.log('✅ Vínculos de funcionário removidos');
+        await query('DELETE FROM employees WHERE user_id = $1', [id]);
       } catch (e) {
-        // Se a tabela não existe ou não há vínculos, continuar
-        if (!e.message || !e.message.includes('no such table')) {
-          console.warn('⚠️ Erro ao remover vínculos (continuando):', e.message);
+        if (e.message && !e.message.includes('no such table')) {
+          console.warn('Erro ao remover vínculos:', e.message);
         }
       }
 
-      // Salvar dados antes de deletar para log
-      const deletedUserData = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      };
+      const deletedUserData = { id: user.id, name: user.name, email: user.email, role: user.role };
 
-      // Exclusão permanente do banco de dados
-      console.log('🗑️ Tentando deletar usuário do banco...');
       await user.destroy({ force: true });
-
-      console.log('✅ Usuário deletado com sucesso:', id);
 
       // Registrar log
       if (req.user) {
@@ -419,9 +363,7 @@ class UserController {
       });
 
     } catch (error) {
-      console.error('❌ Erro ao deletar usuário:', error);
-      console.error('❌ Mensagem:', error.message);
-      console.error('❌ Stack:', error.stack);
+      console.error('Erro ao deletar usuário:', error.message);
       res.status(500).json({
         error: 'Erro interno do servidor',
         message: 'Erro ao deletar usuário',
@@ -571,11 +513,9 @@ class UserController {
       const { id } = req.params; // ID do moderador
       const { user_id } = req.body;
 
-      console.log('🔍 addModeratorEmployee - Input:', { moderatorId: id, userId: user_id });
 
       const moderator = await User.findByPk(id);
-      // Aceitar 'empresa' como role válido (mantendo compatibilidade com 'moderator')
-      if (!moderator || (moderator.role !== 'empresa' && moderator.role !== 'moderator')) {
+      if (!moderator || (moderator.role !== 'moderator')) {
         return res.status(400).json({
           error: 'Usuário inválido',
           message: 'O usuário especificado não é uma empresa'
@@ -651,19 +591,10 @@ class UserController {
 
       // Adicionar funcionário
       try {
-        const insertQuery = 'INSERT INTO employees (user_id, moderator_id) VALUES ($1, $2)';
-        console.log('🔍 Executando INSERT:', { user_id, moderator_id: id });
-        await query(insertQuery, [user_id, id]);
-        console.log('✅ Funcionário inserido com sucesso');
-
-        res.json({
-          success: true,
-          message: 'Funcionário adicionado com sucesso'
-        });
+        await query('INSERT INTO employees (user_id, moderator_id) VALUES ($1, $2)', [user_id, id]);
+        res.json({ success: true, message: 'Funcionário adicionado com sucesso' });
       } catch (insertError) {
-        console.error('❌ Erro ao inserir funcionário:', insertError);
-        console.error('❌ Mensagem:', insertError.message);
-        console.error('❌ Stack:', insertError.stack);
+        console.error('Erro ao inserir funcionário:', insertError.message);
         
         if (insertError.message && insertError.message.includes('no such table')) {
           return res.status(500).json({
@@ -682,8 +613,7 @@ class UserController {
         throw insertError;
       }
     } catch (error) {
-      console.error('Erro ao adicionar funcionário:', error);
-      console.error('Stack:', error.stack);
+      console.error('Erro ao adicionar funcionário:', error.message);
       res.status(500).json({
         error: 'Erro interno do servidor',
         message: 'Erro ao adicionar funcionário',
@@ -700,7 +630,6 @@ class UserController {
     try {
       const { id, employeeId } = req.params; // id = moderador, employeeId = funcionário
 
-      console.log('🔍 removeModeratorEmployee - Input:', { moderatorId: id, employeeId });
 
       const { query } = require('../config/database');
       

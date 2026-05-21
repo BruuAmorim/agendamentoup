@@ -1,7 +1,7 @@
 {
-  "name": "evagendamento-frontend",
+  "name": "cloudd-agenda-frontend",
   "version": "1.0.0",
-  "description": "Frontend do Sistema Aevum",
+  "description": "Frontend do Sistema Cloudd Agenda",
   "main": "index.html",
   "scripts": {
     "start": "http-server . -p 3001 -c-1 --cors",
@@ -19,21 +19,6 @@
     "saas",
     "dark-mode"
   ],
-  "author": "Aevum Team",
-  "license": "MIT",
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "body-parser": "^2.2.2",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1",
-    "mysql2": "^3.16.2",
-    "nodemailer": "^7.0.13",
-    "sequelize": "^6.37.7"
-  }
+  "author": "Cloudd Agenda Team",
+  "license": "MIT"
 }

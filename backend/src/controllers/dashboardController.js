@@ -17,7 +17,7 @@ class DashboardController {
       // Identificar empresa do usuário logado
       let companyUserId = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+        if (req.user.role === 'moderator') {
           companyUserId = req.user.id;
         } else if (req.user.role === 'user' && req.user.parent_user_id) {
           companyUserId = req.user.parent_user_id;
@@ -92,7 +92,7 @@ class DashboardController {
       // Identificar empresa do usuário logado
       let companyUserId = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+        if (req.user.role === 'moderator') {
           companyUserId = req.user.id;
         } else if (req.user.role === 'user' && req.user.parent_user_id) {
           companyUserId = req.user.parent_user_id;
@@ -160,7 +160,7 @@ class DashboardController {
       // Identificar empresa do usuário logado
       let companyUserId = null;
       if (req.user) {
-        if (req.user.role === 'empresa' || req.user.role === 'moderator') {
+        if (req.user.role === 'moderator') {
           companyUserId = req.user.id;
         } else if (req.user.role === 'user' && req.user.parent_user_id) {
           companyUserId = req.user.parent_user_id;

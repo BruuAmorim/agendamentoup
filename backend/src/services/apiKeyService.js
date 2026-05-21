@@ -58,36 +58,27 @@ class ApiKeyService {
    */
   static async generateAndSaveApiKey(empresaId) {
     try {
-      console.log(`🔑 [ApiKeyService] Gerando API Key para empresa ID: ${empresaId}`);
-
-      // Gerar nova API Key
       const apiKey = this.generateApiKey();
-      
-      // Criar hash
       const hash = await this.hashApiKey(apiKey);
+      // Primeiros 8 chars da chave em texto puro — usados para filtrar antes do bcrypt
+      const prefix = apiKey.substring(0, 8);
 
-      // Buscar empresa
       const empresa = await User.findByPk(empresaId);
       if (!empresa) {
         throw new Error(`Empresa com ID ${empresaId} não encontrada`);
       }
 
-      // Salvar hash no banco
       const now = new Date();
       await empresa.update({
         api_key_hash: hash,
+        api_key_prefix: prefix,
         api_key_created_at: empresa.api_key_created_at || now,
-        api_key_last_regenerated: now
+        api_key_last_regenerated: now,
       });
 
-      console.log(`✅ [ApiKeyService] API Key salva para empresa ID: ${empresaId}`);
-
-      return {
-        apiKey, // Retornar apenas uma vez
-        hash    // Hash salvo no banco
-      };
+      return { apiKey, hash };
     } catch (error) {
-      console.error('❌ [ApiKeyService] Erro ao gerar e salvar API Key:', error);
+      console.error('[ApiKeyService] Erro ao gerar e salvar API Key:', error);
       throw error;
     }
   }
@@ -119,29 +110,25 @@ class ApiKeyService {
    */
   static async findEmpresaByApiKey(apiKey) {
     try {
-      // Buscar todas as empresas com API Key configurada
-      const empresas = await User.findAll({
-        where: {
-          api_key_hash: { [require('sequelize').Op.ne]: null }
-        },
-        attributes: ['id', 'api_key_hash', 'name', 'email', 'role']
+      if (!apiKey || apiKey.length < 8) return null;
+
+      const prefix = apiKey.substring(0, 8);
+
+      // Filtrar pelo prefix antes do bcrypt — O(1) em vez de O(n)
+      const candidatas = await User.findAll({
+        where: { api_key_prefix: prefix },
+        attributes: ['id', 'api_key_hash', 'name', 'email', 'role'],
       });
 
-      // Verificar cada empresa
-      for (const empresa of empresas) {
-        if (empresa.api_key_hash) {
-          const isValid = await this.verifyApiKey(apiKey, empresa.api_key_hash);
-          if (isValid) {
-            console.log(`✅ [ApiKeyService] Empresa encontrada por API Key: ID ${empresa.id}`);
-            return empresa;
-          }
+      for (const empresa of candidatas) {
+        if (empresa.api_key_hash && await this.verifyApiKey(apiKey, empresa.api_key_hash)) {
+          return empresa;
         }
       }
 
-      console.log('⚠️ [ApiKeyService] Nenhuma empresa encontrada com a API Key fornecida');
       return null;
     } catch (error) {
-      console.error('❌ [ApiKeyService] Erro ao buscar empresa por API Key:', error);
+      console.error('[ApiKeyService] Erro ao buscar empresa por API Key:', error);
       return null;
     }
   }

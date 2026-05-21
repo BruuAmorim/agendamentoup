@@ -1,53 +1,51 @@
 const { User } = require('../models');
-const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
 /**
- * Middleware de autenticação para integrações (ex: n8n)
- * 
+ * Middleware de autenticação por API Key para integrações (ex: n8n).
+ *
  * Aceita:
- * - Header: x-api-key: <chave>
- * - OU Authorization: Bearer <chave>
- * 
- * Verifica a API Key no banco de dados por empresa (multi-tenant)
+ *   - Header:  x-api-key: <chave>
+ *   - Header:  Authorization: Bearer <chave>
+ *
+ * O processo usa prefix lookup para evitar bcrypt O(n):
+ *   1. Extrai os primeiros 8 chars da chave (prefix).
+ *   2. Filtra usuários no banco WHERE api_key_prefix = prefix.
+ *   3. Faz bcrypt.compare apenas contra o(s) candidato(s) encontrado(s).
  */
 async function verifyIntegrationApiKey(req, res, next) {
   try {
     const headerKey = req.headers['x-api-key'];
     const authHeader = req.headers.authorization;
-    const bearerKey = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const bearerKey = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : null;
 
     const provided = headerKey || bearerKey;
 
-    if (!provided) {
+    if (!provided || provided.length < 8) {
       return res.status(401).json({
         success: false,
         error: 'Não autorizado',
-        message: 'API Key não fornecida'
+        message: 'API Key não fornecida ou inválida',
       });
     }
 
-    // Buscar todas as empresas que têm API Key configurada
-    const empresas = await User.findAll({
-      where: {
-        api_key_hash: { [Op.ne]: null }
-      },
-      attributes: ['id', 'api_key_hash', 'name']
+    const prefix = provided.substring(0, 8);
+
+    // Busca apenas empresas cujo prefix coincide — máximo 1 resultado esperado
+    const candidatas = await User.findAll({
+      where: { api_key_prefix: prefix },
+      attributes: ['id', 'api_key_hash', 'name'],
     });
 
-    // Verificar se a API Key fornecida corresponde a alguma empresa
     let empresaEncontrada = null;
-    for (const empresa of empresas) {
+    for (const empresa of candidatas) {
       if (empresa.api_key_hash) {
-        try {
-          const isValid = await bcrypt.compare(provided, empresa.api_key_hash);
-          if (isValid) {
-            empresaEncontrada = empresa;
-            break;
-          }
-        } catch (error) {
-          // Continuar verificando outras empresas
-          console.warn(`Erro ao verificar API Key para empresa ${empresa.id}:`, error.message);
+        const isValid = await bcrypt.compare(provided, empresa.api_key_hash);
+        if (isValid) {
+          empresaEncontrada = empresa;
+          break;
         }
       }
     }
@@ -56,47 +54,20 @@ async function verifyIntegrationApiKey(req, res, next) {
       return res.status(401).json({
         success: false,
         error: 'Não autorizado',
-        message: 'API Key inválida ou não encontrada'
+        message: 'API Key inválida',
       });
     }
 
-    // Adicionar informações da empresa ao request
-    req.empresa = {
-      id: empresaEncontrada.id,
-      name: empresaEncontrada.name
-    };
-
-    // Compatibilidade: manter comportamento antigo se N8N_API_KEY estiver configurada
-    const legacyKey = process.env.N8N_API_KEY;
-    if (legacyKey && provided === legacyKey) {
-      req.empresa = { id: null, name: 'Legacy Integration' };
-    }
-
+    req.empresa = { id: empresaEncontrada.id, name: empresaEncontrada.name };
     next();
   } catch (error) {
-    console.error('Erro ao verificar API Key:', error);
+    console.error('[apiKeyAuth] Erro ao verificar API Key:', error);
     return res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
-      message: 'Erro ao verificar API Key'
+      message: 'Erro ao verificar API Key',
     });
   }
 }
 
-module.exports = {
-  verifyIntegrationApiKey
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+module.exports = { verifyIntegrationApiKey };

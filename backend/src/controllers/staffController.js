@@ -8,7 +8,7 @@ class StaffController {
   resolveEmpresaId(req) {
     if (!req.user) return null;
     return req.user.empresa_id ?? (
-      (req.user.role === 'moderator' || req.user.role === 'empresa') ? req.user.id : null
+      req.user.role === 'moderator' ? req.user.id : null
     );
   }
 

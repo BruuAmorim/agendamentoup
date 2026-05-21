@@ -25,7 +25,7 @@ const CONFIG = {
 
     // Configurações do Sistema
     system: {
-        title: "Aevum - Sistema de Agendamento Inteligente",
+        title: "Cloudd Agenda - Sistema de Agendamento",
         tagline: "Sistema de Agendamento Inteligente"
     }
 };

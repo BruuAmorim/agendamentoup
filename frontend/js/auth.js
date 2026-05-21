@@ -185,6 +185,7 @@ class AuthManager {
 
         this.updateUIForAuthStatus();
         this.handlePostLoginRedirect();
+        window.dispatchEvent(new CustomEvent('authReady', { detail: { user: this.currentUser } }));
     }
 
     // Atualizar UI baseado no status de autenticação
@@ -234,7 +235,7 @@ class AuthManager {
             if (settingsBtn) settingsBtn.style.display = 'none';
             if (usersBtn) usersBtn.style.display = 'none';
             if (adminLogoutBtn) adminLogoutBtn.style.display = 'none';
-            if (title) title.textContent = 'Aevum';
+            if (title) title.textContent = 'Cloudd Agenda';
         }
     }
 

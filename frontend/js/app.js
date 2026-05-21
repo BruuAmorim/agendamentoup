@@ -52,19 +52,10 @@ class Aevum {
         this.loadInitialData();
         this.showWelcomeMessage();
         
-        // Verificar acesso do moderador - chamar múltiplas vezes para garantir
-        // Primeira verificação imediata
+        // Verificação imediata com dados já no localStorage (sessão existente)
         this.checkModeratorAccess();
-        
-        // Segunda verificação após delay (caso localStorage ainda não esteja pronto)
-        setTimeout(() => {
-            this.checkModeratorAccess();
-        }, 500);
-        
-        // Terceira verificação após mais delay (garantia extra)
-        setTimeout(() => {
-            this.checkModeratorAccess();
-        }, 1500);
+        // Re-verifica após a confirmação do token com o servidor
+        window.addEventListener('authReady', () => this.checkModeratorAccess(), { once: true });
         
         this.loadCompanyInfo();
         // Listener para atualizar quando configurações forem salvas
@@ -2277,22 +2268,12 @@ class Aevum {
      * Verifica se o usuário logado é moderador e mostra botão de configurações
      */
     checkModeratorAccess() {
-        console.log('🔍 checkModeratorAccess chamado');
-        
-        // Carregar user do localStorage diretamente (mais confiável)
         const userData = localStorage.getItem('userData');
-        
-        if (!userData) {
-            console.log('⚠️ UserData não encontrado no localStorage');
-            return;
-        }
-        
+        if (!userData) return;
+
         let user;
         try {
             user = JSON.parse(userData);
-            console.log('👤 User carregado do localStorage:', user);
-            
-            // Atualizar authManager se disponível
             if (window.authManager) {
                 window.authManager.currentUser = user;
                 window.authManager.token = localStorage.getItem('authToken');
@@ -2301,28 +2282,15 @@ class Aevum {
             console.error('Erro ao parse userData:', e);
             return;
         }
-        
+
         const role = user.role;
-        console.log('👤 Verificando acesso - Role:', role, 'User completo:', user);
-        
-        // Verificar se é empresa (não funcionário)
-        // Funcionários são usuários com role 'user' e parent_user_id (vinculados a uma empresa)
-        // Manter compatibilidade com 'moderator' para dados antigos
         const isEmployee = role === 'user' && user.parent_user_id;
-        const isCompany = role === 'empresa' || role === 'moderator'; // Compatibilidade
-        
-        console.log('🔍 Verificação:', { isCompany, isEmployee, role, parent_user_id: user.parent_user_id });
-        
+        const isCompany = role === 'moderator';
+
         if (isCompany && !isEmployee) {
-            console.log('✅ Mostrando botão de configurações para empresa');
             this.showModeratorSettingsButton();
             this.showSettingsLink();
-        } else if (isEmployee) {
-            console.log('🚫 Ocultando botão de configurações para funcionário');
-            this.hideModeratorSettingsButton();
-            this.hideSettingsLink();
         } else {
-            console.log('ℹ️ Usuário não é empresa nem funcionário - Role:', role);
             this.hideModeratorSettingsButton();
             this.hideSettingsLink();
         }

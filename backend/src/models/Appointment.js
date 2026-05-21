@@ -86,7 +86,6 @@ setTimeout(() => {
       memoryStorage.push(new Appointment(data));
     });
 
-    console.log('📊 Dados de teste inicializados:', memoryStorage.length, 'agendamentos');
   }
 }, 100);
 
@@ -158,7 +157,7 @@ class Appointment {
         settingsQuery = `
           SELECT working_hours, working_days, slot_interval
           FROM moderator_settings
-          WHERE user_id IN (SELECT id FROM users WHERE role = 'empresa')
+          WHERE user_id IN (SELECT id FROM users WHERE role = 'moderator')
           LIMIT 1
         `;
       }
@@ -204,7 +203,6 @@ class Appointment {
           slotInterval = 30;
         }
         
-        console.log('✅ Configurações da empresa carregadas:', { workingHours, workingDays, slotInterval, userId });
         return {
           working_hours: workingHours,
           working_days: workingDays,
@@ -212,15 +210,12 @@ class Appointment {
         };
       }
       
-      // Retornar valores padrão se não encontrar
-      console.warn('⚠️ Nenhuma configuração encontrada, usando padrões');
       return {
         working_hours: { start: '09:00', end: '18:00' },
         working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         slot_interval: 30
       };
     } catch (error) {
-      console.warn('❌ Erro ao buscar configurações da empresa, usando padrões:', error);
       return {
         working_hours: { start: '09:00', end: '18:00' },
         working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
@@ -290,13 +285,6 @@ class Appointment {
     // O horário deve estar >= início E < fim (não pode ser igual ao fim)
     if (appointmentMinutes < startMinutesTotal || appointmentMinutes >= endMinutesTotal) {
       errors.push(`Horário fora do expediente. Atendemos das ${settings.working_hours.start} às ${settings.working_hours.end}.`);
-      console.log('❌ validateWorkingHours - Horário fora do expediente:', {
-        appointmentTime,
-        appointmentMinutes,
-        startMinutesTotal,
-        endMinutesTotal,
-        workingHours: settings.working_hours
-      });
     }
 
     // Respeitar intervalo de almoço, se configurado
@@ -454,30 +442,14 @@ class Appointment {
   // userId opcional: ID da empresa para buscar configurações específicas
   static async create(data, userId = null) {
     try {
-      console.log('📅 Appointment.create - Iniciando com dados:', data);
-      if (userId) {
-        console.log('📅 Appointment.create - Validando para empresa:', userId);
-      }
-      
-      // Validar ANTES de qualquer coisa - se houver erro, NÃO criar
       const validationErrors = await this.validate(data, userId);
       if (validationErrors.length > 0) {
-        console.log('❌ Appointment.create - Erros de validação detectados:', validationErrors);
-        console.log('❌ Appointment.create - BLOQUEANDO criação do agendamento');
         throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
       }
-      
-      console.log('✅ Appointment.create - Validação passou, prosseguindo com criação...');
 
-      // Normalizar data/hora para evitar conflitos falsos por formatação
       const normalizedDate = this.normalizeDate(data.appointment_date);
       const normalizedTime = this.normalizeTime(data.appointment_time);
-      console.log('📅 Appointment.create - Data/hora normalizados:', { normalizedDate, normalizedTime });
 
-      // Verificar conflito de horário (verificação tripla para evitar race conditions)
-      console.log('📅 Appointment.create - Verificando conflito de horário...');
-      
-      // Primeira verificação (filtrar por userId para isolar por empresa e employeeId para isolar por funcionário)
       const conflict1 = await this.checkTimeConflict(
         normalizedDate,
         normalizedTime,
@@ -487,42 +459,23 @@ class Appointment {
         data.employee_id || null // employeeId para isolar por funcionário (se enviado)
       );
       if (conflict1) {
-        console.log('❌ Appointment.create - Conflito de horário detectado (primeira verificação)');
         throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
-      
-      // Segunda verificação (proteção contra race condition)
+
       const conflict2 = await this.checkTimeConflict(
-        normalizedDate,
-        normalizedTime,
-        data.duration_minutes,
-        null, // excludeId
-        userId, // userId para filtrar apenas agendamentos da mesma empresa
-        data.employee_id || null
+        normalizedDate, normalizedTime, data.duration_minutes, null, userId, data.employee_id || null
       );
       if (conflict2) {
-        console.log('❌ Appointment.create - Conflito de horário detectado (segunda verificação)');
         throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
-      
-      // Terceira verificação imediatamente antes de inserir no banco (máxima proteção)
+
       const conflict3 = await this.checkTimeConflict(
-        normalizedDate,
-        normalizedTime,
-        data.duration_minutes,
-        null, // excludeId
-        userId, // userId para filtrar apenas agendamentos da mesma empresa
-        data.employee_id || null
+        normalizedDate, normalizedTime, data.duration_minutes, null, userId, data.employee_id || null
       );
       if (conflict3) {
-        console.log('❌ Appointment.create - Conflito de horário detectado (terceira verificação)');
         throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
-      
-      console.log('✅ Appointment.create - Sem conflitos de horário (verificação tripla)');
-      
-      // Definir protocolo: usar o fornecido (normalizado) ou gerar um novo
-      console.log('📅 Appointment.create - Gerando/normalizando protocolo...');
+
       let protocol = Appointment.normalizeProtocol(data.protocol);
       let attempts = 0;
       do {
@@ -535,7 +488,6 @@ class Appointment {
           throw new Error('Não foi possível gerar um protocolo único');
         }
       } while (!(await Appointment.isProtocolUnique(protocol)));
-      console.log('✅ Appointment.create - Protocolo definido:', protocol);
 
       const appointment = new Appointment({
         ...data,
@@ -548,7 +500,6 @@ class Appointment {
       if (useMemoryStorage()) {
         // Usar armazenamento em memória
         memoryStorage.push(appointment);
-        console.log('✅ Agendamento criado em memória:', appointment.id);
         return appointment;
       } else {
         // Usar banco de dados (SQLite ou PostgreSQL)
@@ -559,7 +510,6 @@ class Appointment {
           if (dialect === 'sqlite') {
             const tableCheck = await query("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'", []);
             if (!tableCheck.rows || tableCheck.rows.length === 0) {
-              console.error('❌ Tabela appointments não existe! Criando agora...');
               // Tentar criar a tabela
               const createTable = `
                 CREATE TABLE appointments (
@@ -584,11 +534,9 @@ class Appointment {
                 )
               `;
               await query(createTable, []);
-              console.log('✅ Tabela appointments criada com sucesso!');
             }
           }
         } catch (tableError) {
-          console.error('❌ Erro ao verificar/criar tabela:', tableError);
           // Se a tabela já existe, continuar
           if (!tableError.message.includes('already exists') && !tableError.message.includes('duplicate')) {
             throw new Error(`Tabela appointments não existe e não foi possível criá-la: ${tableError.message}`);
@@ -624,32 +572,24 @@ class Appointment {
           appointment.updated_at
         ];
 
-        console.log('📅 Appointment.create - Executando INSERT no banco...');
         let result;
         try {
           result = await query(queryText, values);
         } catch (dbError) {
           // Se a coluna não existir, tentar criar e executar novamente
           if (dbError.message && (dbError.message.includes('does not exist') || dbError.message.includes('no such column'))) {
-            console.warn('⚠️ Coluna não encontrada, tentando criar...', dbError.message);
             try {
               const { sequelize } = require('../config/database');
               const dialect = sequelize.getDialect();
-              console.log('🔍 Dialect detectado:', dialect);
-              
-              // Verificar se é PostgreSQL ou SQLite
               const isPostgres = dialect === 'postgres' || dialect === 'postgresql';
               const isSQLite = dialect === 'sqlite';
               
               // Criar todas as colunas que podem estar faltando
               const columnsToAdd = [];
               
-              // Detectar qual coluna está faltando pela mensagem de erro
               const missingColumn = dbError.message.match(/column "(\w+)" of relation/);
               const columnName = missingColumn ? missingColumn[1] : null;
-              
-              console.log('🔍 Coluna faltando detectada:', columnName);
-              
+
               if (isPostgres) {
                 // Para PostgreSQL, usar IF NOT EXISTS
                 if (!columnName || columnName === 'user_id') {
@@ -688,8 +628,6 @@ class Appointment {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN employee_id INTEGER');
                 }
               } else {
-                // Fallback: tentar criar todas as colunas
-                console.log('⚠️ Dialect não reconhecido, tentando criar todas as colunas...');
                 if (isPostgres) {
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS user_id INTEGER');
                   columnsToAdd.push('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
@@ -709,24 +647,17 @@ class Appointment {
               for (const alterQuery of columnsToAdd) {
                 try {
                   await query(alterQuery, []);
-                  console.log('✅ Coluna criada/verificada:', alterQuery);
                 } catch (alterError) {
-                  // Ignorar erro se coluna já existe
-                  if (!alterError.message.includes('already exists') && 
+                  if (!alterError.message.includes('already exists') &&
                       !alterError.message.includes('duplicate column') &&
                       !alterError.message.includes('duplicate key')) {
-                    console.warn('⚠️ Erro ao criar coluna (pode já existir):', alterError.message);
-                  } else {
-                    console.log('ℹ️ Coluna já existe, ignorando...');
+                    console.warn('Erro ao criar coluna:', alterError.message);
                   }
                 }
               }
-              
-              console.log('✅ Colunas criadas/verificadas, tentando inserir novamente...');
               result = await query(queryText, values);
             } catch (migrationError) {
-              console.error('❌ Erro ao criar colunas:', migrationError);
-              console.error('❌ Stack:', migrationError.stack);
+              console.error('Erro ao criar colunas faltando:', migrationError.message);
               throw new Error(`Erro ao criar colunas necessárias: ${migrationError.message}`);
             }
           } else {
@@ -741,28 +672,22 @@ class Appointment {
           const selectQuery = 'SELECT * FROM appointments WHERE id = $1';
           const selectResult = await query(selectQuery, [appointment.id]);
           if (selectResult.rows && selectResult.rows.length > 0) {
-            console.log('✅ Appointment.create - Agendamento inserido no banco (SQLite)');
             return new Appointment(selectResult.rows[0]);
           }
         }
-        
+
         if (result.rows && result.rows.length > 0) {
-          console.log('✅ Appointment.create - Agendamento inserido no banco');
           return new Appointment(result.rows[0]);
         } else {
-          // Se não retornou dados, buscar novamente
           const selectQuery = 'SELECT * FROM appointments WHERE id = $1';
           const selectResult = await query(selectQuery, [appointment.id]);
           if (selectResult.rows && selectResult.rows.length > 0) {
-            console.log('✅ Appointment.create - Agendamento recuperado após inserção');
             return new Appointment(selectResult.rows[0]);
           }
           throw new Error('Falha ao recuperar agendamento após inserção');
         }
       }
     } catch (error) {
-      console.error('❌ Appointment.create - Erro:', error);
-      console.error('❌ Appointment.create - Stack:', error.stack);
       throw error;
     }
   }
@@ -1116,41 +1041,27 @@ class Appointment {
           queryText += ` AND id != $${paramIndex}`;
           params.push(excludeId);
         }
-        console.log('🔍 Verificando conflitos no banco:', { date: normalizedDate, time: normalizedTime, duration, excludeId });
-        
         try {
           const result = await query(queryText, params);
-          
-          // Verificar conflitos manualmente (compatível com SQLite)
+
           const timeMinutes = this.timeToMinutes(normalizedTime);
           const endTimeMinutes = timeMinutes + (duration || 60);
-          
+
           for (const apt of result.rows) {
             const aptTime = this.normalizeTime(apt.appointment_time);
             const aptTimeMinutes = this.timeToMinutes(aptTime);
             const aptEndTimeMinutes = aptTimeMinutes + (apt.duration_minutes || 60);
-            
-            // Verificar sobreposição
             if (timeMinutes < aptEndTimeMinutes && endTimeMinutes > aptTimeMinutes) {
-              console.log('📊 Conflito encontrado no banco');
               return true;
             }
           }
-          
-          console.log('✅ Sem conflitos no banco');
           return false;
         } catch (dbError) {
-          console.error('❌ Erro ao verificar conflitos no banco:', dbError);
-          // Se a tabela não existe, retornar false (sem conflito)
-          if (dbError.message && dbError.message.includes('no such table')) {
-            console.warn('⚠️ Tabela appointments não existe, assumindo sem conflitos');
-            return false;
-          }
+          if (dbError.message && dbError.message.includes('no such table')) return false;
           throw dbError;
         }
       }
     } catch (error) {
-      console.error('❌ checkTimeConflict - Erro:', error);
       throw error;
     }
   }
@@ -1176,23 +1087,11 @@ class Appointment {
       // Manter o mesmo funcionário, ou usar o que vier no update (se houver)
       const newEmployeeId = data.employee_id !== undefined ? data.employee_id : this.employee_id;
 
-      console.log('🔄 Appointment.update - Verificando conflito para reagendamento:', {
-        newDate,
-        newTime,
-        newDuration,
-        excludeId: this.id
-      });
-
-      // Verificar conflito considerando apenas agendamentos da mesma empresa e mesmo funcionário
-      // Usar userId passado como parâmetro, ou this.user_id como fallback
       const empresaId = userId || this.user_id;
       const conflict = await Appointment.checkTimeConflict(newDate, newTime, newDuration, this.id, empresaId, newEmployeeId);
       if (conflict) {
-        console.log('❌ Appointment.update - Conflito detectado no reagendamento');
         throw new Error(`Já existe um agendamento cadastrado para a data ${newDate} no horário ${newTime}. Por favor, escolha outro horário.`);
       }
-      
-      console.log('✅ Appointment.update - Sem conflitos, prosseguindo com atualização');
     }
 
     // Atualizar campos
@@ -1207,16 +1106,14 @@ class Appointment {
       const index = memoryStorage.findIndex(apt => apt.id === this.id);
       if (index !== -1) {
         memoryStorage[index] = this;
-        console.log('✅ Agendamento atualizado em memória:', this.id);
         return this;
       } else {
         throw new Error('Agendamento não encontrado');
       }
     } else {
-      // Usar banco de dados (SQLite ou PostgreSQL)
       const { sequelize } = require('../config/database');
       const dialect = sequelize.getDialect();
-      
+
       const queryText = `
         UPDATE appointments SET
           customer_name = $1, customer_email = $2, customer_phone = $3,
@@ -1246,40 +1143,21 @@ class Appointment {
       ];
 
       try {
-        console.log('📅 Appointment.update - Executando UPDATE no banco...');
         const result = await query(queryText, values);
-        
-        // Para SQLite, fazer SELECT separado se necessário (RETURNING não funciona)
+
         if (dialect === 'sqlite' && (!result.rows || result.rows.length === 0)) {
-          console.log('📅 Appointment.update - Fazendo SELECT separado para SQLite...');
-          const selectQuery = 'SELECT * FROM appointments WHERE id = $1';
-          const selectResult = await query(selectQuery, [this.id]);
-          if (selectResult.rows && selectResult.rows.length > 0) {
-            console.log('✅ Appointment.update - Agendamento atualizado no banco (SQLite)');
-            return new Appointment(selectResult.rows[0]);
-          } else {
-            throw new Error('Agendamento não encontrado após atualização');
-          }
+          const selectResult = await query('SELECT * FROM appointments WHERE id = $1', [this.id]);
+          if (selectResult.rows && selectResult.rows.length > 0) return new Appointment(selectResult.rows[0]);
+          throw new Error('Agendamento não encontrado após atualização');
         }
-        
-        if (result.rows && result.rows.length > 0) {
-          console.log('✅ Appointment.update - Agendamento atualizado no banco');
-          return new Appointment(result.rows[0]);
-        } else {
-          // Se não retornou dados, buscar novamente
-          const selectQuery = 'SELECT * FROM appointments WHERE id = $1';
-          const selectResult = await query(selectQuery, [this.id]);
-          if (selectResult.rows && selectResult.rows.length > 0) {
-            console.log('✅ Appointment.update - Agendamento recuperado após atualização');
-            return new Appointment(selectResult.rows[0]);
-          }
-          throw new Error('Falha ao recuperar agendamento após atualização');
-        }
+
+        if (result.rows && result.rows.length > 0) return new Appointment(result.rows[0]);
+
+        const selectResult = await query('SELECT * FROM appointments WHERE id = $1', [this.id]);
+        if (selectResult.rows && selectResult.rows.length > 0) return new Appointment(selectResult.rows[0]);
+        throw new Error('Falha ao recuperar agendamento após atualização');
       } catch (error) {
-        console.error('❌ Erro ao atualizar agendamento:', error);
-        console.error('❌ Stack:', error.stack);
-        console.error('❌ SQL:', queryText);
-        console.error('❌ Values:', values);
+        console.error('Erro ao atualizar agendamento:', error.message);
         throw new Error(`Erro ao atualizar agendamento: ${error.message}`);
       }
     }
@@ -1297,7 +1175,6 @@ class Appointment {
       const index = memoryStorage.findIndex(apt => apt.id === this.id);
       if (index !== -1) {
         memoryStorage[index] = this;
-        console.log('✅ Agendamento cancelado em memória:', this.id);
         return this;
       } else {
         throw new Error('Agendamento não encontrado');
@@ -1330,7 +1207,6 @@ class Appointment {
       const index = memoryStorage.findIndex(apt => apt.id === this.id);
       if (index !== -1) {
         memoryStorage.splice(index, 1);
-        console.log('✅ Agendamento deletado em memória:', this.id);
         return true;
       } else {
         throw new Error('Agendamento não encontrado');
