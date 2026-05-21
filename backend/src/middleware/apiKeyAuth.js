@@ -1,5 +1,4 @@
-const { User } = require('../models');
-const bcrypt = require('bcryptjs');
+const EmpresaApiKeyService = require('../services/empresaApiKeyService');
 
 /**
  * Middleware de autenticação por API Key para integrações (ex: n8n).
@@ -8,10 +7,9 @@ const bcrypt = require('bcryptjs');
  *   - Header:  x-api-key: <chave>
  *   - Header:  Authorization: Bearer <chave>
  *
- * O processo usa prefix lookup para evitar bcrypt O(n):
- *   1. Extrai os primeiros 8 chars da chave (prefix).
- *   2. Filtra usuários no banco WHERE api_key_prefix = prefix.
- *   3. Faz bcrypt.compare apenas contra o(s) candidato(s) encontrado(s).
+ * Delega a validação para EmpresaApiKeyService.findEmpresaByApiKey,
+ * que extrai o empresa_id do formato CLOUDDAGENDA_<id>_<hash> e faz
+ * bcrypt.compare apenas contra o registro correto.
  */
 async function verifyIntegrationApiKey(req, res, next) {
   try {
@@ -21,36 +19,19 @@ async function verifyIntegrationApiKey(req, res, next) {
       ? authHeader.substring(7)
       : null;
 
-    const provided = headerKey || bearerKey;
+    const provided = (headerKey || bearerKey || '').trim();
 
-    if (!provided || provided.length < 8) {
+    if (!provided) {
       return res.status(401).json({
         success: false,
         error: 'Não autorizado',
-        message: 'API Key não fornecida ou inválida',
+        message: 'API Key não fornecida',
       });
     }
 
-    const prefix = provided.substring(0, 8);
+    const empresa = await EmpresaApiKeyService.findEmpresaByApiKey(provided);
 
-    // Busca apenas empresas cujo prefix coincide — máximo 1 resultado esperado
-    const candidatas = await User.findAll({
-      where: { api_key_prefix: prefix },
-      attributes: ['id', 'api_key_hash', 'name'],
-    });
-
-    let empresaEncontrada = null;
-    for (const empresa of candidatas) {
-      if (empresa.api_key_hash) {
-        const isValid = await bcrypt.compare(provided, empresa.api_key_hash);
-        if (isValid) {
-          empresaEncontrada = empresa;
-          break;
-        }
-      }
-    }
-
-    if (!empresaEncontrada) {
+    if (!empresa) {
       return res.status(401).json({
         success: false,
         error: 'Não autorizado',
@@ -58,7 +39,7 @@ async function verifyIntegrationApiKey(req, res, next) {
       });
     }
 
-    req.empresa = { id: empresaEncontrada.id, name: empresaEncontrada.name };
+    req.empresa = { id: empresa.id, name: empresa.name };
     next();
   } catch (error) {
     console.error('[apiKeyAuth] Erro ao verificar API Key:', error);

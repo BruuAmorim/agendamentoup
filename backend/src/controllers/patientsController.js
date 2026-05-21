@@ -194,6 +194,28 @@ exports.search = async (req, res) => {
   }
 };
 
+// ── GET /api/n8n/patients?search=xxx  (autenticado por API Key) ──────────────
+// Aceita ?search= ou ?q= ; busca por nome, telefone ou CPF
+exports.searchN8n = async (req, res) => {
+  try {
+    const empresaId = req.empresa?.id;
+    if (!empresaId) return res.status(403).json({ success: false, message: 'Acesso negado' });
+    await ensureTable();
+    const q = String(req.query.search || req.query.q || '').trim();
+    if (q.length < 2) return res.json({ success: true, data: [] });
+    const dialect = sequelize.getDialect();
+    const like = `%${q}%`;
+    const sql = dialect === 'sqlite'
+      ? 'SELECT * FROM patients WHERE empresa_id = ? AND (phone LIKE ? OR name LIKE ? OR cpf LIKE ?) ORDER BY name ASC LIMIT 5'
+      : 'SELECT * FROM patients WHERE empresa_id = $1 AND (phone ILIKE $2 OR name ILIKE $3 OR cpf ILIKE $4) ORDER BY name ASC LIMIT 5';
+    const r = await query(sql, [empresaId, like, like, like]);
+    res.json({ success: true, data: r.rows });
+  } catch (e) {
+    console.error('patientsController.searchN8n:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 exports.remove = async (req, res) => {
   try {
     const empresaId = resolveEmpresaId(req);
