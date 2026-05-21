@@ -92,7 +92,8 @@
       "Bash(curl -s -X POST https://cloudd-agenda-backend.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@clouddagenda.com\\\\\",\\\\\"password\\\\\":\\\\\"Admin@123\\\\\"}\")",
       "Bash(node scripts/seed-production.js)",
       "Bash(curl -s -X POST https://cloudd-agenda-backend.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"brunadevv@gmail.com\\\\\",\\\\\"password\\\\\":\\\\\"Admin@Dev2024!\\\\\"}\")",
-      "Bash(del \"c:\\\\Users\\\\Bruna\\\\Desktop\\\\agendamentoup\\\\scripts\\\\seed-production.js\")"
+      "Bash(del \"c:\\\\Users\\\\Bruna\\\\Desktop\\\\agendamentoup\\\\scripts\\\\seed-production.js\")",
+      "Bash(node -e \"require\\('c:/Users/Bruna/Desktop/agendamentoup/backend/app.js'\\); console.log\\('app.js OK'\\);\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Bruna\\.claude\\projects\\c--Users-Bruna-Desktop-agendamentoup\\memory"

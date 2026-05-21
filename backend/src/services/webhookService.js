@@ -1,115 +1,108 @@
+const crypto = require('crypto');
 const axios = require('axios');
 
-/**
- * Serviço para disparar eventos para webhooks (n8n)
- */
 class WebhookService {
 
-  /**
-   * Disparar evento para webhook n8n
-   */
-  static async triggerWebhook(event, data) {
+  static _buildPayload(event, data, empresaId) {
+    return {
+      event,
+      timestamp: new Date().toISOString(),
+      idempotency_key: crypto.randomUUID(),
+      empresa_id: empresaId || null,
+      source: 'Aevum',
+      data,
+    };
+  }
+
+  static _sign(payload) {
+    const secret = process.env.WEBHOOK_SECRET;
+    if (!secret) return null;
+    return crypto
+      .createHmac('sha256', secret)
+      .update(JSON.stringify(payload))
+      .digest('hex');
+  }
+
+  static async _findIntegration(empresaId) {
     try {
-      // Tentar buscar integração, mas não falhar se não existir
-      let integration = null;
-      try {
-        const { Integration } = require('../models');
-        if (Integration && typeof Integration.findOne === 'function') {
-          integration = await Integration.findOne({ 
-            where: { name: 'n8n', isActive: true } 
-          });
-        }
-      } catch (modelError) {
-        // Modelo não disponível ou não configurado - não é erro crítico
-        console.warn('⚠️ Modelo Integration não disponível, webhook não será disparado');
+      const { Integration } = require('../models');
+      if (!Integration || typeof Integration.findOne !== 'function') return null;
+
+      // Preferir configuração específica da empresa; cair para global (empresa_id = null)
+      if (empresaId) {
+        const specific = await Integration.findOne({
+          where: { name: 'n8n', isActive: true, empresa_id: empresaId },
+        });
+        if (specific?.webhookUrl) return specific;
       }
 
-      if (!integration || !integration.webhookUrl) {
-        // Webhook não configurado ou inativo - não é erro, apenas não dispara
-        return { success: false, message: 'Webhook não configurado ou inativo' };
-      }
-
-      const payload = {
-        event: event,
-        timestamp: new Date().toISOString(),
-        source: 'ClouddAgenda',
-        data: data
-      };
-
-      const fireWithRetry = async (attempt = 1) => {
-        try {
-          await axios.post(integration.webhookUrl, payload, {
-            timeout: 5000,
-            headers: { 'Content-Type': 'application/json' }
-          });
-          console.log(`✅ Webhook disparado com sucesso: ${event}`);
-        } catch (err) {
-          if (attempt < 3) {
-            setTimeout(() => fireWithRetry(attempt + 1), attempt * 1000);
-          } else {
-            console.error(`❌ Webhook falhou após ${attempt} tentativas (${event}):`, err.message);
-          }
-        }
-      };
-      fireWithRetry();
-
-      return { success: true, message: 'Webhook disparado' };
-
-    } catch (error) {
-      console.error('Erro ao disparar webhook:', error);
-      // Não lançar erro - falha no webhook não deve quebrar o fluxo principal
-      return { success: false, message: error.message };
+      return await Integration.findOne({
+        where: { name: 'n8n', isActive: true, empresa_id: null },
+      });
+    } catch (err) {
+      console.warn('[WebhookService] Modelo Integration indisponível:', err.message);
+      return null;
     }
   }
 
-  /**
-   * Disparar evento de criação de agendamento
-   */
+  static async triggerWebhook(event, data, empresaId) {
+    const integration = await this._findIntegration(empresaId);
+
+    if (!integration?.webhookUrl) return;
+
+    const payload = this._buildPayload(event, data, empresaId);
+    const signature = this._sign(payload);
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Aevum-Event': event,
+      'X-Idempotency-Key': payload.idempotency_key,
+    };
+    if (signature) headers['X-Webhook-Signature'] = signature;
+    if (empresaId) headers['X-Empresa-Id'] = String(empresaId);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await axios.post(integration.webhookUrl, payload, {
+          timeout: 8000,
+          headers,
+        });
+        return;
+      } catch (err) {
+        const isLastAttempt = attempt === 3;
+        const status = err.response?.status;
+        const isRetryable = !status || status >= 500 || status === 429;
+
+        if (isLastAttempt || !isRetryable) {
+          console.error(`[WebhookService] Falhou definitivamente (${event}, empresa_id=${empresaId}):`, err.message);
+          return;
+        }
+
+        await new Promise(r => setTimeout(r, attempt * 2000));
+      }
+    }
+  }
+
+  // --- Helpers por evento ---
+
   static async onAppointmentCreated(appointment) {
-    return this.triggerWebhook('appointment_created', {
-      appointment: appointment.toJSON ? appointment.toJSON() : appointment
-    });
+    const data = appointment.toJSON ? appointment.toJSON() : appointment;
+    return this.triggerWebhook('appointment_created', { appointment: data }, data.user_id || null);
   }
 
-  /**
-   * Disparar evento de atualização de agendamento
-   */
   static async onAppointmentUpdated(appointment) {
-    return this.triggerWebhook('appointment_updated', {
-      appointment: appointment.toJSON ? appointment.toJSON() : appointment
-    });
+    const data = appointment.toJSON ? appointment.toJSON() : appointment;
+    return this.triggerWebhook('appointment_updated', { appointment: data }, data.user_id || null);
   }
 
-  /**
-   * Disparar evento de exclusão de agendamento
-   */
-  static async onAppointmentDeleted(appointmentId) {
-    return this.triggerWebhook('appointment_deleted', {
-      appointmentId: appointmentId
-    });
+  static async onAppointmentDeleted(appointmentId, empresaId) {
+    return this.triggerWebhook('appointment_deleted', { appointmentId }, empresaId || null);
   }
 
-  /**
-   * Disparar evento de cancelamento de agendamento
-   */
   static async onAppointmentCancelled(appointment) {
-    return this.triggerWebhook('appointment_cancelled', {
-      appointment: appointment.toJSON ? appointment.toJSON() : appointment
-    });
+    const data = appointment.toJSON ? appointment.toJSON() : appointment;
+    return this.triggerWebhook('appointment_cancelled', { appointment: data }, data.user_id || null);
   }
 }
 
 module.exports = WebhookService;
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -386,20 +386,27 @@ class Appointment {
     return emailRegex.test(email);
   }
 
-  // Normalizar protocolo vindo de fora (garantir apenas dígitos e tamanho mínimo)
+  // Normalizar protocolo vindo de fora (trim + uppercase)
   static normalizeProtocol(protocol) {
     if (!protocol) return null;
-    const digits = String(protocol).replace(/\D/g, '');
-    if (!digits) return null;
-    // Usar no máximo 5 dígitos finais
-    return digits.slice(-5);
+    const normalized = String(protocol).trim().toUpperCase();
+    return normalized || null;
   }
 
-  // Gerar protocolo único (4-5 dígitos numéricos, timestamp + aleatório)
+  // Gerar protocolo no formato YYYYMMDD-XXXXX (data + 5 chars alfanuméricos)
+  // Exclui caracteres ambíguos: 0/O, 1/I para facilitar leitura humana e por IA
   static generateProtocol() {
-    const tsPart = String(Date.now()).slice(-4);
-    const randDigit = Math.floor(Math.random() * 10); // 0-9
-    return `${tsPart}${randDigit}`;
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const datePart = `${yyyy}${mm}${dd}`;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let randPart = '';
+    for (let i = 0; i < 5; i++) {
+      randPart += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `${datePart}-${randPart}`;
   }
 
   // Verificar se protocolo já existe (para garantir unicidade)
@@ -483,18 +490,16 @@ class Appointment {
         throw new Error(`Já existe um agendamento cadastrado para a data ${normalizedDate} no horário ${normalizedTime}. Por favor, escolha outro horário.`);
       }
 
-      let protocol = Appointment.normalizeProtocol(data.protocol);
-      let attempts = 0;
-      do {
-        if (!protocol) {
+      let protocol = data.protocol ? Appointment.normalizeProtocol(data.protocol) : null;
+      if (!protocol) {
+        let attempts = 0;
+        do {
           protocol = Appointment.generateProtocol();
-        }
-        attempts++;
-        // Limitar tentativas para evitar loop infinito (muito improvável)
-        if (attempts > 10) {
-          throw new Error('Não foi possível gerar um protocolo único');
-        }
-      } while (!(await Appointment.isProtocolUnique(protocol)));
+          if (++attempts > 10) throw new Error('Não foi possível gerar um protocolo único');
+        } while (!(await Appointment.isProtocolUnique(protocol)));
+      } else if (!(await Appointment.isProtocolUnique(protocol))) {
+        throw new Error(`Protocolo ${protocol} já está em uso`);
+      }
 
       const appointment = new Appointment({
         ...data,

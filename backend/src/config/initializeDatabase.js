@@ -74,6 +74,7 @@ async function runMigrations(dialect) {
   await seedDefaultPlansAndNiches(dialect);
   await autoCreateTenants(dialect);
   await migrateCompanyServices(dialect);
+  await migrateIntegrations(dialect);
   await migrateIndexes(dialect);
 
   if (dialect === 'sqlite') {
@@ -824,6 +825,88 @@ async function migrateCompanyServices(dialect) {
     console.log('✅ Tabela company_services criada/verificada');
   } catch (e) {
     console.warn('⚠️ Erro ao criar company_services:', e.message);
+  }
+}
+
+async function migrateIntegrations(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS integrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL DEFAULT 'n8n',
+          empresa_id INTEGER,
+          webhookUrl TEXT,
+          apiKey TEXT,
+          webhookSecret TEXT,
+          isActive INTEGER DEFAULT 1,
+          createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+          updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+
+      const info = await query('PRAGMA table_info(integrations)', []);
+      const cols = info.rows.map(c => c.name);
+      const toAdd = [
+        { name: 'empresa_id',     sql: 'ALTER TABLE integrations ADD COLUMN empresa_id INTEGER' },
+        { name: 'webhookSecret',  sql: 'ALTER TABLE integrations ADD COLUMN webhookSecret TEXT' },
+      ];
+      for (const col of toAdd) {
+        if (!cols.includes(col.name)) {
+          await query(col.sql, []);
+          console.log(`[integrations] Coluna ${col.name} adicionada (SQLite)`);
+        }
+      }
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS integrations (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL DEFAULT 'n8n',
+          empresa_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          "webhookUrl" VARCHAR(500),
+          "apiKey" VARCHAR(255),
+          "webhookSecret" VARCHAR(255),
+          "isActive" BOOLEAN DEFAULT TRUE,
+          "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+
+      await query('ALTER TABLE integrations ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES users(id) ON DELETE CASCADE', []);
+      await query(`ALTER TABLE integrations ADD COLUMN IF NOT EXISTS "webhookSecret" VARCHAR(255)`, []);
+
+      // Remover unicidade antiga em name (se existir) e adicionar composta
+      await query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'integrations'::regclass
+              AND contype = 'u'
+              AND conname = 'integrations_name_key'
+          ) THEN
+            ALTER TABLE integrations DROP CONSTRAINT integrations_name_key;
+          END IF;
+        END $$;
+      `, []);
+
+      await query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'integrations_name_empresa_id_unique'
+          ) THEN
+            ALTER TABLE integrations
+              ADD CONSTRAINT integrations_name_empresa_id_unique
+              UNIQUE (name, empresa_id);
+          END IF;
+        END $$;
+      `, []);
+    }
+    console.log('[integrations] Tabela verificada/migrada');
+  } catch (e) {
+    console.warn('[integrations] Erro na migration:', e.message);
   }
 }
 

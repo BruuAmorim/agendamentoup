@@ -128,6 +128,17 @@ app.use('/api/public/company', require('./src/routes/publicCompanyRoutes'));
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/admin/integrations', require('./src/routes/adminIntegrationRoutes'));
 app.use('/api/empresa/api-key', require('./src/routes/empresaApiKeyRoutes'));
+// Rate limit isolado para integrações n8n — bucket por API Key, não por IP
+app.use('/api/n8n', rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.N8N_RATE_LIMIT || '300', 10),
+  // Chave = API Key enviada; se ausente, cai para 'unauthenticated' (bloqueado pelo middleware seguinte)
+  keyGenerator: (req) => req.headers['x-api-key'] || req.headers.authorization || 'unauthenticated',
+  message: { success: false, error: 'Rate limit atingido para integração n8n' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { ip: false },
+}));
 app.use('/api/n8n', n8nRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/moderator', moderatorRoutes);
