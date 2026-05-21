@@ -97,7 +97,13 @@ class UserController {
    */
   static async createUser(req, res) {
     try {
-      const { name, email, password, role } = req.body;
+      const { name, role } = req.body;
+      const isPatient = !role || role === 'user';
+      // Patients don't log in — email and password are optional for them
+      const email = req.body.email?.trim() ||
+        (isPatient ? `paciente_${require('crypto').randomBytes(6).toString('hex')}@sem-email.local` : null);
+      const password = req.body.password ||
+        (isPatient ? require('crypto').randomBytes(12).toString('hex') : null);
 
       if (!name || !email || !password) {
         return res.status(400).json({
@@ -657,6 +663,46 @@ class UserController {
         error: 'Erro interno do servidor',
         message: 'Erro ao remover funcionário',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+  /**
+   * PUT /api/users/:id/reset-password
+   * Admin reseta a senha de qualquer usuário (sem precisar da senha atual)
+   */
+  static async resetPassword(req, res) {
+    try {
+      const { id } = req.params;
+      const { password } = req.body;
+
+      if (!password || typeof password !== 'string' || password.trim().length < 6) {
+        return res.status(400).json({
+          error: 'Senha inválida',
+          message: 'A nova senha deve ter no mínimo 6 caracteres'
+        });
+      }
+
+      const user = await User.findByPk(id, {
+        attributes: ['id', 'name', 'email', 'role']
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuário não encontrado' });
+      }
+
+      // O hook beforeUpdate do modelo hasheia automaticamente
+      await user.update({ password: password.trim() });
+
+      res.json({
+        success: true,
+        message: `Senha de ${user.name} (${user.email}) resetada com sucesso`
+      });
+
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: 'Erro ao resetar senha'
       });
     }
   }

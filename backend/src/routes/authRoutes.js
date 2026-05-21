@@ -4,8 +4,10 @@ const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Rota de login (pública)
+// Rotas públicas
 router.post('/login', AuthController.login);
+router.post('/forgot-password', AuthController.forgotPassword);
+router.post('/reset-password', AuthController.resetPassword);
 
 // Rota de logout (protegida)
 router.post('/logout', verifyToken, AuthController.logout);

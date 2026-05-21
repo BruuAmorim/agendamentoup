@@ -1,875 +1,915 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configurações - Cloudd Agenda</title>
-
-  <!-- Fonte -->
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Configurações — Cloudd Agenda</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="../css/styles.css">
-
+  <link rel="stylesheet" href="/css/app-layout.css">
   <style>
-    /* Lock screen de verificação de senha */
-    .lock-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    /* ── Layout ─────────────────────────────────────── */
+    body { overflow: hidden; }
 
-    .lock-screen.hidden {
-      display: none;
-    }
-
-    .lock-screen-content {
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
-
-    .lock-screen-content h2 {
-      margin: 0 0 20px 0;
-      color: #333;
-      font-size: 24px;
-    }
-
-    .lock-screen-content p {
-      color: #666;
-      margin-bottom: 20px;
-    }
-
-    .lock-screen-content input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
-      margin-bottom: 20px;
-    }
-
-    .lock-screen-content input:focus {
-      outline: none;
-      border-color: #0091FF;
-    }
-
-    .lock-screen-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-
-    .lock-screen-actions button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .lock-screen-actions .btn-primary {
-      background: #0091FF;
-      color: white;
-    }
-
-    .lock-screen-actions .btn-primary:hover {
-      background: #007acc;
-    }
-
-    .lock-screen-actions .btn-secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    .lock-screen-actions .btn-secondary:hover {
-      background: #e0e0e0;
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 10000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-      background-color: white;
-      margin: 10% auto;
-      padding: 30px;
-      border-radius: 12px;
-      max-width: 600px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    .modal-header {
-      margin-bottom: 20px;
-    }
-
-    .modal-header h3 {
-      margin: 0;
-      color: #333;
-    }
-
-    .modal-body {
-      margin-bottom: 20px;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 500;
-    }
-
-    .password-error {
-      color: #dc3545;
-      font-size: 14px;
-      margin-top: -15px;
-      margin-bottom: 15px;
-      display: none;
-    }
-
-    .password-error.show {
-      display: block;
-    }
-
-    .settings-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    .settings-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .settings-header h1 {
-      margin: 0;
-      color: #0091FF;
-      font-size: 28px;
-    }
-
-    .save-btn-floating {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      padding: 16px 32px;
-      background: linear-gradient(135deg, #0091FF, #007acc);
-      color: white;
-      border: none;
-      border-radius: 50px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 4px 20px rgba(0, 145, 255, 0.4);
-      z-index: 1000;
-      transition: all 0.3s ease;
-    }
-
-    .save-btn-floating:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(0, 145, 255, 0.6);
-    }
-
-    .save-btn-floating:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .settings-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      background: white;
-      padding: 10px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .tab-btn {
+    .settings-main {
       flex: 1;
-      padding: 12px 24px;
-      background: transparent;
-      border: 2px solid transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      color: #666;
-      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: var(--bg);
     }
 
-    .tab-btn:hover {
-      background: #f0f7ff;
-      color: #0091FF;
+    .settings-topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
     }
-
-    .tab-btn.active {
-      background: #0091FF;
-      color: white;
-      border-color: #0091FF;
-    }
-
-    .tab-content {
+    .settings-topbar h1 { font-size: 17px; font-weight: 700; color: var(--text); }
+    .dirty-badge {
       display: none;
-      background: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: 10px;
+      font-weight: 400;
     }
+    .dirty-badge.visible { display: inline; }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
 
-    .tab-content.active {
-      display: block;
-    }
-
-    .form-group {
-      margin-bottom: 24px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: #333;
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.3s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: #0091FF;
-      box-shadow: 0 0 0 3px rgba(0, 145, 255, 0.1);
-    }
-
-    .logo-upload {
+    .settings-body {
       display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .logo-preview {
-      width: 120px;
-      height: 120px;
-      border: 2px dashed #ddd;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      flex: 1;
+      min-height: 0;
       overflow: hidden;
-      background: #f9f9f9;
     }
 
-    .logo-preview img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-
-    .logo-preview-placeholder {
-      color: #999;
-      font-size: 14px;
-      text-align: center;
-    }
-
-    .checkbox-group {
+    /* ── Section tabs ────────────────────────────────── */
+    .settings-tabs {
+      width: 192px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      padding: 16px 0;
+      gap: 2px;
     }
 
-    .checkbox-item {
+    .stab {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: #f9f9f9;
-      border-radius: 8px;
-    }
-
-    .checkbox-item input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-    }
-
-    .checkbox-item label {
-      margin: 0;
-      cursor: pointer;
-      flex: 1;
-    }
-
-    .extra-fields-list {
-      margin-top: 20px;
-    }
-
-    .extra-field-item {
-      display: flex;
       gap: 10px;
-      margin-bottom: 10px;
-      align-items: center;
-    }
-
-    .extra-field-item input {
-      flex: 1;
-    }
-
-    .extra-field-item button {
-      padding: 8px 16px;
-      background: #dc3545;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .add-field-btn {
       padding: 10px 20px;
-      background: #0091FF;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+      font-size: 13px;
       font-weight: 500;
-    }
-
-    .services-list {
-      margin-top: 20px;
-    }
-
-    .service-item {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-      align-items: center;
-      padding: 12px;
-      background: #f9f9f9;
-      border-radius: 8px;
-    }
-
-    .service-item input {
-      flex: 1;
-    }
-
-    .service-item button {
-      padding: 8px 16px;
-      background: #dc3545;
-      color: white;
+      color: var(--text-muted);
+      cursor: pointer;
       border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    /* Funcionários */
-    .staff-list {
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .staff-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: #f9f9f9;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      gap: 12px;
-    }
-
-    .staff-main {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .staff-name {
-      font-weight: 600;
-      color: #111827;
-    }
-
-    .staff-role {
-      font-size: 13px;
-      color: #6b7280;
-    }
-
-    .staff-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .staff-actions button {
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    .staff-actions .btn-edit {
-      background: #e5f2ff;
-      color: #1d4ed8;
-    }
-
-    .staff-actions .btn-toggle {
-      background: #fee2e2;
-      color: #b91c1c;
-    }
-
-    .status-badge--active {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .status-badge--inactive {
-      background: #fee2e2;
-      color: #b91c1c;
-    }
-
-    .staff-modal-services {
-      display: flex;
-      flex-direction: column;
-      gap: 6px; /* espaçamento vertical uniforme entre itens */
-      max-height: 220px; /* altura máxima definida */
-      overflow-y: auto; /* rolagem vertical quando necessário */
-      overflow-x: hidden;
-      padding: 12px;
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb; /* borda sutil */
-      border-radius: 6px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .staff-service-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 4px 0;
-      cursor: pointer;
-      font-size: 13px;
-      color: #374151;
-      border-bottom: 1px solid #f1f5f9;
-    }
-
-    .staff-service-item:last-child {
-      border-bottom: none;
-    }
-
-    .staff-service-name {
-      flex: 1; /* texto ocupa o espaço disponível */
+      background: none;
       text-align: left;
-      margin: 0;
-      white-space: normal;
-      word-break: break-word;
+      border-radius: 0;
+      transition: color .15s, background .15s;
+      position: relative;
+    }
+    .stab:hover { background: var(--bg); color: var(--text); }
+    .stab.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      font-weight: 600;
+    }
+    .stab.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0;
+    }
+    .stab-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+    .stab-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
     }
 
-    .staff-service-item input[type="checkbox"] {
-      margin-left: 10px; /* afasta o quadradinho do texto */
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-      box-shadow: none;
-      border: none;
-      background: transparent;
+    /* ── Panel ───────────────────────────────────────── */
+    .settings-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 36px;
+      min-height: 0;
     }
 
-    .days-selector {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 10px;
+    .panel-section { display: none; }
+    .panel-section.active { display: block; }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
       margin-bottom: 20px;
     }
 
-    .day-checkbox {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 12px;
-      background: #f9f9f9;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
+    /* ── Forms ───────────────────────────────────────── */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .form-row.single { grid-template-columns: 1fr; }
+    .form-row.thirds { grid-template-columns: 1fr 1fr 1fr; }
 
-    .day-checkbox:hover {
-      background: #f0f7ff;
+    /* ── Day schedule table ──────────────────────────── */
+    .day-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .day-table th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
     }
-
-    .day-checkbox input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      margin-bottom: 8px;
-      cursor: pointer;
-    }
-
-    .day-checkbox label {
+    .day-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .day-table tr:last-child td { border-bottom: none; }
+    .day-table input[type=time] {
+      padding: 4px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
       font-size: 12px;
-      font-weight: 500;
+      background: var(--bg);
+      color: var(--text);
+      width: 96px;
+    }
+    .day-table input[type=time]:disabled { opacity: .4; pointer-events: none; }
+
+    .day-toggle {
+      width: 34px; height: 19px;
+      border-radius: 10px;
+      border: none; cursor: pointer;
+      transition: background .2s;
+      position: relative; flex-shrink: 0;
+    }
+    .day-toggle.on { background: var(--accent); }
+    .day-toggle.off { background: var(--border); }
+    .day-toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; width: 13px; height: 13px;
+      border-radius: 50%; background: white;
+      transition: left .2s;
+    }
+    .day-toggle.on::after { left: 18px; }
+    .day-toggle.off::after { left: 3px; }
+
+    /* ── Services ────────────────────────────────────── */
+    .svc-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+    .svc-table th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .svc-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .svc-table tr:last-child td { border-bottom: none; }
+
+    .svc-add-row { display: flex; gap: 8px; align-items: center; }
+    .svc-add-row input { flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); }
+    .svc-add-row select { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); min-width: 110px; }
+
+    /* ── Fields ─────────────────────────────────────── */
+    .fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field-check {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
       cursor: pointer;
-      margin: 0;
-    }
-
-    .day-checkbox.checked {
-      background: #e6f4ff;
-      border: 2px solid #0091FF;
-    }
-
-    .time-inputs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: #0091FF;
-      text-decoration: none;
+      font-size: 13px;
       font-weight: 500;
-      margin-bottom: 20px;
+      transition: all .15s;
+      user-select: none;
+    }
+    .field-check.checked { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+    /* ── Team / Doctors ─────────────────────────────── */
+    .team-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+    .team-table th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .team-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .team-table tr:last-child td { border-bottom: none; }
+    .team-badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .team-add-row { display: flex; gap: 8px; align-items: center; }
+    .team-add-row input { flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); }
+    .panel-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+    /* ── Integrations ────────────────────────────────── */
+    .integration-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: var(--bg);
+      opacity: .65;
+    }
+    .integration-icon { font-size: 24px; width: 36px; text-align: center; }
+    .integration-info { flex: 1; }
+    .integration-info strong { font-size: 13px; font-weight: 600; color: var(--text); display: block; }
+    .integration-info span { font-size: 12px; color: var(--text-muted); }
+    .badge-soon {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      flex-shrink: 0;
     }
 
-    .back-link:hover {
-      text-decoration: underline;
-    }
+    .validation-msg { color: #dc2626; font-size: 12px; margin-top: 8px; display: none; }
   </style>
 </head>
 <body>
-  <!-- Lock screen de Verificação de Senha -->
-  <div class="lock-screen" id="lockScreen">
-    <div class="lock-screen-content">
-      <h2>🔒 Verificação de Acesso</h2>
-      <p>Para acessar as configurações, por favor, informe sua senha:</p>
-      <input type="password" id="adminPasswordInput" placeholder="Digite sua senha" autocomplete="current-password">
-      <div class="password-error" id="passwordError">Senha incorreta. Tente novamente.</div>
-      <div class="lock-screen-actions">
-        <button class="btn-secondary" id="cancelPasswordBtn">Cancelar</button>
-        <button class="btn-primary" id="verifyPasswordBtn">Verificar</button>
+<div class="app-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" >
+        <svg width="44" height="44" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M29 23.5H9.5C6.5 23.5 4 21 4 18c0-2.7 2-5 4.6-5.4.2-3.5 3.1-6.1 6.6-6.1 1.8 0 3.4.7 4.6 1.8 1-1.1 2.4-1.8 4-1.8 2.9 0 5.2 2.3 5.2 5.2v.2c2.3.5 4 2.5 4 4.8 0 2.8-2.2 5-4 5z" fill="#0ea5e9"/>
+          <rect x="11" y="15" width="14" height="11" rx="1.5" stroke="white" stroke-width="1.2" fill="none"/>
+          <line x1="11" y1="18.5" x2="25" y2="18.5" stroke="white" stroke-width="1.2"/>
+          <line x1="15" y1="13.5" x2="15" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="21" y1="13.5" x2="21" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <rect x="13" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="13" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+        </svg>
       </div>
+      <span class="brand-name">EVA</span>
     </div>
-  </div>
-
-  <!-- Background waves -->
-  <div class="waves-container" id="wavesContainer">
-    <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
-      <path fill="#cfe9ff"
-        d="M0,160L80,176C160,192,320,224,480,218.7C640,213,800,171,960,160C1120,149,1280,171,1360,181.3L1440,192V0H0Z" />
-    </svg>
-  </div>
-
-  <div class="settings-container" id="settingsContainer" style="display: none;">
-    <a href="agendamentos.html" class="back-link">← Voltar para Agendamentos</a>
-
-    <div class="settings-header">
-      <h1>⚙️ Configurações do Sistema</h1>
-      <button id="logoutBtn" class="logout-btn" title="Sair">🚪 Sair</button>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="/app/agendamentos.html"><span class="nav-icon">📅</span><span class="nav-label">Agenda</span></a>
+      <a class="nav-item" href="/app/pacientes.html"><span class="nav-icon">👥</span><span class="nav-label">Pacientes</span></a>
+      <a class="nav-item active" href="/app/settings.html"><span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span></a>
+      <a class="nav-item" href="/app/relatorios.html"><span class="nav-icon">📊</span><span class="nav-label">Relatórios</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="nav-item" style="cursor:default;"><span class="nav-icon">👤</span><span class="nav-label" id="sidebarUserName" style="font-size:11px;opacity:.7;"></span></div>
+      <button class="nav-item" id="sidebarLogout"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
     </div>
+  </aside>
 
-    <!-- Tabs -->
-    <div class="settings-tabs">
-      <button class="tab-btn active" data-tab="general">📋 Geral</button>
-      <button class="tab-btn" data-tab="form">📝 Formulário</button>
-      <button class="tab-btn" data-tab="services">🛠️ Serviços</button>
-      <button class="tab-btn" data-tab="staff">👤 Funcionários</button>
-      <button class="tab-btn" data-tab="schedule">📅 Agenda</button>
-      <!-- Tab de Integrações removida: API Key não é mais gerenciada aqui -->
-    </div>
-
-    <!-- Tab: Geral -->
-    <div class="tab-content active" id="general-tab">
-      <h2>Configurações Gerais</h2>
-      
-      <div class="form-group">
-        <label>Nome da Empresa *</label>
-        <input type="text" id="companyName" placeholder="Ex: EVA Cloudd" required>
+  <div class="settings-main">
+    <div class="settings-topbar">
+      <div style="display:flex;align-items:center;">
+        <h1>Configurações</h1>
+        <span class="dirty-badge" id="dirtyBadge">· alterações não salvas</span>
       </div>
-
-      <!-- Logo removido conforme solicitado -->
-
-      <!-- Seção Admin Master: Gerenciar senha de configurações -->
-      <div class="form-group" id="adminPasswordSection" style="display: none;">
-        <label>Senha de Acesso às Configurações</label>
-        <div style="background: #f9f9f9; padding: 16px; border-radius: 8px;">
-          <p id="adminPasswordStatus" style="margin: 0 0 12px 0; color: #666;">Carregando status...</p>
-          <div id="adminPasswordFields" style="display: none;">
-            <div id="adminCurrentPasswordGroup" style="margin-bottom: 12px; display: none;">
-              <input type="password" id="adminCurrentPasswordInput" placeholder="Senha atual">
-            </div>
-            <div style="margin-bottom: 12px;">
-              <input type="password" id="adminNewPasswordInput" placeholder="Nova senha (mínimo 4 caracteres)" minlength="4">
-            </div>
-            <div style="margin-bottom: 12px;">
-              <input type="password" id="adminConfirmPasswordInput" placeholder="Confirmar nova senha" minlength="4">
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <button type="button" class="add-field-btn" id="adminSavePasswordBtn">Salvar Senha</button>
-              <button type="button" class="btn-secondary" id="adminCancelPasswordBtn" style="border: none; border-radius: 8px; padding: 10px 20px;">Cancelar</button>
-            </div>
-          </div>
-          <div id="adminPasswordActions">
-            <button type="button" class="add-field-btn" id="adminCreatePasswordBtn" style="display: none;">Criar Senha</button>
-            <button type="button" class="add-field-btn" id="adminChangePasswordBtn" style="display: none;">Alterar Senha</button>
-          </div>
-        </div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" onclick="discardChanges()">Descartar</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Salvar Alterações</button>
       </div>
     </div>
 
-    <!-- Tab: Formulário -->
-    <div class="tab-content" id="form-tab">
-      <h2>Campos do Formulário de Agendamento</h2>
-      
-      <div class="form-group">
-        <label>Campos Visíveis</label>
-        <div class="checkbox-group">
-          <div class="checkbox-item">
-            <input type="checkbox" id="fieldNome" checked>
-            <label for="fieldNome">Nome do Cliente</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="fieldTelefone" checked>
-            <label for="fieldTelefone">Telefone</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="fieldEmail">
-            <label for="fieldEmail">E-mail</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="fieldCPF">
-            <label for="fieldCPF">CPF</label>
-          </div>
-        </div>
-      </div>
+    <div class="settings-body">
 
-      <div class="form-group">
-        <label>Campos Extras</label>
-        <div class="extra-fields-list" id="extraFieldsList">
-          <!-- Campos extras serão adicionados aqui dinamicamente -->
-        </div>
-        <button type="button" class="add-field-btn" onclick="addExtraField()">
-          + Adicionar Campo Extra
+      <!-- Left tabs -->
+      <div class="settings-tabs">
+        <button class="stab active" data-tab="empresa" onclick="switchTab('empresa', this)">
+          <span class="stab-icon">&#9679;</span> Empresa
         </button>
-      </div>
-    </div>
-
-    <!-- Tab: Serviços -->
-    <div class="tab-content" id="services-tab">
-      <h2>Serviços Disponíveis</h2>
-      
-      <div class="form-group" style="margin-bottom: 8px;">
-        <div style="display:flex; gap:8px; font-size:13px; color:#6b7280; font-weight:500;">
-          <span style="flex:1;">Nome do Serviço</span>
-          <span style="width:150px; text-align:left;">Duração (minutos)</span>
-        </div>
-      </div>
-
-      <div class="services-list" id="servicesList">
-        <!-- Serviços serão adicionados aqui dinamicamente -->
-      </div>
-      
-      <button type="button" class="add-field-btn" onclick="addService()">
-        + Adicionar Serviço
-      </button>
-    </div>
-
-    <!-- Tab: Funcionários -->
-    <div class="tab-content" id="staff-tab">
-      <h2>Funcionários</h2>
-      <p style="font-size:13px; color:#6b7280; margin-top:4px;">
-        Cadastre os profissionais da empresa e defina quais serviços cada um realiza. A agenda poderá ser filtrada por funcionário.
-      </p>
-
-      <div class="form-group">
-        <button type="button" class="add-field-btn" id="addStaffBtn">
-          + Novo Funcionário
+        <button class="stab" data-tab="servicos" onclick="switchTab('servicos', this)">
+          <span class="stab-icon">&#9679;</span> Serviços
+        </button>
+        <button class="stab" data-tab="campos" onclick="switchTab('campos', this)">
+          <span class="stab-icon">&#9679;</span> Campos
+        </button>
+        <button class="stab" data-tab="horarios" onclick="switchTab('horarios', this)">
+          <span class="stab-icon">&#9679;</span> Horários
+        </button>
+        <button class="stab" data-tab="integracoes" onclick="switchTab('integracoes', this)">
+          <span class="stab-icon">&#9679;</span> Integrações
+          <span class="stab-badge">Em breve</span>
         </button>
       </div>
 
-      <div id="staffList" class="staff-list">
-        <!-- Funcionários serão carregados aqui -->
-      </div>
-    </div>
+      <!-- Right panel -->
+      <div class="settings-panel">
 
-    <!-- Tab: Agenda -->
-    <div class="tab-content" id="schedule-tab">
-      <h2>Configurações de Funcionamento</h2>
-      
-      <div class="form-group">
-        <label>Dias da Semana</label>
-        <div class="days-selector">
-          <div class="day-checkbox" data-day="monday">
-            <input type="checkbox" id="dayMonday" checked>
-            <label for="dayMonday">Seg</label>
-          </div>
-          <div class="day-checkbox" data-day="tuesday">
-            <input type="checkbox" id="dayTuesday" checked>
-            <label for="dayTuesday">Ter</label>
-          </div>
-          <div class="day-checkbox" data-day="wednesday">
-            <input type="checkbox" id="dayWednesday" checked>
-            <label for="dayWednesday">Qua</label>
-          </div>
-          <div class="day-checkbox" data-day="thursday">
-            <input type="checkbox" id="dayThursday" checked>
-            <label for="dayThursday">Qui</label>
-          </div>
-          <div class="day-checkbox" data-day="friday">
-            <input type="checkbox" id="dayFriday" checked>
-            <label for="dayFriday">Sex</label>
-          </div>
-          <div class="day-checkbox" data-day="saturday">
-            <input type="checkbox" id="daySaturday">
-            <label for="daySaturday">Sáb</label>
-          </div>
-          <div class="day-checkbox" data-day="sunday">
-            <input type="checkbox" id="daySunday">
-            <label for="daySunday">Dom</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Horário de Funcionamento</label>
-        <div class="time-inputs">
-          <div>
-            <label>Início</label>
-            <input type="time" id="startTime" value="08:00" required>
-          </div>
-          <div>
-            <label>Fim</label>
-            <input type="time" id="endTime" value="18:00" required>
-          </div>
-          <div>
-            <label>Intervalo (minutos)</label>
-            <input type="number" id="slotInterval" value="30" min="15" step="15" required>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Horário de Almoço (opcional)</label>
-        <div class="time-inputs">
-          <div>
-            <label>Início do Almoço</label>
-            <input type="time" id="lunchStartTime" placeholder="12:00">
-          </div>
-          <div>
-            <label>Fim do Almoço</label>
-            <input type="time" id="lunchEndTime" placeholder="13:00">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal Funcionário -->
-    <div class="modal" id="staffModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="staffModalTitle">Novo Funcionário</h3>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="staffId">
-
-          <div class="form-group">
-            <label>Nome do Funcionário *</label>
-            <input type="text" id="staffName" placeholder="Ex: Gustavo Silva">
-          </div>
-
-          <div class="form-group">
-            <label>Função</label>
-            <input type="text" id="staffRole" placeholder="Ex: Barbeiro, Cabeleireiro">
-          </div>
-
-          <div class="form-group" style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="staffActive" checked style="width:18px; height:18px;">
-            <label for="staffActive" style="margin:0;">Funcionário ativo</label>
-          </div>
-
-          <div class="form-group">
-            <label>Horário de almoço do funcionário (opcional)</label>
-            <div style="display:flex; gap:16px;">
-              <div style="flex:1;">
-                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:4px;">Início</label>
-                <input type="time" id="staffLunchStart">
-              </div>
-              <div style="flex:1;">
-                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:4px;">Fim</label>
-                <input type="time" id="staffLunchEnd">
-              </div>
+        <!-- Empresa + Equipe -->
+        <div class="panel-section active" id="tab-empresa">
+          <p class="panel-title">Dados da Empresa</p>
+          <div class="form-row single" style="margin-bottom:28px;">
+            <div class="form-group">
+              <label>Nome da Empresa</label>
+              <input type="text" id="companyName" placeholder="Ex: Clínica Bem Estar">
             </div>
           </div>
+          <input type="hidden" id="slotInterval" value="30">
 
-          <div class="form-group">
-            <label>Serviços que este funcionário realiza</label>
-            <div id="staffServicesList" class="staff-modal-services">
-              <!-- Checkboxes de serviços serão renderizados via JS -->
-              <p id="staffServicesEmpty" style="font-size:13px; color:#6b7280; margin:0;">
-                Nenhum serviço cadastrado ainda. Cadastre serviços na aba "Serviços".
+          <hr class="panel-divider">
+
+          <p class="panel-title">Equipe / Profissionais</p>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Cadastre os profissionais que atendem na sua clínica.</p>
+          <div id="teamTable"></div>
+          <div class="team-add-row">
+            <input type="text" id="newDoctorName" placeholder="Nome do profissional">
+            <input type="text" id="newDoctorRole" placeholder="Especialidade (ex: Cardiologista)">
+            <button class="btn btn-primary" id="addDoctorBtn">+ Adicionar</button>
+          </div>
+        </div>
+
+        <!-- Serviços -->
+        <div class="panel-section" id="tab-servicos">
+          <p class="panel-title">Serviços</p>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Cada serviço tem sua própria duração, usada ao criar agendamentos.</p>
+          <div id="servicesTable"></div>
+          <div class="svc-add-row">
+            <input type="text" id="newServiceInput" placeholder="Nome do serviço (ex: Consulta, Retorno...)">
+            <input type="color" id="newServiceColor" value="#0099ff"
+              title="Cor na agenda"
+              style="width:36px;height:36px;border:1.5px solid var(--border);cursor:pointer;border-radius:8px;padding:3px;background:var(--bg);flex-shrink:0;">
+            <select id="newServiceDuration">
+              <option value="15">15 min</option>
+              <option value="20">20 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="90">90 min</option>
+              <option value="120">2 horas</option>
+            </select>
+            <button class="btn btn-primary" id="addServiceBtn">+ Adicionar</button>
+          </div>
+        </div>
+
+        <!-- Campos -->
+        <div class="panel-section" id="tab-campos">
+          <p class="panel-title">Campos da Ficha do Paciente</p>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Configure quais campos aparecem ao criar ou editar uma ficha de paciente. Campos personalizados podem ser adicionados e removidos.</p>
+          <div id="patientFieldsList"></div>
+          <div class="team-add-row" style="margin-top:14px;">
+            <input type="text" id="newFieldLabel" placeholder="Nome do campo (ex: Peso, Altura, Grupo sanguíneo...)">
+            <button class="btn btn-primary" id="addFieldBtn">+ Adicionar Campo</button>
+          </div>
+        </div>
+
+        <!-- Horários -->
+        <div class="panel-section" id="tab-horarios">
+          <p class="panel-title">Horário de Funcionamento</p>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Configure horário e pausa por dia da semana.</p>
+          <table class="day-table">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Ativo</th>
+                <th>Abertura</th>
+                <th>Encerramento</th>
+                <th>Pausa início</th>
+                <th>Pausa fim</th>
+              </tr>
+            </thead>
+            <tbody id="dayScheduleBody"></tbody>
+          </table>
+          <p class="validation-msg" id="timeValidationMsg">Encerramento deve ser posterior à abertura.</p>
+        </div>
+
+        <!-- Integrações -->
+        <div class="panel-section" id="tab-integracoes">
+          <p class="panel-title">API Key — n8n / WhatsApp</p>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#374151;">Chave de integração</p>
+            <p style="margin:0 0 16px;font-size:12px;color:#6b7280;line-height:1.5;">
+              Use esta chave no header <code style="background:#e5e7eb;padding:1px 5px;border-radius:4px;">x-api-key</code> para conectar o n8n e outros sistemas ao Cloudd Agenda.<br>
+              A chave só é exibida no momento da geração — guarde-a em local seguro.
+            </p>
+
+            <div id="apiKeyStatusBlock" style="display:none;margin-bottom:16px;">
+              <span style="font-size:12px;color:#6b7280;" id="apiKeyStatusText"></span>
+            </div>
+
+            <div id="apiKeyRevealBlock" style="display:none;margin-bottom:16px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input id="apiKeyReveal" type="text" readonly
+                  style="flex:1;min-width:0;font-family:monospace;font-size:12px;background:#1e293b;color:#4ade80;
+                         border:1px solid #334155;border-radius:8px;padding:10px 14px;cursor:text;" />
+                <button onclick="copyApiKey()"
+                  style="padding:10px 18px;background:#4f46e5;color:white;border:none;border-radius:8px;
+                         font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                  Copiar
+                </button>
+              </div>
+              <p style="margin:8px 0 0;font-size:11px;color:#f59e0b;">
+                Atenção: esta chave não será exibida novamente. Copie agora.
               </p>
             </div>
+
+            <button id="btnGenerateKey" onclick="generateApiKey()"
+              style="padding:10px 20px;background:#0ea5e9;color:white;border:none;border-radius:8px;
+                     font-size:13px;font-weight:600;cursor:pointer;">
+              Gerar nova chave
+            </button>
+          </div>
+
+          <p class="panel-title" style="margin-top:8px;">Outras integrações</p>
+          <div class="integration-card">
+            <span class="integration-icon">💬</span>
+            <div class="integration-info">
+              <strong>WhatsApp</strong>
+              <span>Envie lembretes automáticos de consulta</span>
+            </div>
+            <span class="badge-soon">Em breve</span>
+          </div>
+          <div class="integration-card">
+            <span class="integration-icon">📆</span>
+            <div class="integration-info">
+              <strong>Google Calendar</strong>
+              <span>Sincronize sua agenda com o Google</span>
+            </div>
+            <span class="badge-soon">Em breve</span>
+          </div>
+          <div class="integration-card">
+            <span class="integration-icon">📧</span>
+            <div class="integration-info">
+              <strong>E-mail automático</strong>
+              <span>Confirmações e lembretes por e-mail</span>
+            </div>
+            <span class="badge-soon">Em breve</span>
           </div>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
-          <button type="button" class="btn-secondary" id="staffCancelBtn" style="border:none; border-radius:8px; padding:8px 16px;">
-            Cancelar
-          </button>
-          <button type="button" class="add-field-btn" id="staffSaveBtn">
-            Salvar
-          </button>
-        </div>
+
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Botão Salvar Flutuante -->
-  <button class="save-btn-floating" id="saveSettingsBtn">
-    💾 Salvar Alterações
-  </button>
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/config-api.js"></script>
+<script>
+const API = (() => { if (window.API_CONFIG && window.API_CONFIG.baseUrl) return window.API_CONFIG.baseUrl; const h = window.location.hostname; return (h === 'localhost' || h === '127.0.0.1') ? `http://${h}:3000/api` : 'https://cloudd-agenda-backend.vercel.app/api'; })();
+const token = () => localStorage.getItem('authToken');
+const userData = () => { try { return JSON.parse(localStorage.getItem('userData') || 'null'); } catch { return null; } };
+function toast(msg, type = 'info') { const el = document.createElement('div'); el.className = `toast ${type}`; el.textContent = msg; document.getElementById('toastContainer').appendChild(el); setTimeout(() => el.remove(), 3500); }
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token(), ...opts.headers }, ...opts });
+  if (res.status === 401) { localStorage.clear(); window.location.href = '/'; return null; }
+  return res.json();
+}
 
-  <!-- Scripts -->
-  <script src="../js/config-api.js"></script>
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="settings.js"></script>
+const user = userData();
+if (!user || !token()) window.location.href = '/';
+document.getElementById('sidebarUserName').textContent = user?.name || '';
+
+const sidebar = document.getElementById('sidebar');
+sidebar.addEventListener('mouseenter', () => sidebar.classList.add('expanded'));
+sidebar.addEventListener('mouseleave', () => sidebar.classList.remove('expanded'));
+document.getElementById('sidebarLogout').addEventListener('click', () => { localStorage.clear(); window.location.href = '/'; });
+
+// ── API Key ───────────────────────────────────────────────
+async function loadApiKeyInfo() {
+  try {
+    const data = await apiFetch('/empresa/api-key/info');
+    if (!data || !data.success) return;
+    const block = document.getElementById('apiKeyStatusBlock');
+    const text  = document.getElementById('apiKeyStatusText');
+    block.style.display = 'block';
+    if (data.data.hasApiKey) {
+      const when = data.data.lastRegenerated
+        ? new Date(data.data.lastRegenerated).toLocaleDateString('pt-BR')
+        : (data.data.createdAt ? new Date(data.data.createdAt).toLocaleDateString('pt-BR') : '—');
+      text.textContent = `Chave ativa — gerada em ${when}. Gere uma nova chave para substituir.`;
+    } else {
+      text.textContent = 'Nenhuma chave gerada ainda. Clique em "Gerar nova chave".';
+    }
+  } catch (e) { /* silencioso */ }
+}
+
+async function generateApiKey() {
+  const btn = document.getElementById('btnGenerateKey');
+  if (!confirm('Gerar uma nova chave invalida a chave anterior. Continuar?')) return;
+  btn.disabled = true;
+  btn.textContent = 'Gerando...';
+  try {
+    const data = await apiFetch('/empresa/api-key/regenerate', { method: 'POST' });
+    if (!data || !data.success) {
+      toast(data?.message || 'Erro ao gerar chave', 'error');
+      return;
+    }
+    const input = document.getElementById('apiKeyReveal');
+    input.value = data.apiKey;
+    document.getElementById('apiKeyRevealBlock').style.display = 'block';
+    const statusText = document.getElementById('apiKeyStatusText');
+    statusText.textContent = 'Nova chave gerada. Copie agora — não será exibida novamente.';
+    document.getElementById('apiKeyStatusBlock').style.display = 'block';
+    toast('Chave gerada com sucesso!', 'success');
+  } catch (e) {
+    toast('Erro de conexão', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Gerar nova chave';
+  }
+}
+
+function copyApiKey() {
+  const val = document.getElementById('apiKeyReveal').value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => toast('Chave copiada!', 'success'));
+}
+
+// Carregar info ao abrir aba de integrações
+document.querySelector('[data-tab="integracoes"]').addEventListener('click', loadApiKeyInfo);
+
+// ── Tab navigation ────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Dirty state ───────────────────────────────────────────
+let isDirty = false;
+function markDirty() {
+  isDirty = true;
+  document.getElementById('dirtyBadge').classList.add('visible');
+}
+function clearDirty() {
+  isDirty = false;
+  document.getElementById('dirtyBadge').classList.remove('visible');
+}
+window.addEventListener('beforeunload', e => { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ── Day schedule ──────────────────────────────────────────
+const DAYS_CONFIG = [
+  { key: 'monday',    label: 'Segunda' },
+  { key: 'tuesday',   label: 'Terça'   },
+  { key: 'wednesday', label: 'Quarta'  },
+  { key: 'thursday',  label: 'Quinta'  },
+  { key: 'friday',    label: 'Sexta'   },
+  { key: 'saturday',  label: 'Sábado'  },
+  { key: 'sunday',    label: 'Domingo' },
+];
+
+let daySchedules = {
+  monday:    { active: true,  start: '08:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' },
+  tuesday:   { active: true,  start: '08:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' },
+  wednesday: { active: true,  start: '08:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' },
+  thursday:  { active: true,  start: '08:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' },
+  friday:    { active: true,  start: '08:00', end: '17:00', breakStart: '12:00', breakEnd: '13:00' },
+  saturday:  { active: false, start: '08:00', end: '12:00', breakStart: '',      breakEnd: ''      },
+  sunday:    { active: false, start: '08:00', end: '12:00', breakStart: '',      breakEnd: ''      },
+};
+
+function renderDaySchedule() {
+  const tbody = document.getElementById('dayScheduleBody');
+  tbody.innerHTML = DAYS_CONFIG.map(({ key, label }) => {
+    const s = daySchedules[key];
+    const dis = s.active ? '' : 'disabled';
+    return `<tr>
+      <td style="font-weight:600;min-width:100px;">${label}</td>
+      <td><button type="button" class="day-toggle ${s.active ? 'on' : 'off'}" onclick="toggleDayActive('${key}', this)"></button></td>
+      <td><input type="time" value="${s.start}" ${dis} onchange="updateDay('${key}','start',this.value)" oninput="markDirty()"></td>
+      <td><input type="time" value="${s.end}" ${dis} onchange="updateDay('${key}','end',this.value)" oninput="markDirty()"></td>
+      <td><input type="time" value="${s.breakStart}" ${dis} onchange="updateDay('${key}','breakStart',this.value)" oninput="markDirty()" placeholder="—"></td>
+      <td><input type="time" value="${s.breakEnd}" ${dis} onchange="updateDay('${key}','breakEnd',this.value)" oninput="markDirty()" placeholder="—"></td>
+    </tr>`;
+  }).join('');
+}
+
+window.toggleDayActive = (key, btn) => {
+  daySchedules[key].active = !daySchedules[key].active;
+  btn.className = `day-toggle ${daySchedules[key].active ? 'on' : 'off'}`;
+  renderDaySchedule();
+  markDirty();
+};
+window.updateDay = (key, field, value) => { daySchedules[key][field] = value; markDirty(); };
+
+// ── Services ──────────────────────────────────────────────
+let services = [];
+
+function fmtDuration(min) {
+  if (min >= 60 && min % 60 === 0) return `${min / 60}h`;
+  if (min >= 60) return `${Math.floor(min/60)}h${min%60}min`;
+  return `${min} min`;
+}
+
+function renderServices() {
+  const el = document.getElementById('servicesTable');
+  if (!el) return;
+  if (!services.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Nenhum serviço adicionado ainda.</p>';
+    return;
+  }
+  const inpStyle = 'width:100%;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--text);';
+  const selStyle = inpStyle + 'cursor:pointer;';
+  el.innerHTML = `<table class="svc-table">
+    <thead>
+      <tr>
+        <th>Serviço</th>
+        <th style="width:38px;">Cor</th>
+        <th style="width:100px;">Duração</th>
+        <th style="width:150px;">Profissional</th>
+        <th style="width:36px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${services.map((s, i) => `
+        <tr>
+          <td style="font-weight:600;">${s.name}</td>
+          <td>
+            <input type="color" value="${s.color || '#0099ff'}"
+              style="width:30px;height:26px;border:1.5px solid var(--border);cursor:pointer;border-radius:6px;padding:2px;background:var(--bg);"
+              onchange="services[${i}].color=this.value;markDirty()">
+          </td>
+          <td>
+            <select style="${selStyle}" onchange="services[${i}].duration=parseInt(this.value);markDirty()">
+              ${[15,20,30,45,60,90,120].map(v => `<option value="${v}" ${s.duration==v?'selected':''}>${fmtDuration(v)}</option>`).join('')}
+            </select>
+          </td>
+          <td>
+            <select style="${selStyle}" onchange="services[${i}].profissional_id=this.value||null;markDirty()">
+              <option value="">Qualquer</option>
+              ${teamList.map(d => `<option value="${d.id}" ${String(s.profissional_id)===String(d.id)?'selected':''}>${d.nome}</option>`).join('')}
+            </select>
+          </td>
+          <td style="text-align:center;">
+            <button type="button" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;"
+              onmouseenter="this.style.color='#dc2626'" onmouseleave="this.style.color='var(--text-muted)'"
+              onclick="services.splice(${i},1);renderServices();markDirty()">×</button>
+          </td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+document.getElementById('addServiceBtn').addEventListener('click', () => {
+  const name = document.getElementById('newServiceInput').value.trim();
+  const duration = parseInt(document.getElementById('newServiceDuration').value) || 30;
+  const color = document.getElementById('newServiceColor').value || '#0099ff';
+  if (!name) return;
+  if (services.some(s => s.name.toLowerCase() === name.toLowerCase())) { toast('Serviço já cadastrado', 'error'); return; }
+  services.push({ name, duration, color, category: '', profissional_id: null });
+  renderServices();
+  document.getElementById('newServiceInput').value = '';
+  document.getElementById('newServiceDuration').value = '30';
+  document.getElementById('newServiceColor').value = '#0099ff';
+  markDirty();
+});
+document.getElementById('newServiceInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addServiceBtn').click(); } });
+
+// ── Patient fields ────────────────────────────────────────
+const presetPatientFields = [
+  { key: 'nome',            label: 'Nome Completo',      required: true  },
+  { key: 'telefone',        label: 'Telefone',           required: true  },
+  { key: 'email',           label: 'E-mail',             required: false },
+  { key: 'cpf',             label: 'CPF',                required: true  },
+  { key: 'data_nascimento', label: 'Data de Nascimento', required: false },
+  { key: 'convenio',        label: 'Convênio',           required: false },
+  { key: 'observacoes',     label: 'Observações',        required: false },
+];
+
+let patientFields = presetPatientFields.map(f => ({ ...f, visible: true }));
+
+function renderPatientFields() {
+  const el = document.getElementById('patientFieldsList');
+  if (!el) return;
+  el.innerHTML = patientFields.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="flex:1;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;">
+        ${f.label}
+        ${f.required ? '<span style="font-size:10px;opacity:.6;">(obrigatório)</span>' : ''}
+        ${f.custom ? '<span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:10px;">personalizado</span>' : ''}
+      </span>
+      ${!f.required ? `<button type="button" onclick="removePatientField(${i})"
+        style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;padding:0 4px;border-radius:4px;"
+        onmouseenter="this.style.color='#dc2626'" onmouseleave="this.style.color='var(--text-muted)'">×</button>` : ''}
+    </div>`).join('');
+}
+
+window.removePatientField = (i) => {
+  patientFields.splice(i, 1);
+  renderPatientFields();
+  markDirty();
+  markDirty();
+};
+
+document.getElementById('addFieldBtn').addEventListener('click', () => {
+  const label = document.getElementById('newFieldLabel').value.trim();
+  if (!label) return;
+  const key = 'custom_' + label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  if (patientFields.some(f => f.key === key)) { toast('Campo já existe', 'error'); return; }
+  patientFields.push({ key, label, required: false, custom: true, visible: true });
+  renderPatientFields();
+  document.getElementById('newFieldLabel').value = '';
+  markDirty();
+});
+document.getElementById('newFieldLabel').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addFieldBtn').click(); }
+});
+
+// ── Load / save ───────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const data = await apiFetch('/moderator/settings');
+    const s = data?.data || data?.settings;
+    if (!s) return;
+    if (s.company_name) {
+      document.getElementById('companyName').value = s.company_name;
+      document.getElementById('sidebarUserName').textContent = s.company_name;
+    }
+    if (s.slot_interval) document.getElementById('slotInterval').value = s.slot_interval;
+    if (s.services) {
+      const raw = typeof s.services === 'string' ? JSON.parse(s.services) : (Array.isArray(s.services) ? s.services : []);
+      services = raw.map(item => typeof item === 'string' ? { name: item, duration: 30 } : item);
+      renderServices();
+    }
+    if (s.patient_fields) {
+      const saved = typeof s.patient_fields === 'string' ? JSON.parse(s.patient_fields) : s.patient_fields;
+      patientFields = [
+        ...presetPatientFields
+          .filter(f => f.required || saved.some(x => x.key === f.key))
+          .map(f => {
+            const sv = saved.find(x => x.key === f.key);
+            return { ...f, visible: f.required ? true : (sv ? sv.visible !== false : true) };
+          }),
+        ...saved.filter(f => f.custom),
+      ];
+      renderPatientFields();
+    } else if (s.campos_visiveis) {
+      const old = typeof s.campos_visiveis === 'string' ? JSON.parse(s.campos_visiveis) : s.campos_visiveis;
+      patientFields = presetPatientFields.map(f => ({ ...f, visible: old.includes(f.key) }));
+      renderPatientFields();
+    }
+    if (s.day_schedules) {
+      const ds = typeof s.day_schedules === 'string' ? JSON.parse(s.day_schedules) : s.day_schedules;
+      Object.assign(daySchedules, ds);
+    } else if (s.working_days && s.working_hours) {
+      const wd = typeof s.working_days === 'string' ? JSON.parse(s.working_days) : s.working_days;
+      const wh = typeof s.working_hours === 'string' ? JSON.parse(s.working_hours) : s.working_hours;
+      DAYS_CONFIG.forEach(({ key }) => {
+        daySchedules[key].active = wd.includes(key);
+        if (wh.start) daySchedules[key].start = wh.start;
+        if (wh.end) daySchedules[key].end = wh.end;
+      });
+    }
+    renderDaySchedule();
+    clearDirty();
+  } catch(e) { console.warn('Erro ao carregar config:', e.message); }
+}
+
+function validateSchedules() {
+  const msg = document.getElementById('timeValidationMsg');
+  for (const { key } of DAYS_CONFIG) {
+    const s = daySchedules[key];
+    if (s.active && s.start && s.end && s.end <= s.start) { msg.style.display = ''; return false; }
+  }
+  msg.style.display = 'none';
+  return true;
+}
+
+async function saveSettings() {
+  if (!validateSchedules()) { toast('Corrija os horários antes de salvar', 'error'); return; }
+  const activeDays = DAYS_CONFIG.filter(({ key }) => daySchedules[key].active).map(({ key }) => key);
+  const firstActive = daySchedules[activeDays[0]];
+  const body = {
+    company_name: document.getElementById('companyName').value.trim(),
+    slot_interval: parseInt(document.getElementById('slotInterval').value),
+    services,
+    patient_fields: patientFields,
+    day_schedules: daySchedules,
+    working_days: activeDays,
+    working_hours: firstActive ? { start: firstActive.start, end: firstActive.end } : { start: '08:00', end: '18:00' },
+  };
+  try {
+    const data = await apiFetch('/moderator/settings', { method: 'PUT', body: JSON.stringify(body) });
+    if (data && data.success) { toast('Configurações salvas!', 'success'); clearDirty(); }
+    else toast(data?.message || 'Erro ao salvar', 'error');
+  } catch(e) { toast('Erro de conexão', 'error'); }
+}
+
+function discardChanges() { if (isDirty) loadSettings(); }
+
+['companyName','slotInterval'].forEach(id => document.getElementById(id)?.addEventListener('input', markDirty));
+document.getElementById('companyName').addEventListener('input', function() {
+  document.getElementById('sidebarUserName').textContent = this.value.trim() || user?.name || '';
+});
+
+// ── Equipe / Profissionais ────────────────────────────────
+let teamList = [];
+
+function renderEquipe() {
+  const el = document.getElementById('teamTable');
+  if (!el) return;
+  if (!teamList.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Nenhum profissional cadastrado.</p>';
+    return;
+  }
+  el.innerHTML = `<table class="team-table">
+    <thead><tr><th>Nome</th><th>Especialidade</th><th style="width:40px;"></th></tr></thead>
+    <tbody>
+      ${teamList.map(d => `
+        <tr>
+          <td style="font-weight:600;">${d.nome}</td>
+          <td>${d.funcao ? `<span class="team-badge">${d.funcao}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
+          <td style="text-align:center;">
+            <button type="button" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;"
+              onmouseenter="this.style.color='#dc2626'" onmouseleave="this.style.color='var(--text-muted)'"
+              onclick="removeDoctor(${d.id})">×</button>
+          </td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function loadEquipe() {
+  try {
+    const data = await apiFetch('/staff');
+    if (data?.success && Array.isArray(data.data)) {
+      teamList = data.data;
+      renderEquipe();
+      renderServices(); // refresh to populate profissional dropdowns
+    }
+  } catch(e) { console.warn('Erro ao carregar equipe:', e.message); }
+}
+
+window.removeDoctor = async (id) => {
+  try {
+    const data = await apiFetch(`/staff/${id}`, { method: 'DELETE' });
+    if (data?.success) {
+      teamList = teamList.filter(d => d.id !== id);
+      renderEquipe();
+      renderServices();
+      toast('Profissional removido', 'success');
+    } else {
+      toast(data?.message || 'Erro ao remover', 'error');
+    }
+  } catch(e) { toast('Erro de conexão', 'error'); }
+};
+
+document.getElementById('addDoctorBtn').addEventListener('click', async () => {
+  const nome = document.getElementById('newDoctorName').value.trim();
+  const funcao = document.getElementById('newDoctorRole').value.trim();
+  if (!nome) { toast('Informe o nome do profissional', 'error'); return; }
+  try {
+    const data = await apiFetch('/staff', {
+      method: 'POST',
+      body: JSON.stringify({ nome, funcao: funcao || null })
+    });
+    if (data?.success) {
+      teamList.push(data.data);
+      renderEquipe();
+      renderServices();
+      document.getElementById('newDoctorName').value = '';
+      document.getElementById('newDoctorRole').value = '';
+      toast('Profissional adicionado', 'success');
+    } else {
+      toast(data?.message || 'Erro ao adicionar', 'error');
+    }
+  } catch(e) { toast('Erro de conexão', 'error'); }
+});
+
+document.getElementById('newDoctorName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addDoctorBtn').click(); } });
+
+renderDaySchedule();
+renderServices();
+renderPatientFields();
+loadSettings();
+loadEquipe();
+</script>
 </body>
 </html>
-

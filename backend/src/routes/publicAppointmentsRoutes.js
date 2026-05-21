@@ -70,6 +70,43 @@ router.post('/', validateAppointment, empresaApiKeyMiddleware, appointmentContro
 // GET /api/public/appointments/available/:date - Buscar horários disponíveis via API Key
 router.get('/available/:date', empresaApiKeyMiddleware, appointmentController.getAvailableSlots);
 
+// GET /api/public/appointments/search?protocol=AG-XXX&phone=5511...
+// Usado pelo assistente de IA para localizar agendamento antes de remarcar/cancelar
+router.get('/search', empresaApiKeyMiddleware, async (req, res) => {
+  const { query: dbQuery } = require('../config/database');
+  try {
+    const { protocol, phone } = req.query;
+    const empresaId = req.empresa_id;
+
+    if (!protocol && !phone) {
+      return res.status(400).json({ success: false, message: 'Informe protocol ou phone para buscar' });
+    }
+
+    let sql, params;
+    if (protocol) {
+      sql = `SELECT id, protocol, customer_name, customer_phone, appointment_date, appointment_time, status, service_type
+             FROM appointments
+             WHERE user_id = $1 AND UPPER(protocol) = UPPER($2)
+             LIMIT 1`;
+      params = [empresaId, protocol.trim()];
+    } else {
+      // Busca parcial por telefone (últimos 8 dígitos) — compatível com SQLite e PostgreSQL
+      const digits = phone.replace(/\D/g, '').slice(-8);
+      sql = `SELECT id, protocol, customer_name, customer_phone, appointment_date, appointment_time, status, service_type
+             FROM appointments
+             WHERE user_id = $1 AND customer_phone LIKE $2
+             ORDER BY appointment_date DESC LIMIT 5`;
+      params = [empresaId, `%${digits}`];
+    }
+
+    const result = await dbQuery(sql, params);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('[public/appointments/search]', err.message);
+    res.status(500).json({ success: false, message: 'Erro ao buscar agendamento' });
+  }
+});
+
 // PUT /api/public/appointments/:id - Atualizar agendamento via API Key
 router.put('/:id', validateAppointment, empresaApiKeyMiddleware, appointmentController.updateAppointment);
 

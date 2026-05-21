@@ -128,7 +128,7 @@ class IntegrationController {
       const testPayload = {
         event: 'test_connection',
         timestamp: new Date().toISOString(),
-        source: 'Aevum',
+        source: 'ClouddAgenda',
         message: 'Teste de conexão com webhook n8n'
       };
 

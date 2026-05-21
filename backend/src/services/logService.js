@@ -57,8 +57,8 @@ class LogService {
 
       // Inserir log no banco de dados
       const insertQuery = `
-        INSERT INTO system_logs 
-        (action, entity_type, entity_id, user_id, user_name, user_email, description, details, ip_address, user_agent, created_at)
+        INSERT INTO system_logs
+        (action, entity_type, entity_id, user_id, user_name, user_email, description, details, ip_address, user_agent, "createdAt")
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
       `;
 

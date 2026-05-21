@@ -48,10 +48,8 @@ const API_CONFIG = {
       return localApi;
     }
 
-    // Produção (Vercel, Firebase, etc.): API no Vercel
-    const productionApiUrl = 'https://cloudd-agenda-backend.vercel.app/api';
-    console.log('🔧 Usando API em produção (Vercel):', productionApiUrl);
-    return productionApiUrl;
+    // Produção: URL relativa — Firebase Hosting roteia /api/** para a Function
+    return '/api';
   },
 
   // Configurações de timeout e retry

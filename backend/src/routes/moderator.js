@@ -86,4 +86,10 @@ router.post('/employees', verifyToken, requireModerator, moderatorController.add
  */
 router.delete('/employees/:id', verifyToken, requireModerator, moderatorController.removeEmployee);
 
+// Services / Especialidades
+router.get('/services',     verifyToken, requireModerator, moderatorController.getServices);
+router.post('/services',    verifyToken, requireModerator, moderatorController.createService);
+router.put('/services/:id', verifyToken, requireModerator, moderatorController.updateService);
+router.delete('/services/:id', verifyToken, requireModerator, moderatorController.deleteService);
+
 module.exports = router;

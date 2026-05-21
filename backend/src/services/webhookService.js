@@ -32,7 +32,7 @@ class WebhookService {
       const payload = {
         event: event,
         timestamp: new Date().toISOString(),
-        source: 'Aevum',
+        source: 'ClouddAgenda',
         data: data
       };
 

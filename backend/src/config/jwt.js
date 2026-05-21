@@ -9,5 +9,5 @@ if (isProduction && !JWT_SECRET) {
 
 module.exports = {
   JWT_SECRET: JWT_SECRET || 'dev-jwt-secret-local-insecure',
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '8h',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '30d',
 };

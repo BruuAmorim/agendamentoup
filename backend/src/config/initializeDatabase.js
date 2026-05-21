@@ -12,14 +12,26 @@ async function initializeDatabase() {
     console.log('✅ Conexão com o banco de dados estabelecida com sucesso.');
     dbInitialized = true;
 
+    // Tabelas críticas que precisam existir em todos os ambientes
+    const dialect = sequelize.getDialect();
+    try {
+      await migratePasswordResetTokens(dialect);
+    } catch (e) {
+      console.warn('⚠️ Erro ao verificar tabela password_reset_tokens:', e.message);
+    }
+
     if (process.env.NODE_ENV === 'development') {
       const dialect = sequelize.getDialect();
       if (dialect === 'sqlite') {
-        await sequelize.sync({ alter: true });
-        console.log('✅ Modelos sincronizados (SQLite - alter).');
+        // Limpar tabela de backup residual de runs anteriores com falha
+        await sequelize.query('DROP TABLE IF EXISTS `users_backup`');
+        await sequelize.query('PRAGMA foreign_keys = OFF');
+        await sequelize.sync();
+        await sequelize.query('PRAGMA foreign_keys = ON');
+        console.log('✅ Modelos sincronizados (SQLite).');
       } else {
         await sequelize.sync();
-        console.log('✅ Modelos sincronizados (sem alter).');
+        console.log('✅ Modelos sincronizados.');
       }
 
       try {
@@ -48,6 +60,18 @@ async function runMigrations(dialect) {
   await migrateFuncionarios(dialect);
   await migrateAppointments(dialect);
   await migrateAppointmentEmployeeId(dialect);
+
+  // Recuperação de senha
+  await migratePasswordResetTokens(dialect);
+
+  // SaaS multiempresa
+  await migratePlans(dialect);
+  await migrateNiches(dialect);
+  await migrateTenants(dialect);
+  await migrateSubscriptions(dialect);
+  await seedDefaultPlansAndNiches(dialect);
+  await autoCreateTenants(dialect);
+  await migrateCompanyServices(dialect);
 
   if (dialect === 'sqlite') {
     const finalCheck = await query("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'", []);
@@ -128,7 +152,8 @@ async function migrateModeratorSettings(dialect) {
         { name: 'campos_visiveis', sql: `ALTER TABLE moderator_settings ADD COLUMN campos_visiveis TEXT DEFAULT '["nome", "telefone"]'` },
         { name: 'campos_extras', sql: `ALTER TABLE moderator_settings ADD COLUMN campos_extras TEXT DEFAULT '[]'` },
         { name: 'logo', sql: 'ALTER TABLE moderator_settings ADD COLUMN logo TEXT' },
-        { name: 'slot_interval', sql: 'ALTER TABLE moderator_settings ADD COLUMN slot_interval INTEGER DEFAULT 30' }
+        { name: 'slot_interval', sql: 'ALTER TABLE moderator_settings ADD COLUMN slot_interval INTEGER DEFAULT 30' },
+        { name: 'patient_fields', sql: 'ALTER TABLE moderator_settings ADD COLUMN patient_fields TEXT' }
       ];
       for (const col of columnsToAdd) {
         if (!columns.includes(col.name)) {
@@ -144,7 +169,8 @@ async function migrateModeratorSettings(dialect) {
         `ALTER TABLE moderator_settings ADD COLUMN campos_visiveis TEXT DEFAULT '["nome", "telefone"]'`,
         `ALTER TABLE moderator_settings ADD COLUMN campos_extras TEXT DEFAULT '[]'`,
         'ALTER TABLE moderator_settings ADD COLUMN logo TEXT',
-        'ALTER TABLE moderator_settings ADD COLUMN slot_interval INTEGER DEFAULT 30'
+        'ALTER TABLE moderator_settings ADD COLUMN slot_interval INTEGER DEFAULT 30',
+        'ALTER TABLE moderator_settings ADD COLUMN patient_fields TEXT'
       ];
       for (const sql of fallbackColumns) {
         try {
@@ -181,6 +207,7 @@ async function migrateModeratorSettings(dialect) {
     await query(`ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS campos_extras JSONB DEFAULT '[]'::jsonb`, []);
     await query('ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS logo TEXT', []);
     await query('ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS slot_interval INTEGER DEFAULT 30', []);
+    await query('ALTER TABLE moderator_settings ADD COLUMN IF NOT EXISTS patient_fields JSONB DEFAULT NULL', []);
   }
 }
 
@@ -446,16 +473,354 @@ async function migrateAppointmentEmployeeId(dialect) {
     if (dialect === 'sqlite') {
       const info = await query('PRAGMA table_info(appointments)', []);
       const cols = info.rows.map(c => c.name);
-      if (!cols.includes('employee_id')) {
-        await query('ALTER TABLE appointments ADD COLUMN employee_id INTEGER', []);
-        console.log('✅ Coluna employee_id adicionada em appointments (SQLite)');
+
+      const missing = [
+        { name: 'employee_id',  sql: 'ALTER TABLE appointments ADD COLUMN employee_id INTEGER' },
+        { name: 'user_id',      sql: 'ALTER TABLE appointments ADD COLUMN user_id INTEGER' },
+        { name: 'customer_cpf', sql: 'ALTER TABLE appointments ADD COLUMN customer_cpf TEXT' },
+        { name: 'service_type', sql: 'ALTER TABLE appointments ADD COLUMN service_type TEXT' },
+        { name: 'extra_fields', sql: 'ALTER TABLE appointments ADD COLUMN extra_fields TEXT' },
+      ];
+
+      for (const col of missing) {
+        if (!cols.includes(col.name)) {
+          await query(col.sql, []);
+          console.log(`✅ Coluna ${col.name} adicionada em appointments`);
+        }
       }
     } else {
-      await query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES funcionarios(id)', []);
-      console.log('✅ Coluna employee_id verificada/criada em appointments (PostgreSQL)');
+      await query(`
+        ALTER TABLE appointments
+          ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES funcionarios(id),
+          ADD COLUMN IF NOT EXISTS user_id INTEGER,
+          ADD COLUMN IF NOT EXISTS customer_cpf TEXT,
+          ADD COLUMN IF NOT EXISTS service_type TEXT,
+          ADD COLUMN IF NOT EXISTS extra_fields TEXT
+      `, []);
+      console.log('✅ Colunas verificadas/criadas em appointments (PostgreSQL)');
     }
   } catch (e) {
-    console.warn('⚠️ Não foi possível verificar/adicionar employee_id em appointments:', e.message);
+    console.warn('⚠️ Não foi possível verificar/adicionar colunas em appointments:', e.message);
+  }
+}
+
+// ── Recuperação de senha ──────────────────────────────────────────────────────
+async function migratePasswordResetTokens(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          expires_at TEXT NOT NULL,
+          used INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token VARCHAR(255) NOT NULL UNIQUE,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela password_reset_tokens criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tabela password_reset_tokens:', e.message);
+  }
+}
+
+// ── SaaS: Plans ──────────────────────────────────────────────────────────────
+async function migratePlans(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS plans (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL UNIQUE,
+          features TEXT DEFAULT '{}',
+          limits TEXT DEFAULT '{}',
+          price REAL DEFAULT 0,
+          billing_cycle TEXT DEFAULT 'monthly',
+          is_active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS plans (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          slug VARCHAR(100) NOT NULL UNIQUE,
+          features JSONB DEFAULT '{}'::jsonb,
+          limits JSONB DEFAULT '{}'::jsonb,
+          price DECIMAL(10,2) DEFAULT 0,
+          billing_cycle VARCHAR(20) DEFAULT 'monthly',
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela plans criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tabela plans:', e.message);
+  }
+}
+
+// ── SaaS: Niches ─────────────────────────────────────────────────────────────
+async function migrateNiches(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS niches (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL UNIQUE,
+          description TEXT,
+          config TEXT DEFAULT '{}',
+          field_templates TEXT DEFAULT '[]',
+          is_active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS niches (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          slug VARCHAR(100) NOT NULL UNIQUE,
+          description TEXT,
+          config JSONB DEFAULT '{}'::jsonb,
+          field_templates JSONB DEFAULT '[]'::jsonb,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela niches criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tabela niches:', e.message);
+  }
+}
+
+// ── SaaS: Tenants ─────────────────────────────────────────────────────────────
+async function migrateTenants(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS tenants (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL UNIQUE,
+          slug TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          niche_id INTEGER,
+          plan_id INTEGER,
+          status TEXT DEFAULT 'active',
+          settings TEXT DEFAULT '{}',
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+      await query('CREATE INDEX IF NOT EXISTS idx_tenants_user_id ON tenants (user_id)', []);
+      await query('CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants (status)', []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS tenants (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          slug VARCHAR(100) NOT NULL UNIQUE,
+          name VARCHAR(255) NOT NULL,
+          niche_id INTEGER REFERENCES niches(id) ON DELETE SET NULL,
+          plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL,
+          status VARCHAR(20) DEFAULT 'active',
+          settings JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+      await query('CREATE INDEX IF NOT EXISTS idx_tenants_user_id ON tenants (user_id)', []);
+      await query('CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants (status)', []);
+    }
+    console.log('✅ Tabela tenants criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tabela tenants:', e.message);
+  }
+}
+
+// ── SaaS: Subscriptions ───────────────────────────────────────────────────────
+async function migrateSubscriptions(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id INTEGER NOT NULL,
+          plan_id INTEGER NOT NULL,
+          status TEXT DEFAULT 'active',
+          starts_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          ends_at TEXT,
+          billing_data TEXT DEFAULT '{}',
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id SERIAL PRIMARY KEY,
+          tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          plan_id INTEGER NOT NULL REFERENCES plans(id) ON DELETE RESTRICT,
+          status VARCHAR(20) DEFAULT 'active',
+          starts_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ends_at TIMESTAMP WITH TIME ZONE,
+          billing_data JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela subscriptions criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tabela subscriptions:', e.message);
+  }
+}
+
+// ── SaaS: Seed planos e nichos padrão (via ORM — timestamps automáticos) ─────
+async function seedDefaultPlansAndNiches() {
+  try {
+    const { Plan, Niche } = require('../models');
+
+    const defaultPlans = [
+      {
+        name: 'Starter', slug: 'starter', price: 0, billing_cycle: 'monthly',
+        limits: { max_appointments_per_month: 50, max_staff: 2, max_units: 1, api_access: false, white_label: false },
+        features: { agendamentos: true, funcionarios: true, api_key: false, white_label: false },
+      },
+      {
+        name: 'Professional', slug: 'professional', price: 97, billing_cycle: 'monthly',
+        limits: { max_appointments_per_month: 500, max_staff: 10, max_units: 3, api_access: true, white_label: false },
+        features: { agendamentos: true, funcionarios: true, api_key: true, white_label: false, relatorios: true },
+      },
+      {
+        name: 'Enterprise', slug: 'enterprise', price: 297, billing_cycle: 'monthly',
+        limits: { max_appointments_per_month: -1, max_staff: -1, max_units: -1, api_access: true, white_label: true },
+        features: { agendamentos: true, funcionarios: true, api_key: true, white_label: true, relatorios: true, suporte_prioritario: true },
+      },
+    ];
+
+    for (const plan of defaultPlans) {
+      await Plan.findOrCreate({ where: { slug: plan.slug }, defaults: plan });
+    }
+
+    const defaultNiches = [
+      { name: 'Geral', slug: 'geral', description: 'Segmento geral, sem configurações específicas de nicho' },
+      { name: 'Saúde e Bem-Estar', slug: 'saude-bem-estar', description: 'Clínicas médicas, odontológicas, estética, barbearias, salões' },
+      { name: 'Serviços Profissionais', slug: 'servicos-profissionais', description: 'Advocacia, contabilidade, consultorias' },
+      { name: 'Educacional', slug: 'educacional', description: 'Universidades, escolas de idiomas, tutoria, matrículas' },
+    ];
+
+    for (const niche of defaultNiches) {
+      await Niche.findOrCreate({ where: { slug: niche.slug }, defaults: niche });
+    }
+
+    console.log('✅ Planos e nichos padrão verificados/criados');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar planos/nichos padrão:', e.message);
+  }
+}
+
+// ── SaaS: Auto-criar tenant para moderadores existentes (via ORM) ─────────────
+async function autoCreateTenants() {
+  try {
+    const { Tenant, Plan, Niche } = require('../models');
+
+    const starterPlan = await Plan.findOne({ where: { slug: 'starter' } });
+    const geralNiche  = await Niche.findOne({ where: { slug: 'geral' } });
+
+    const moderators = await query(
+      `SELECT u.id, u.name, u.email FROM users u WHERE u.role = 'moderator'`,
+      []
+    );
+
+    if (!moderators.rows || moderators.rows.length === 0) return;
+
+    for (const mod of moderators.rows) {
+      const baseName = mod.name || mod.email.split('@')[0];
+      const slug = toSlug(baseName) + '-' + mod.id;
+
+      const [tenant, created] = await Tenant.findOrCreate({
+        where: { user_id: mod.id },
+        defaults: {
+          slug,
+          name: baseName,
+          niche_id: geralNiche?.id || null,
+          plan_id: starterPlan?.id || null,
+          status: 'active',
+        },
+      });
+
+      if (created) {
+        console.log(`✅ Tenant criado para moderador: ${baseName} (user_id: ${mod.id})`);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar tenants automáticos:', e.message);
+  }
+}
+
+function toSlug(str) {
+  return String(str)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50);
+}
+
+async function migrateCompanyServices(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS company_services (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          duration_minutes INTEGER NOT NULL DEFAULT 30,
+          price REAL,
+          active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS company_services (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          duration_minutes INTEGER NOT NULL DEFAULT 30,
+          price NUMERIC(10,2),
+          active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela company_services criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar company_services:', e.message);
   }
 }
 

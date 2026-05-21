@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pacientes — Cloudd Agenda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app-layout.css">
+  <style>
+    body { overflow: auto; }
+    .page-wrapper { flex: 1; overflow-y: auto; background: var(--bg); display: flex; flex-direction: column; }
+    .page-topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .page-topbar h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .topbar-actions { display: flex; gap: 10px; align-items: center; }
+    .search-box { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--text-muted); }
+    .search-box input { border: none; background: none; outline: none; font-size: 13px; color: var(--text); width: 220px; }
+    .page-content { flex: 1; padding: 24px 32px; }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border-radius: 12px; padding: 20px 24px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 16px; }
+    .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .stat-icon.blue { background: #eff6ff; }
+    .stat-icon.green { background: #f0fdf4; }
+    .stat-icon.purple { background: #f5f3ff; }
+    .stat-val { font-size: 24px; font-weight: 700; color: var(--text); line-height: 1; }
+    .stat-lbl { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .patients-table-card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+    .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 11px 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); }
+    td { padding: 13px 20px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg); }
+    .patient-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .patient-name-cell { display: flex; align-items: center; gap: 10px; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-active { background: #dcfce7; color: #16a34a; }
+    .badge-inactive { background: var(--bg); color: var(--text-muted); }
+    .action-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 15px; padding: 4px 6px; border-radius: 6px; transition: all .15s; }
+    .action-btn:hover { background: var(--bg); color: var(--accent); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+    .page-btns { display: flex; gap: 4px; }
+    .page-btn { padding: 5px 10px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; transition: all .15s; }
+    .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: hidden; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); padding: 0; line-height: 1; }
+    .modal-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+    .form-group.full { grid-column: 1 / -1; }
+    .detail-modal-body { padding: 24px; }
+    .detail-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-weight: 600; color: var(--text-muted); min-width: 130px; flex-shrink: 0; }
+    .detail-val { color: var(--text); }
+    .appts-list { margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+    .appt-item { background: var(--bg); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--text); }
+    /* Tab bar */
+    .pac-tab-bar { display: flex; border-bottom: 2px solid var(--border); background: var(--surface); padding: 0 32px; flex-shrink: 0; }
+    .pac-tab { padding: 12px 20px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; }
+    .pac-tab:hover { color: var(--text); }
+    .pac-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .pac-section { display: none; }
+    .pac-section.active { display: block; }
+    /* History tab */
+    .hist-card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+    .hist-card-hdr { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .hist-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .hist-table-main { width: 100%; border-collapse: collapse; }
+    .hist-table-main th { text-align: left; padding: 10px 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); }
+    .hist-table-main td { padding: 11px 20px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+    .hist-table-main tr:last-child td { border-bottom: none; }
+    .hist-table-main tr:hover td { background: var(--bg); }
+    /* History filters */
+    .hist-filters { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg); flex-wrap: wrap; }
+    .hist-filters label { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+    .hist-filter-input { height: 32px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: 7px; font-size: 12px; background: var(--surface); color: var(--text); cursor: pointer; }
+    .hist-filter-input:focus { outline: none; border-color: var(--accent); }
+    .hist-filter-sep { color: var(--border); font-size: 18px; }
+    .hist-filter-clear { padding: 5px 12px; border-radius: 7px; border: 1.5px solid var(--border); background: none; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+    .hist-filter-clear:hover { background: var(--surface); color: var(--text); }
+    .hist-filter-search { padding: 5px 16px; border-radius: 7px; border: none; background: var(--accent); font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
+    .hist-filter-search:hover { opacity: .85; }
+    .hist-export-btn { margin-left: auto; padding: 5px 14px; border-radius: 7px; border: 1.5px solid var(--accent); background: none; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; white-space: nowrap; }
+    .hist-export-btn:hover { background: var(--accent); color: #fff; }
+    /* Action buttons */
+    .hist-actions { display: flex; gap: 5px; }
+    .hist-action-btn { padding: 4px 10px; border-radius: 6px; border: 1.5px solid #dc2626; background: none; color: #dc2626; font-size: 11px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
+    .hist-action-btn:hover { background: #dc2626; color: #fff; }
+    .hist-action-btn:disabled { opacity: .5; cursor: default; }
+    .hist-action-ok { border-color: #16a34a; color: #16a34a; }
+    .hist-action-ok:hover { background: #16a34a; color: #fff; }
+    .hist-action-undo { border-color: var(--border); color: var(--text-muted); font-size: 10px; }
+    .hist-action-undo:hover { background: var(--bg); color: var(--text); }
+    /* Modal history */
+    .hist-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .hist-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .hist-table { width: 100%; border-collapse: collapse; }
+    .hist-table th { padding: 7px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); }
+    .hist-table td { padding: 8px 12px; font-size: 12px; color: var(--text); border-bottom: 1px solid var(--border); }
+    .hist-table tr:last-child td { border-bottom: none; }
+    .hist-table tr:hover td { background: var(--bg); }
+    .sbadge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+    .s-confirmed { background: #dcfce7; color: #16a34a; }
+    .s-pending   { background: #fef9c3; color: #854d0e; }
+    .s-cancelled { background: #fee2e2; color: #dc2626; }
+    .s-completed { background: #e0f2fe; color: #0369a1; }
+    .s-noshow    { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+    @media (max-width: 768px) {
+      .page-content { padding: 16px; }
+      .stats-row { grid-template-columns: 1fr; }
+      .topbar-actions .search-box { display: none; }
+      .modal-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" >
+        <svg width="44" height="44" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M29 23.5H9.5C6.5 23.5 4 21 4 18c0-2.7 2-5 4.6-5.4.2-3.5 3.1-6.1 6.6-6.1 1.8 0 3.4.7 4.6 1.8 1-1.1 2.4-1.8 4-1.8 2.9 0 5.2 2.3 5.2 5.2v.2c2.3.5 4 2.5 4 4.8 0 2.8-2.2 5-4 5z" fill="#0ea5e9"/>
+          <rect x="11" y="15" width="14" height="11" rx="1.5" stroke="white" stroke-width="1.2" fill="none"/>
+          <line x1="11" y1="18.5" x2="25" y2="18.5" stroke="white" stroke-width="1.2"/>
+          <line x1="15" y1="13.5" x2="15" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="21" y1="13.5" x2="21" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <rect x="13" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="13" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+        </svg>
+      </div>
+      <span class="brand-name">EVA</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="/app/agendamentos.html"><span class="nav-icon">📅</span><span class="nav-label">Agenda</span></a>
+      <a class="nav-item active" href="/app/pacientes.html"><span class="nav-icon">👥</span><span class="nav-label">Pacientes</span></a>
+      <a class="nav-item" href="/app/settings.html"><span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span></a>
+      <a class="nav-item" href="/app/relatorios.html"><span class="nav-icon">📊</span><span class="nav-label">Relatórios</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="nav-item" style="cursor:default;"><span class="nav-icon">👤</span><span class="nav-label" id="sidebarUserName" style="font-size:11px;opacity:.7;"></span></div>
+      <button class="nav-item" id="sidebarLogout" title="Sair"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
+    </div>
+  </aside>
+
+  <div class="page-wrapper">
+    <div class="page-topbar">
+      <h1>Pacientes</h1>
+      <div class="topbar-actions" id="topbarPatientsActions">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Buscar por nome, CPF ou telefone...">
+        </div>
+        <button class="btn btn-primary" id="newPatientBtn">+ Novo Paciente</button>
+      </div>
+    </div>
+
+    <div class="pac-tab-bar">
+      <button class="pac-tab active" id="tabPatients" onclick="switchPacTab('patients')">Pacientes Cadastrados</button>
+      <button class="pac-tab" id="tabHistory" onclick="switchPacTab('history')">Historico</button>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Aba: Pacientes -->
+      <div class="pac-section active" id="sectionPatients">
+        <div class="stats-row" id="statsRow">
+          <div class="stat-card"><div><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Total de Pacientes</div></div></div>
+          <div class="stat-card"><div><div class="stat-val" id="statThisMonth">—</div><div class="stat-lbl">Novos este Mês</div></div></div>
+          <div class="stat-card"><div><div class="stat-val" id="statWithAppts">—</div><div class="stat-lbl">Com Agendamentos</div></div></div>
+        </div>
+        <div class="patients-table-card">
+          <div class="table-header">
+            <span class="table-title">Lista de Pacientes</span>
+            <span id="recordCount" style="font-size:12px;color:var(--text-muted);"></span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Paciente</th>
+                <th>Telefone</th>
+                <th>CPF</th>
+                <th>Consultas</th>
+                <th>Último Agendamento</th>
+                <th>Status do Cadastro</th>
+                <th style="width:80px;"></th>
+              </tr>
+            </thead>
+            <tbody id="patientsBody">
+              <tr><td colspan="7"><div class="empty-state"><p>Carregando pacientes...</p></div></td></tr>
+            </tbody>
+          </table>
+          <div class="pagination" id="paginationBar" style="display:none;">
+            <span id="paginationInfo"></span>
+            <div class="page-btns" id="paginationBtns"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aba: Histórico -->
+      <div class="pac-section" id="sectionHistory">
+        <div class="hist-card">
+          <div class="hist-card-hdr">
+            <span class="hist-card-title">Histórico de Agendamentos</span>
+            <span id="histTotal" style="font-size:12px;color:var(--text-muted);"></span>
+          </div>
+          <div class="hist-filters">
+            <label>Data:</label>
+            <input type="date" id="histDateFilter" class="hist-filter-input">
+            <span class="hist-filter-sep">|</span>
+            <label>Status:</label>
+            <select id="histStatusFilter" class="hist-filter-input" style="width:130px;">
+              <option value="">Todos os status</option>
+              <option value="pending">Pendente</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="completed">Concluído</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="no_show">Faltou</option>
+            </select>
+            <button class="hist-filter-clear" onclick="clearHistFilter()">Limpar</button>
+            <button class="hist-filter-search" onclick="runHistFilter()">Pesquisar</button>
+            <button class="hist-export-btn" onclick="exportHistPDF()">&#8659; Exportar PDF</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="hist-table-main">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Data</th>
+                  <th>Horário</th>
+                  <th>Tipo</th>
+                  <th>Profissional</th>
+                  <th>Status</th>
+                  <th style="width:200px;"></th>
+                </tr>
+              </thead>
+              <tbody id="histBody">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" id="histPagination" style="display:none;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo/Editar Paciente -->
+<div class="modal-overlay" id="patientModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Novo Paciente</span>
+      <button class="modal-close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body" id="patientFormFields"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="modalCancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="modalSaveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalhes do Paciente -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <span class="modal-title" id="detailModalTitle">Detalhes do Paciente</span>
+      <button class="modal-close" id="detailModalClose">×</button>
+    </div>
+    <div class="detail-modal-body" id="detailModalBody" style="max-height:70vh;overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="detailEditBtn">Editar</button>
+      <button class="btn btn-primary" id="detailNewApptBtn">Novo Agendamento</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/config-api.js"></script>
+<script>
+const API = (() => { if (window.API_CONFIG?.baseUrl) return window.API_CONFIG.baseUrl; const h = window.location.hostname; return (h==='localhost'||h==='127.0.0.1') ? `http://${h}:3000/api` : 'https://cloudd-agenda-backend.vercel.app/api'; })();
+const token = () => localStorage.getItem('authToken');
+const userData = () => { try { return JSON.parse(localStorage.getItem('userData')||'null'); } catch { return null; } };
+
+const user = userData();
+if (!user || !token()) window.location.href = '/';
+document.getElementById('sidebarUserName').textContent = user?.name || '';
+
+const sidebar = document.getElementById('sidebar');
+sidebar.addEventListener('mouseenter', () => sidebar.classList.add('expanded'));
+sidebar.addEventListener('mouseleave', () => sidebar.classList.remove('expanded'));
+document.getElementById('sidebarLogout').addEventListener('click', () => { localStorage.clear(); window.location.href = '/'; });
+
+function toast(msg, type='info') { const el=document.createElement('div'); el.className=`toast ${type}`; el.textContent=msg; document.getElementById('toastContainer').appendChild(el); setTimeout(()=>el.remove(),3500); }
+
+function dmyToIso(v) {
+  if (!v) return '';
+  const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+function isoToDMY(v) {
+  if (!v) return '';
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+async function apiFetch(path, opts={}) { const res=await fetch(API+path,{headers:{'Content-Type':'application/json',Authorization:'Bearer '+token(),...opts.headers},...opts}); if(res.status===401){localStorage.clear();window.location.href='/';return null;} return res.json(); }
+
+// ── Patient field config ─────────────────────────────────
+const PRESET_FIELD_MAP = {
+  nome:            { id:'fNome',       type:'text',     placeholder:'Nome do paciente',         label:'Nome Completo *', full:false },
+  telefone:        { id:'fTelefone',   type:'tel',      placeholder:'(00) 00000-0000',          label:'Telefone',        full:false },
+  email:           { id:'fEmail',      type:'email',    placeholder:'email@exemplo.com',        label:'E-mail',          full:false },
+  cpf:             { id:'fCpf',        type:'text',     placeholder:'000.000.000-00',           label:'CPF',             full:false },
+  data_nascimento: { id:'fNascimento', type:'dmy',      placeholder:'DD/MM/AAAA',               label:'Data de Nascimento', full:false },
+  convenio:        { id:'fConvenio',   type:'text',     placeholder:'Ex: Unimed, Bradesco...',  label:'Convênio',        full:false },
+  observacoes:     { id:'fObs',        type:'textarea', placeholder:'Alergias, observações...', label:'Observações',     full:true  },
+};
+
+let patientFieldsConfig = Object.keys(PRESET_FIELD_MAP).map(k => ({ key:k, ...PRESET_FIELD_MAP[k] }));
+
+async function loadPatientFieldsConfig() {
+  try {
+    const data = await apiFetch('/moderator/settings');
+    const s = data?.data || data?.settings;
+    const saved = s?.patient_fields
+      ? (typeof s.patient_fields === 'string' ? JSON.parse(s.patient_fields) : s.patient_fields)
+      : null;
+    if (saved) {
+      patientFieldsConfig = saved
+        .filter(f => f.visible !== false)
+        .map(f => f.custom
+          ? { key: f.key, id: 'cf_' + f.key, type: 'text', placeholder: f.label, label: f.label, full: false, custom: true }
+          : PRESET_FIELD_MAP[f.key] ? { key: f.key, ...PRESET_FIELD_MAP[f.key] } : null
+        )
+        .filter(Boolean);
+    }
+  } catch { /* use defaults */ }
+}
+
+function buildPatientForm(p = {}) {
+  const extra = (() => { try { return JSON.parse(p.extra_fields || '{}'); } catch { return {}; } })();
+  const inputStyle = 'width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;';
+  document.getElementById('patientFormFields').innerHTML = patientFieldsConfig.map(f => {
+    const cls = `form-group${f.full ? ' full' : ''}`;
+    let inp = '';
+    if (f.type === 'textarea') {
+      inp = `<textarea id="${f.id}" rows="2" style="resize:vertical;${inputStyle}" placeholder="${f.placeholder}"></textarea>`;
+    } else if (f.type === 'dmy') {
+      inp = `<input type="text" id="${f.id}" placeholder="${f.placeholder}" maxlength="10" autocomplete="off" style="${inputStyle}">`;
+    } else {
+      inp = `<input type="${f.type}" id="${f.id}" placeholder="${f.placeholder}" style="${inputStyle}">`;
+    }
+    return `<div class="${cls}"><label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">${f.label}</label>${inp}</div>`;
+  }).join('');
+
+  // Populate values
+  const val = (id, v) => { const el=document.getElementById(id); if(el && v!=null) el.value=v; };
+  val('fNome',       p.name || '');
+  val('fTelefone',   p.phone || '');
+  val('fEmail',      p.email || '');
+  val('fCpf',        p.cpf || '');
+  val('fNascimento', isoToDMY(p.birth_date || ''));
+  val('fConvenio',   p.health_insurance || '');
+  val('fObs',        p.notes || '');
+  // Custom fields
+  patientFieldsConfig.filter(f => f.custom).forEach(f => {
+    val(f.id, extra[f.key] || '');
+  });
+
+  // Re-attach date mask
+  const dmy = document.getElementById('fNascimento');
+  if (dmy) {
+    dmy.addEventListener('input', function() {
+      let v = this.value.replace(/\D/g,'').slice(0,8);
+      if (v.length>4) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+      else if (v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+      this.value=v;
+    });
+  }
+}
+
+function collectPatientFormValues() {
+  const g = (id) => { const el=document.getElementById(id); return el ? el.value.trim() : ''; };
+  const extra = {};
+  patientFieldsConfig.filter(f => f.custom).forEach(f => { extra[f.key] = g(f.id); });
+  return {
+    name:             g('fNome'),
+    phone:            g('fTelefone'),
+    email:            g('fEmail'),
+    cpf:              g('fCpf'),
+    birth_date:       dmyToIso(g('fNascimento')) || null,
+    health_insurance: g('fConvenio'),
+    notes:            g('fObs'),
+    extra_fields:     Object.keys(extra).length ? extra : null,
+  };
+}
+
+const HIST_STATUS_LABEL = { confirmed:'Confirmado', pending:'Pendente', cancelled:'Cancelado', completed:'Concluído', scheduled:'Confirmado', no_show:'Faltou', missed:'Faltou' };
+const HIST_STATUS_CLASS = { confirmed:'s-confirmed', pending:'s-pending', cancelled:'s-cancelled', completed:'s-completed', scheduled:'s-confirmed', no_show:'s-noshow', missed:'s-noshow' };
+
+// ── State ────────────────────────────────────────────────
+let allPatients = [];
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 15;
+let editingId = null;
+
+// ── Load data ────────────────────────────────────────────
+async function loadPatients() {
+  try {
+    const data = await apiFetch('/patients');
+    allPatients = Array.isArray(data) ? data : (data.patients || data.users || []);
+    computeStats();
+    applyFilter();
+  } catch(e) {
+    document.getElementById('patientsBody').innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>Erro ao carregar pacientes.</p></div></td></tr>`;
+  }
+}
+
+function computeStats() {
+  const now = new Date();
+  const thisMonth = allPatients.filter(p => {
+    const d = new Date(p.created_at || p.createdAt || 0);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  }).length;
+  const withAppts = allPatients.filter(p => p.total_appointments > 0 || p.last_appointment).length;
+  document.getElementById('statTotal').textContent = allPatients.length;
+  document.getElementById('statThisMonth').textContent = thisMonth;
+  document.getElementById('statWithAppts').textContent = withAppts;
+}
+
+function applyFilter() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  filtered = q ? allPatients.filter(p =>
+    (p.name||'').toLowerCase().includes(q) ||
+    (p.email||'').toLowerCase().includes(q) ||
+    (p.phone||p.telefone||'').includes(q) ||
+    (p.cpf||'').includes(q)
+  ) : [...allPatients];
+  currentPage = 1;
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('patientsBody');
+  const total = filtered.length;
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page = filtered.slice(start, start+PAGE_SIZE);
+
+  document.getElementById('recordCount').textContent = `${total} paciente${total!==1?'s':''}`;
+
+  if (!page.length) {
+    const msg = allPatients.length ? 'Nenhum paciente encontrado para a busca.' : 'Nenhum paciente cadastrado ainda.';
+    const cta = !allPatients.length ? `<button class="btn btn-primary" style="margin-top:14px;" onclick="document.getElementById('newPatientBtn').click()">Cadastrar primeiro paciente</button>` : '';
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>${msg}</p>${cta}</div></td></tr>`;
+    document.getElementById('paginationBar').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = page.map(p => {
+    const initials = (p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const phone = p.phone || p.telefone || '—';
+    const lastAppt = p.last_appointment ? new Date(p.last_appointment).toLocaleDateString('pt-BR') : '—';
+    const isActive = p.last_appointment && (Date.now() - new Date(p.last_appointment)) < 365*24*3600*1000;
+    const completed = Number(p.total_completed) || 0;
+    const noShow   = Number(p.total_no_show)   || 0;
+    const consultasBadge = `
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">
+          Compareceu: ${completed}
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">
+          Faltou: ${noShow}
+        </span>
+      </div>`;
+    return `<tr style="cursor:pointer;" onclick="openDetail(${p.id})">
+      <td><div class="patient-name-cell"><div class="patient-avatar">${initials}</div><div><div style="font-weight:600;">${p.name||'—'}</div>${p.cpf?`<div style="font-size:11px;color:var(--text-muted);">CPF: ${p.cpf}</div>`:''}</div></div></td>
+      <td>${phone}</td>
+      <td style="color:var(--text-muted);font-size:12px;">${p.cpf||'—'}</td>
+      <td>${consultasBadge}</td>
+      <td style="font-size:12px;">${lastAppt}</td>
+      <td><span class="badge ${isActive?'badge-active':'badge-inactive'}">${isActive?'Ativo':'Inativo'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="action-btn" onclick="event.stopPropagation();openEdit(${p.id})" title="Editar">Editar</button>
+        <button class="action-btn" onclick="event.stopPropagation();removePatient(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Remover" style="color:#dc2626;">Remover</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(total/PAGE_SIZE);
+  const bar = document.getElementById('paginationBar');
+  bar.style.display = totalPages>1 ? 'flex' : 'none';
+  document.getElementById('paginationInfo').textContent = `${start+1}–${Math.min(start+PAGE_SIZE,total)} de ${total}`;
+  const btns = document.getElementById('paginationBtns');
+  btns.innerHTML = Array.from({length:totalPages},(_,i)=>`<button class="page-btn${i+1===currentPage?' active':''}" onclick="goPage(${i+1})">${i+1}</button>`).join('');
+}
+
+window.goPage = p => { currentPage=p; renderTable(); };
+
+window.removePatient = async (id, name) => {
+  if (!confirm(`Remover o paciente "${name}"?\n\nEsta ação não pode ser desfeita.`)) return;
+  try {
+    const data = await apiFetch(`/patients/${id}`, { method: 'DELETE' });
+    if (data && (data.success || data.message)) {
+      toast('Paciente removido', 'info');
+      allPatients = allPatients.filter(p => p.id !== id);
+      computeStats();
+      applyFilter();
+    } else {
+      toast(data?.message || 'Erro ao remover paciente', 'error');
+    }
+  } catch { toast('Erro de conexão', 'error'); }
+};
+
+// ── Detail modal ─────────────────────────────────────────
+let detailPatient = null;
+window.openDetail = async (id) => {
+  const p = allPatients.find(x=>x.id===id);
+  if (!p) return;
+  detailPatient = p;
+  document.getElementById('detailModalTitle').textContent = p.name || 'Paciente';
+  const phone = p.phone||p.telefone||'—';
+  const dob = isoToDMY(p.birth_date||p.data_nascimento) || '—';
+  const body = document.getElementById('detailModalBody');
+  body.innerHTML = `
+    <div class="detail-row"><span class="detail-label">Nome</span><span class="detail-val">${p.name||'—'}</span></div>
+    <div class="detail-row"><span class="detail-label">Telefone</span><span class="detail-val">${phone}</span></div>
+    <div class="detail-row"><span class="detail-label">E-mail</span><span class="detail-val">${p.email||'—'}</span></div>
+    <div class="detail-row"><span class="detail-label">CPF</span><span class="detail-val">${p.cpf||'—'}</span></div>
+    <div class="detail-row"><span class="detail-label">Nascimento</span><span class="detail-val">${dob}</span></div>
+    <div class="detail-row"><span class="detail-label">Convênio</span><span class="detail-val">${p.convenio||p.health_insurance||'—'}</span></div>
+    <div class="detail-row">
+      <span class="detail-label">Consultas</span>
+      <span class="detail-val" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="background:#dcfce7;color:#16a34a;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;">Compareceu: ${Number(p.total_completed)||0}</span>
+        <span style="background:#fee2e2;color:#dc2626;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;">Faltou: ${Number(p.total_no_show)||0}</span>
+      </span>
+    </div>
+    ${p.notes||p.observacoes?`<div class="detail-row"><span class="detail-label">Observações</span><span class="detail-val">${p.notes||p.observacoes}</span></div>`:''}
+    <div class="hist-section">
+      <p class="hist-title">Histórico de Agendamentos</p>
+      <div id="patientHistBody"><p style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px 0;">Carregando...</p></div>
+    </div>
+  `;
+  document.getElementById('detailModal').classList.add('open');
+
+  // Load appointment history via API filter
+  let hist = [];
+  try {
+    const d = await apiFetch(`/appointments?customer_name=${encodeURIComponent(p.name)}&limit=500`);
+    const raw = Array.isArray(d) ? d : (d.data || d.appointments || []);
+    hist = raw.slice().sort((a,b)=>{ const da=a.appointment_date||'', db=b.appointment_date||''; return db.localeCompare(da); });
+  } catch { hist = []; }
+
+  const histEl = document.getElementById('patientHistBody');
+  if (!histEl) return;
+  if (!hist.length) {
+    histEl.innerHTML = `<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px 0;">Nenhum agendamento encontrado.</p>`;
+    return;
+  }
+  histEl.innerHTML = `<div style="overflow-x:auto;"><table class="hist-table">
+    <thead><tr><th>Data</th><th>Horário</th><th>Tipo</th><th>Profissional</th><th>Status</th></tr></thead>
+    <tbody>${hist.slice(0,50).map(a => {
+      const st = a.status||'pending';
+      const date = a.appointment_date ? new Date(a.appointment_date+'T00:00').toLocaleDateString('pt-BR') : '—';
+      const time = (a.appointment_time||'').substring(0,5) || '—';
+      const type = a.service_type||a.type||a.appointment_type||'Consulta';
+      const prof = a.employee_name||a.staff_name||a.funcionario||'—';
+      return `<tr><td>${date}</td><td>${time}</td><td>${type}</td><td style="color:var(--text-muted);">${prof}</td><td><span class="sbadge ${HIST_STATUS_CLASS[st]||'s-pending'}">${HIST_STATUS_LABEL[st]||st}</span></td></tr>`;
+    }).join('')}</tbody>
+  </table></div>${hist.length>50?`<p style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px 0;">Exibindo os 50 mais recentes de ${hist.length} total.</p>`:''}`;
+};
+document.getElementById('detailModalClose').onclick = () => document.getElementById('detailModal').classList.remove('open');
+document.getElementById('detailEditBtn').onclick = () => { document.getElementById('detailModal').classList.remove('open'); if (detailPatient) openEdit(detailPatient.id); };
+document.getElementById('detailNewApptBtn').onclick = () => {
+  if (detailPatient) {
+    sessionStorage.setItem('newApptPatient', JSON.stringify({ name: detailPatient.name, phone: detailPatient.phone||detailPatient.telefone, email: detailPatient.email }));
+    window.location.href = '/app/agendamentos.html';
+  }
+};
+document.getElementById('detailModal').addEventListener('click', e => { if (e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+
+// ── New / Edit modal ─────────────────────────────────────
+window.openEdit = (id) => {
+  const p = allPatients.find(x=>x.id===id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Editar Paciente';
+  buildPatientForm(p);
+  document.getElementById('patientModal').classList.add('open');
+};
+
+document.getElementById('newPatientBtn').onclick = () => {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Novo Paciente';
+  buildPatientForm({});
+  document.getElementById('patientModal').classList.add('open');
+};
+document.getElementById('modalClose').onclick = () => document.getElementById('patientModal').classList.remove('open');
+document.getElementById('modalCancelBtn').onclick = () => document.getElementById('patientModal').classList.remove('open');
+document.getElementById('patientModal').addEventListener('click', e => { if (e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+
+document.getElementById('modalSaveBtn').onclick = async () => {
+  const body = collectPatientFormValues();
+  if (!body.name || body.name.length < 2) { toast('Nome é obrigatório', 'error'); return; }
+  try {
+    let data;
+    if (editingId) {
+      data = await apiFetch(`/patients/${editingId}`, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
+      data = await apiFetch('/patients', { method: 'POST', body: JSON.stringify(body) });
+    }
+    if (data && (data.success || data.id || data.user)) {
+      toast(editingId ? 'Paciente atualizado!' : 'Paciente cadastrado!', 'success');
+      document.getElementById('patientModal').classList.remove('open');
+      await loadPatients();
+    } else {
+      toast(data?.message || 'Erro ao salvar', 'error');
+    }
+  } catch(e) { toast('Erro de conexão', 'error'); }
+};
+
+// ── Search ───────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', applyFilter);
+
+// ── Tab switching ─────────────────────────────────────────
+const todayISO = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+let histLoaded = false;
+let histData = [], histPage = 0;
+const HIST_PER_PAGE = 25;
+let histFilter = { date: todayISO, status: '' };
+
+function applyHistFilter() {
+  return histData.filter(a => {
+    const apptDate = (a.appointment_date || '').slice(0, 10);
+    const dateMatch = !histFilter.date || apptDate === histFilter.date;
+    const statusMatch = !histFilter.status || a.status === histFilter.status;
+    return dateMatch && statusMatch;
+  });
+}
+
+window.switchPacTab = function(tab) {
+  document.querySelectorAll('.pac-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.pac-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(tab === 'patients' ? 'tabPatients' : 'tabHistory').classList.add('active');
+  document.getElementById(tab === 'patients' ? 'sectionPatients' : 'sectionHistory').classList.add('active');
+  const topActions = document.getElementById('topbarPatientsActions');
+  topActions.style.display = tab === 'patients' ? '' : 'none';
+  if (tab === 'history' && !histLoaded) loadHistory();
+};
+
+async function loadHistory() {
+  histLoaded = true;
+  try {
+    const d = await apiFetch('/appointments?limit=2000');
+    const raw = Array.isArray(d) ? d : (d.data || d.appointments || []);
+    histData = raw.slice().sort((a,b) => (b.appointment_date||'').localeCompare(a.appointment_date||''));
+  } catch { histData = []; }
+  histPage = 0;
+  renderHistPage();
+}
+
+function buildActionCell(apptId, st) {
+  const canAct  = st === 'pending' || st === 'confirmed';
+  const canUndo  = st === 'no_show' || st === 'missed' || st === 'completed';
+  if (canAct) {
+    return `<div class="hist-actions">
+      <button class="hist-action-btn hist-action-ok" onclick="markAttended('${apptId}',this)" title="Compareceu">Compareceu</button>
+      <button class="hist-action-btn" onclick="markNoShow('${apptId}',this)" title="Faltou">Faltou</button>
+    </div>`;
+  }
+  if (canUndo) return `<button class="hist-action-btn hist-action-undo" onclick="undoAction('${apptId}',this)" title="Desfazer">Desfazer</button>`;
+  return '';
+}
+
+function renderHistPage() {
+  const filteredData = applyHistFilter();
+  const tbody = document.getElementById('histBody');
+  const pagEl = document.getElementById('histPagination');
+  const total = filteredData.length;
+  const allTotal = histData.length;
+  document.getElementById('histTotal').textContent = (total !== allTotal && allTotal > 0)
+    ? `${total} de ${allTotal} agendamento${allTotal!==1?'s':''}`
+    : `${total} agendamento${total!==1?'s':''}`;
+  if (!total) {
+    const msg = allTotal ? 'Nenhum resultado para o filtro selecionado.' : 'Nenhum agendamento encontrado.';
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">${msg}</td></tr>`;
+    pagEl.style.display = 'none';
+    return;
+  }
+  const page = filteredData.slice(histPage * HIST_PER_PAGE, (histPage+1) * HIST_PER_PAGE);
+  tbody.innerHTML = page.map(a => {
+    const st   = a.status || 'pending';
+    const date = a.appointment_date ? new Date(a.appointment_date+'T00:00').toLocaleDateString('pt-BR') : '—';
+    const time = (a.appointment_time||'').substring(0,5) || '—';
+    const type = a.service_type || a.appointment_type || 'Consulta';
+    const prof = a.employee_name || a.staff_name || '—';
+    return `<tr data-appt-id="${a.id}">
+      <td><strong>${a.customer_name||'—'}</strong></td>
+      <td style="font-size:12px;color:var(--text-muted);">${date}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${time}</td>
+      <td>${type}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${prof}</td>
+      <td class="hist-status-cell"><span class="sbadge ${HIST_STATUS_CLASS[st]||'s-pending'}">${HIST_STATUS_LABEL[st]||st}</span></td>
+      <td>${buildActionCell(a.id, st)}</td>
+    </tr>`;
+  }).join('');
+  const totalPages = Math.ceil(total / HIST_PER_PAGE);
+  pagEl.style.display = totalPages > 1 ? 'flex' : 'none';
+  if (totalPages > 1) {
+    const start = histPage * HIST_PER_PAGE + 1;
+    const end = Math.min((histPage+1) * HIST_PER_PAGE, total);
+    let h = `<span>${start}–${end} de ${total}</span><div class="page-btns">`;
+    h += `<button class="page-btn" onclick="histChangePage(-1)" ${histPage===0?'disabled':''}>&#8249;</button>`;
+    for (let i = 0; i < totalPages && i < 8; i++) h += `<button class="page-btn ${i===histPage?'active':''}" onclick="histGoPage(${i})">${i+1}</button>`;
+    h += `<button class="page-btn" onclick="histChangePage(1)" ${histPage===totalPages-1?'disabled':''}>&#8250;</button></div>`;
+    pagEl.innerHTML = h;
+  }
+}
+window.histGoPage = n => { histPage = n; renderHistPage(); };
+window.histChangePage = d => {
+  const totalPages = Math.ceil(applyHistFilter().length / HIST_PER_PAGE);
+  histPage = Math.max(0, Math.min(totalPages - 1, histPage + d));
+  renderHistPage();
+};
+
+// ── Marcar / Desmarcar status ─────────────────────────────
+async function setHistStatus(apptId, newStatus, btn) {
+  const tdAction = btn.closest('td');
+  const origHtml = tdAction.innerHTML;
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await apiFetch(`/appointments/${apptId}`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
+    if (res && (res.success || res.id || res.appointment)) {
+      const appt = histData.find(a => String(a.id) === String(apptId));
+      if (appt) appt.status = newStatus;
+      const row = btn.closest('tr');
+      const statusCell = row.querySelector('.hist-status-cell');
+      if (statusCell) statusCell.innerHTML = `<span class="sbadge ${HIST_STATUS_CLASS[newStatus]||'s-pending'}">${HIST_STATUS_LABEL[newStatus]||newStatus}</span>`;
+      tdAction.innerHTML = buildActionCell(apptId, newStatus);
+      const labels = { no_show: 'Marcado como Faltou', completed: 'Marcado como Compareceu', confirmed: 'Revertido', pending: 'Revertido' };
+      toast(labels[newStatus] || 'Status atualizado', 'success');
+      renderHistPage();
+    } else {
+      toast(res?.message || 'Erro ao atualizar', 'error');
+      tdAction.innerHTML = origHtml;
+    }
+  } catch { toast('Erro de conexão', 'error'); tdAction.innerHTML = origHtml; }
+}
+window.markAttended = (id, btn) => setHistStatus(id, 'completed', btn);
+window.markNoShow   = (id, btn) => setHistStatus(id, 'no_show', btn);
+window.undoAction   = (id, btn) => setHistStatus(id, 'confirmed', btn);
+
+// ── Filtros e exportação ──────────────────────────────────
+window.runHistFilter = function() {
+  histFilter.date   = document.getElementById('histDateFilter').value;
+  histFilter.status = document.getElementById('histStatusFilter').value;
+  histPage = 0;
+  renderHistPage();
+};
+
+window.clearHistFilter = function() {
+  histFilter = { date: '', status: '' };
+  document.getElementById('histDateFilter').value = '';
+  document.getElementById('histStatusFilter').value = '';
+  histPage = 0;
+  renderHistPage();
+};
+
+window.exportHistPDF = function() {
+  // Export uses date filter only — gives the full day report regardless of status filter
+  const data = histData.filter(a => {
+    const apptDate = (a.appointment_date || '').slice(0, 10);
+    return !histFilter.date || apptDate === histFilter.date;
+  }).sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
+  if (!data.length) { toast('Nenhum dado para exportar', 'error'); return; }
+  const dateLabel   = histFilter.date ? new Date(histFilter.date+'T00:00').toLocaleDateString('pt-BR') : 'Todos os dias';
+  const statusLabel = 'Todos';
+  const rows = data.map(a => {
+    const date = (a.appointment_date||'').slice(0,10);
+    const dateStr = date ? new Date(date+'T00:00').toLocaleDateString('pt-BR') : '—';
+    const time = (a.appointment_time||'').substring(0,5) || '—';
+    return `<tr><td>${a.customer_name||'—'}</td><td>${dateStr}</td><td>${time}</td><td>${a.service_type||a.appointment_type||'Consulta'}</td><td>${a.employee_name||a.staff_name||'—'}</td><td>${HIST_STATUS_LABEL[a.status||'pending']||a.status||''}</td></tr>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Historico de Agendamentos</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px;margin:24px}h2{font-size:15px;margin-bottom:4px}.sub{font-size:11px;color:#666;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:6px 8px;background:#f3f4f6;border:1px solid #e5e7eb;font-size:10px;text-transform:uppercase}td{padding:6px 8px;border:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}@media print{.no-print{display:none}}</style>
+</head><body>
+<h2>Historico de Agendamentos</h2>
+<p class="sub">Data: ${dateLabel} &nbsp;|&nbsp; Status: ${statusLabel} &nbsp;|&nbsp; Total: ${data.length} agendamento${data.length!==1?'s':''}</p>
+<table><thead><tr><th>Paciente</th><th>Data</th><th>Horario</th><th>Tipo</th><th>Profissional</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+</body></html>`;
+  const win = window.open('', '_blank', 'width=950,height=720');
+  if (!win) { toast('Permita popups para exportar PDF', 'error'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+};
+
+// ── Init ─────────────────────────────────────────────────
+document.getElementById('histDateFilter').value = todayISO;
+loadPatientFieldsConfig().then(() => loadPatients());
+</script>
+</body>
+</html>

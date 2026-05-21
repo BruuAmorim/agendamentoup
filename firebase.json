@@ -3,15 +3,28 @@
     "public": "frontend",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      {
+        "source": "/api/**",
+        "function": {
+          "functionId": "api",
+          "region": "southamerica-east1"
+        }
+      },
       { "source": "/admin/dashboard", "destination": "/admin/dashboard.html" },
       { "source": "/admin/users", "destination": "/admin/users.html" },
       { "source": "/admin/integrations", "destination": "/admin/integrations.html" }
     ]
   },
-  "functions": {
-    "source": "functions",
-    "codebase": "default",
-    "disallowLegacyRuntimeConfig": true,
-    "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.local"]
-  }
+  "functions": [
+    {
+      "source": "backend",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "database.sqlite",
+        "*.local"
+      ]
+    }
+  ]
 }

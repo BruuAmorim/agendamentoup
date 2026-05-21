@@ -25,15 +25,7 @@ class EmpresaApiKeyController {
 
       const userId = req.user.id;
       const userRole = req.user.role;
-      const empresaId = req.user.empresa_id;
 
-      console.log('🔍 [EmpresaApiKeyController] Regenerar API Key:', {
-        userId,
-        userRole,
-        empresaId
-      });
-
-      // CRÍTICO: Admin Master NÃO pode gerar chaves para empresas
       if (userRole === 'admin_master') {
         return res.status(403).json({
           success: false,
@@ -42,7 +34,6 @@ class EmpresaApiKeyController {
         });
       }
 
-      // Verificar se é empresa (empresa ou moderator)
       if (userRole !== 'empresa' && userRole !== 'moderator') {
         return res.status(403).json({
           success: false,
@@ -51,23 +42,8 @@ class EmpresaApiKeyController {
         });
       }
 
-      // Verificar se empresa_id está presente
-      if (!empresaId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Acesso negado',
-          message: 'Usuário não está associado a uma empresa'
-        });
-      }
-
-      // Verificar se empresa_id corresponde ao user_id (empresa gerencia sua própria chave)
-      if (empresaId !== userId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Acesso negado',
-          message: 'Você só pode gerar API Key para sua própria empresa'
-        });
-      }
+      // Moderadores são a própria empresa — empresa_id = id
+      const empresaId = userId;
 
       // Regenerar API Key
       const result = await EmpresaApiKeyService.regenerateApiKey(empresaId);
@@ -108,10 +84,8 @@ class EmpresaApiKeyController {
         });
       }
 
-      const empresaId = req.user.empresa_id;
       const userRole = req.user.role;
 
-      // Verificar se é empresa
       if (userRole !== 'empresa' && userRole !== 'moderator') {
         return res.status(403).json({
           success: false,
@@ -120,13 +94,8 @@ class EmpresaApiKeyController {
         });
       }
 
-      if (!empresaId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Acesso negado',
-          message: 'Usuário não está associado a uma empresa'
-        });
-      }
+      // Moderadores são a própria empresa
+      const empresaId = req.user.id;
 
       // Obter informações
       const info = await EmpresaApiKeyService.getApiKeyInfo(empresaId);

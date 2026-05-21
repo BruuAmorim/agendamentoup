@@ -191,7 +191,7 @@ class ConfiguracoesManager {
                 headers: headers,
                 body: JSON.stringify({
                     event: 'test_webhook',
-                    message: 'Teste de conexão do Aevum',
+                    message: 'Teste de conexão do Cloudd Agenda',
                     timestamp: new Date().toISOString()
                 })
             });
@@ -227,7 +227,7 @@ class ConfiguracoesManager {
             const headers = {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'User-Agent': 'Aevum/1.0'
+                'User-Agent': 'ClouddAgenda/1.0'
             };
 
             // Alguns provedores têm endpoints diferentes, vamos tentar alguns comuns
@@ -529,7 +529,7 @@ class ConfiguracoesManager {
                 headers: headers,
                 body: JSON.stringify({
                     event: 'test_webhook',
-                    message: 'Teste de conexão do Aevum',
+                    message: 'Teste de conexão do Cloudd Agenda',
                     timestamp: new Date().toISOString()
                 })
             });
@@ -565,7 +565,7 @@ class ConfiguracoesManager {
             const headers = {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'User-Agent': 'Aevum/1.0'
+                'User-Agent': 'ClouddAgenda/1.0'
             };
 
             // Alguns provedores têm endpoints diferentes, vamos tentar alguns comuns

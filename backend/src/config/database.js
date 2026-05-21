@@ -18,15 +18,26 @@ if (useMemoryStorage) {
     logging: false
   });
 } else if (databaseUrl && !useSqliteLocal) {
-  // Modo PostgreSQL (produção/Supabase)
+  // Modo PostgreSQL (produção — Neon, Supabase, etc.)
   sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
     logging: false,
+    // Pool conservador para ambientes serverless (Firebase Functions, Vercel)
+    // Cada instância tem no máximo 2 conexões; o pooler do Neon gerencia o total
+    pool: {
+      max: 2,
+      min: 0,
+      acquire: 10000,
+      idle: 5000,
+      evict: 10000
+    },
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false // Necessário para conexões externas com o Supabase
-      }
+        rejectUnauthorized: false
+      },
+      statement_timeout: 10000,
+      query_timeout: 10000
     }
   });
 } else {
@@ -52,19 +63,18 @@ async function query(sql, params = []) {
     if (dialect === 'sqlite') {
       // Converter placeholders PostgreSQL ($1, $2, ...) para SQLite (?)
       const sqliteParams = [];
+      let hadPgParams = false;
       let sqliteSql = sql.replace(/\$(\d+)/g, (_, idx) => {
+        hadPgParams = true;
         const val = params[parseInt(idx, 10) - 1];
         if (val !== undefined) sqliteParams.push(val);
         return '?';
       });
+      // Se o SQL já usava ? (sem $n), aproveitar params originais
+      if (!hadPgParams && params.length) sqliteParams.push(...params);
 
       // Remover cast de tipo PostgreSQL (::text, ::date, ::jsonb, etc.)
       sqliteSql = sqliteSql.replace(/::\w+/g, '');
-
-      // SQLite não suporta RETURNING — removê-lo
-      if (hasReturning) {
-        sqliteSql = sqliteSql.replace(/\s+RETURNING\s+[\w\s,*]+/gi, '');
-      }
 
       if (isReadOnly) {
         const results = await sequelize.query(sqliteSql, {
@@ -72,6 +82,38 @@ async function query(sql, params = []) {
           type: sequelize.QueryTypes.SELECT,
         });
         return { rows: Array.isArray(results) ? results : [] };
+      }
+
+      if (hasReturning) {
+        // SQLite não suporta RETURNING — strip e depois busca a linha pelo last_insert_rowid()
+        const strippedSql = sqliteSql.replace(/\s+RETURNING\s+[\s\S]*/gi, '');
+        await sequelize.query(strippedSql, {
+          replacements: sqliteParams,
+          type: sequelize.QueryTypes.RAW,
+        });
+        // Para INSERTs: buscar a linha recém-inserida
+        if (/^\s*INSERT/i.test(strippedSql)) {
+          try {
+            const [lastRow] = await sequelize.query(
+              'SELECT last_insert_rowid() AS last_id',
+              { type: sequelize.QueryTypes.SELECT }
+            );
+            const lastId = lastRow?.last_id;
+            if (lastId) {
+              const tableMatch = strippedSql.match(/INSERT\s+(?:OR\s+\w+\s+)?INTO\s+(\w+)/i);
+              if (tableMatch) {
+                const fetched = await sequelize.query(
+                  `SELECT * FROM \`${tableMatch[1]}\` WHERE id = ?`,
+                  { replacements: [lastId], type: sequelize.QueryTypes.SELECT }
+                );
+                return { rows: fetched || [] };
+              }
+            }
+          } catch (e) {
+            console.warn('[db] SQLite RETURNING fallback:', e.message);
+          }
+        }
+        return { rows: [] };
       }
 
       await sequelize.query(sqliteSql, {

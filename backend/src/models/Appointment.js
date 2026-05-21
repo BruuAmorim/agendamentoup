@@ -318,7 +318,8 @@ class Appointment {
 
   // Validar dados do agendamento
   // userId opcional: ID da empresa para buscar configurações específicas
-  static async validate(data, userId = null) {
+  // allowPastDays: número de dias no passado permitidos (0 = apenas hoje/futuro)
+  static async validate(data, userId = null, allowPastDays = 0) {
     const errors = [];
 
     if (!data.customer_name || data.customer_name.trim().length < 2) {
@@ -333,10 +334,16 @@ class Appointment {
       today.setHours(0, 0, 0, 0);
 
       const appointmentDateStr = appointmentDate.toISOString().split('T')[0];
-      const todayStr = today.toISOString().split('T')[0];
 
-      if (appointmentDateStr < todayStr) {
-        errors.push('Data do agendamento não pode ser no passado');
+      const cutoff = new Date(today);
+      if (allowPastDays > 0) cutoff.setDate(cutoff.getDate() - allowPastDays);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+
+      if (appointmentDateStr < cutoffStr) {
+        const msg = allowPastDays > 0
+          ? `Data do agendamento não pode ser anterior a ${allowPastDays} dias`
+          : 'Data do agendamento não pode ser no passado';
+        errors.push(msg);
       }
 
       // Validar que a data é um dia ativo (working_days da empresa / funcionário)
@@ -1069,10 +1076,15 @@ class Appointment {
   // Atualizar agendamento
   // userId opcional: ID da empresa para buscar configurações específicas (RF02)
   async update(data, userId = null) {
-    // RF02 - Validar dados antes de atualizar (incluindo horário de expediente)
-    const validationErrors = await Appointment.validate({ ...this, ...data }, userId);
-    if (validationErrors.length > 0) {
-      throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
+    // Se só está mudando status/notes/employee, pula validação de data/horário
+    const metaOnlyFields = new Set(['status', 'notes', 'employee_id', 'updated_at']);
+    const isMetaOnly = Object.keys(data).every(k => metaOnlyFields.has(k));
+    if (!isMetaOnly) {
+      // Updates allow adjusting appointments up to 7 days in the past
+      const validationErrors = await Appointment.validate({ ...this, ...data }, userId, 7);
+      if (validationErrors.length > 0) {
+        throw new Error(`Dados inválidos: ${validationErrors.join(', ')}`);
+      }
     }
 
       // RF02 - Se está mudando data/hora, verificar conflitos ANTES de atualizar
@@ -1161,6 +1173,27 @@ class Appointment {
         throw new Error(`Erro ao atualizar agendamento: ${error.message}`);
       }
     }
+  }
+
+  // Atualizar apenas o status (sem nenhuma validação de data/horário)
+  static async patchStatus(id, newStatus, empresaId) {
+    console.log('[patchStatus] id=%s newStatus=%s empresaId=%s', id, newStatus, empresaId);
+    if (useMemoryStorage()) {
+      const appt = memoryStorage.find(a => String(a.id) === String(id) && (!empresaId || a.user_id === empresaId));
+      if (!appt) throw new Error('Agendamento não encontrado');
+      appt.status = newStatus;
+      appt.updated_at = new Date();
+      return appt;
+    }
+    const now = new Date().toISOString();
+    const sql = empresaId
+      ? 'UPDATE appointments SET status = $1, updated_at = $2 WHERE id = $3 AND user_id = $4'
+      : 'UPDATE appointments SET status = $1, updated_at = $2 WHERE id = $3';
+    const params = empresaId ? [newStatus, now, id, empresaId] : [newStatus, now, id];
+    await query(sql, params);
+    const row = await query('SELECT * FROM appointments WHERE id = $1', [id]);
+    if (row.rows && row.rows.length > 0) return new Appointment(row.rows[0]);
+    throw new Error('Agendamento não encontrado');
   }
 
   // Cancelar agendamento

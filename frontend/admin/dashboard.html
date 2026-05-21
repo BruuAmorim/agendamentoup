@@ -1,1531 +1,893 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Administrativo - Cloudd Agenda</title>
-
-  <!-- Fonte -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="../css/styles.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Painel Admin — Cloudd Agenda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    .admin-dashboard {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
+:root {
+  --accent:#0099ff; --accent-l:#e0f2ff; --accent-d:#007acc;
+  --primary:#4f46e5; --primary-l:#ede9fe; --primary-d:#4338ca;
+  --bg:#f4f8fb; --surface:#fff; --text:#1f2937; --muted:#6b7280;
+  --border:#e5e7eb; --radius:12px; --shadow:0 2px 16px rgba(0,0,0,.07);
+  --sidebar:#16192a; --sidebar-hover:#22274a;
+  --green:#10b981; --green-l:#d1fae5;
+  --red:#ef4444; --red-l:#fee2e2;
+  --orange:#f59e0b; --orange-l:#fef3c7;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Inter',sans-serif;font-size:14px;color:var(--text);background:var(--bg);overflow:hidden}
+.shell{display:flex;height:100vh;overflow:hidden}
 
-    .admin-header {
-      background: white;
-      padding: 18px 0;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    }
+/* Sidebar */
+.sidebar{width:220px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar-brand{display:flex;align-items:center;gap:12px;padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.07)}
+.brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0}
+.brand-text{color:#fff;font-weight:700;font-size:15px;line-height:1.2}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.4);font-weight:400}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;text-decoration:none;width:100%}
+.nav-item:hover{background:var(--sidebar-hover);color:rgba(255,255,255,.9)}
+.nav-item.active{background:linear-gradient(90deg,rgba(0,153,255,.18),rgba(79,70,229,.1));color:var(--accent);border-left:3px solid var(--accent);padding-left:9px}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-sep{height:1px;background:rgba(255,255,255,.07);margin:8px 10px}
+.sidebar-footer{padding:12px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0}
+.user-name{color:rgba(255,255,255,.8);font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.user-role{color:rgba(255,255,255,.35);font-size:10px}
 
-    .admin-header-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-left h2{font-size:17px;font-weight:700;color:var(--text)}
+.topbar-left span{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+.topbar-right{display:flex;gap:10px;align-items:center}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-d)}
+.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:var(--red-l);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:6px}
+.btn-ghost{background:transparent;color:var(--muted);border:none;padding:5px 8px;font-size:13px}
+.btn-ghost:hover{color:var(--text);background:var(--bg)}
 
-    .admin-header h1 {
-      color: var(--text);
-      margin: 0;
-      font-size: 1.6rem;
-      font-weight: 600;
-    }
+.content{flex:1;overflow-y:auto;padding:28px}
+.section{display:none}.section.active{display:block}
 
-    .admin-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-left: 32px; /* afasta o grupo de botões para a direita em relação ao título */
-    }
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:14px}
+.stat-value{font-size:28px;font-weight:800;color:var(--text);line-height:1}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px;font-weight:500}
+.stat-card.accent .stat-icon{background:var(--accent-l)}
+.stat-card.primary .stat-icon{background:var(--primary-l)}
+.stat-card.green .stat-icon{background:var(--green-l)}
+.stat-card.orange .stat-icon{background:var(--orange-l)}
 
-    .admin-btn {
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-weight: 500;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: transparent;
-    }
+.section-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:14px;font-weight:700;color:var(--text)}
+.card-body{padding:0}
 
-    /* Botão principal (Gerenciar Usuários) mais clean, estilo contorno */
-    .admin-btn-primary {
-      border: 1px solid var(--primary);
-      color: var(--primary);
-      background: transparent;
-    }
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:10px 16px;text-align:left;background:#fafbfc;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbfc}
+.td-actions{display:flex;gap:6px;align-items:center}
 
-    .admin-btn-primary:hover {
-      background: var(--primary);
-      color: #fff;
-      transform: translateY(-1px);
-    }
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-l);color:#065f46}
+.badge-red{background:var(--red-l);color:#991b1b}
+.badge-blue{background:var(--accent-l);color:#0055aa}
+.badge-purple{background:var(--primary-l);color:#3730a3}
+.badge-gray{background:#f1f5f9;color:#475569}
 
-    .admin-btn-secondary {
-      border: 1px solid var(--border);
-      color: var(--text);
-      background: transparent;
-    }
+/* Plan cards */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan-card{background:var(--surface);border-radius:var(--radius);border:2px solid var(--border);padding:24px;transition:border-color .15s;position:relative}
+.plan-card.featured{border-color:var(--accent)}
+.plan-card-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:2px 12px;border-radius:20px;font-size:11px;font-weight:700}
+.plan-price{font-size:32px;font-weight:800;color:var(--text);margin:8px 0 4px}
+.plan-price sup{font-size:14px;vertical-align:top;margin-top:8px;display:inline-block}
+.plan-cycle{font-size:11px;color:var(--muted)}
+.plan-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px}
+.plan-feature{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:6px}
+.plan-feature .chk{width:16px;height:16px;border-radius:50%;background:var(--green-l);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.plan-tenants{font-size:11px;color:var(--accent);font-weight:700;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.plan-card-actions{display:flex;gap:6px;margin-top:14px}
 
-    .admin-btn-secondary:hover {
-      background: var(--secondary);
-    }
+/* Niche grid */
+.niches-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.niche-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:20px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.niche-icon{width:44px;height:44px;border-radius:12px;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.niche-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.niche-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.niche-count{font-size:11px;color:var(--accent);font-weight:600;margin-top:6px}
 
-    /* Botão Sair discreto em texto vermelho com contorno leve */
-    .admin-btn-danger {
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      background: transparent;
-    }
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-bg.open{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:16px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);transform:translateY(20px);transition:transform .2s}
+.modal-bg.open .modal{transform:translateY(0)}
+.modal-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close-btn{width:28px;height:28px;border:none;background:var(--bg);border-radius:6px;cursor:pointer;font-size:16px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.modal-close-btn:hover{background:var(--border)}
+.modal-body{padding:20px 24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.form-group{margin-bottom:16px;display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text)}
+.form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;color:var(--text);background:var(--bg);transition:border-color .15s;width:100%}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-hint{font-size:11px;color:var(--muted);margin-top:2px}
 
-    .admin-btn-danger:hover {
-      background: #fee2e2;
-    }
+/* Toast */
+.toast-box{position:fixed;top:16px;right:16px;z-index:1000;display:flex;flex-direction:column;gap:8px}
+.toast{background:#1e293b;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tin .25s ease;max-width:320px;border-left:4px solid}
+.toast.s{background:#064e3b;border-color:var(--green)}.toast.e{background:#7f1d1d;border-color:var(--red)}.toast.i{background:#1e3a5f;border-color:var(--accent)}
+@keyframes tin{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
 
-    .admin-main {
-      width: 100%;
-      max-width: 1600px;
-      margin: 0 auto;
-      padding: 40px 20px;
-      min-height: calc(100vh - 200px);
-    }
+.empty{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:12px}
+.empty p{font-size:13px}
 
-    .dashboard-card {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      min-height: auto;
-      max-height: none;
-      overflow: visible;
-    }
+.access-box{background:linear-gradient(135deg,var(--accent-l),var(--primary-l));border:1px solid var(--accent);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.access-box-icon{font-size:20px}
+.access-box-info{flex:1}
+.access-box-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:2px}
+.access-box-detail{font-size:12px;color:var(--muted)}
+.access-box-detail strong{color:var(--text)}
 
-    .section-title {
-      margin: 0 0 25px 0;
-      color: var(--text);
-      font-size: 1.4rem;
-      font-weight: 600;
-      padding-bottom: 15px;
-      border-bottom: 2px solid var(--border);
-    }
-
-    .stats-section {
-      margin-bottom: 40px;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 25px;
-      width: 100%;
-    }
-
-    @media (min-width: 1200px) {
-      .stats-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .stats-grid {
-        grid-template-columns: 1fr;
-        gap: 15px;
-      }
-    }
-
-    .actions-section {
-      margin-bottom: 40px;
-    }
-
-    .activities-section {
-      margin-bottom: 0;
-    }
-
-    .stat-card {
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      width: 100%;
-      box-sizing: border-box;
-      transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 120px;
-      text-align: center;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    }
-
-    .stat-card h3 {
-      margin: 0 0 10px 0;
-      font-size: 2.5rem;
-      color: var(--primary);
-      font-weight: 700;
-    }
-
-    .stat-card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-
-    .stat-card small {
-      display: block;
-      margin-top: 6px;
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .dashboard-sections {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 30px;
-      margin-top: 20px;
-    }
-
-    @media (min-width: 1024px) {
-      .dashboard-sections {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-
-    /* Seção de usuários dentro do dashboard */
-    .users-section {
-      margin-top: 40px;
-      padding-top: 40px;
-      border-top: 2px solid var(--border);
-    }
-
-    .users-section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-
-    .users-section-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .users-search-input {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      min-width: 220px;
-      font-size: 0.9rem;
-    }
-
-    .users-table-container {
-      width: 100%;
-      overflow-x: auto;
-      border-radius: 12px;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      background: #fff;
-    }
-
-    .users-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .users-table th,
-    .users-table td {
-      padding: 12px 14px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-
-    .users-table th {
-      background: var(--background);
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .users-table tbody tr:hover {
-      background: var(--background);
-    }
-
-    .user-role {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      text-transform: uppercase;
-    }
-
-    .role-admin_master {
-      background: #e91e63;
-      color: #fff;
-    }
-
-    .role-moderator,
-    .role-empresa {
-      background: #6f42c1;
-      color: #fff;
-    }
-
-    .user-status {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
-    .status-active {
-      background: var(--success);
-      color: #fff;
-    }
-
-    .status-inactive {
-      background: var(--danger);
-      color: #fff;
-    }
-
-    .user-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .user-action-btn {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: none;
-      font-size: 0.8rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 0.2s ease;
-    }
-
-    .user-action-btn.btn-deactivate {
-      background: var(--danger);
-      color: #fff;
-    }
-
-    .user-action-btn.btn-activate {
-      background: var(--success);
-      color: #fff;
-    }
-
-    /* Modal genérico (novo usuário) */
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .modal.show {
-      display: flex;
-    }
-
-    .modal .modal-content {
-      width: 100%;
-      max-width: 480px;
-      background: #fff;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
-    }
-
-    .modal .modal-header h3 {
-      margin: 0;
-      font-size: 1.2rem;
-      font-weight: 600;
-    }
-
-    .quick-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-
-    @media (min-width: 1200px) {
-      .quick-actions {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    .quick-action-btn {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      padding: 18px 24px;
-      background: var(--background);
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      text-decoration: none;
-      color: var(--text);
-      transition: all 0.3s ease;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 500;
-    }
-
-    .quick-action-btn:hover {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: white;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .quick-action-btn i {
-      font-size: 1.5rem;
-    }
-
-    .quick-action-btn span {
-      font-size: 1rem;
-      font-weight: 500;
-    }
+@media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr}.plans-grid{grid-template-columns:1fr}.sidebar{width:60px}.brand-text,.brand-sub,.nav-item span:not(.nav-icon),.user-name,.user-role{display:none}}
   </style>
 </head>
-
 <body>
-  <!-- Header Administrativo -->
-  <header class="admin-header">
-    <div class="admin-header-content">
-      <h1>🏢 Dashboard Administrativo</h1>
-      <div class="admin-actions">
-        <button class="admin-btn admin-btn-danger" id="adminLogoutBtn">
-          🚪 Sair
-        </button>
+<div class="shell">
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">CA</div>
+    <div>
+      <div class="brand-text">Cloudd Agenda</div>
+      <div class="brand-sub">Painel Admin</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" data-section="overview" onclick="nav(this,'overview')">
+      <span class="nav-icon">◈</span><span>Visão Geral</span>
+    </a>
+    <a class="nav-item" data-section="empresas" onclick="nav(this,'empresas')">
+      <span class="nav-icon">▣</span><span>Empresas</span>
+    </a>
+    <a class="nav-item" data-section="planos" onclick="nav(this,'planos')">
+      <span class="nav-icon">◧</span><span>Planos</span>
+    </a>
+    <a class="nav-item" data-section="nichos" onclick="nav(this,'nichos')">
+      <span class="nav-icon">◈</span><span>Nichos</span>
+    </a>
+    <div class="sidebar-sep"></div>
+    <a class="nav-item" href="/admin/integrations.html">
+      <span class="nav-icon">⇄</span><span>Integrações</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar" id="userAvatar">A</div>
+      <div>
+        <div class="user-name" id="userName">Admin</div>
+        <div class="user-role">Super Admin</div>
       </div>
     </div>
-  </header>
+    <button class="nav-item" onclick="logout()" style="margin-top:4px">
+      <span class="nav-icon">→</span><span>Sair</span>
+    </button>
+  </div>
+</aside>
 
-  <!-- Main Content -->
-  <main class="admin-main">
-    <!-- Card Único com Todo o Conteúdo -->
-    <div class="dashboard-card">
-      <!-- Grid de 2 colunas para Estatísticas e Ações Rápidas -->
-      <div class="dashboard-sections">
-        <!-- Estatísticas -->
-        <section class="stats-section">
-          <h2 class="section-title">📊 Estatísticas</h2>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <h3 id="totalUsers">0</h3>
-              <p>Usuários Totais</p>
-            </div>
-            <div class="stat-card">
-              <h3 id="activeUsers">0</h3>
-              <p>Usuários Ativos</p>
-            </div>
-            <div class="stat-card">
-              <h3 id="totalAppointments">0</h3>
-              <p>Agendamentos Hoje</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Ações Rápidas -->
-        <section class="actions-section">
-          <h2 class="section-title">⚡ Ações Rápidas</h2>
-          <div class="quick-actions">
-            <button type="button" class="quick-action-btn" id="quickUsersBtn">
-              <i>👥</i>
-              <span>Gerenciar Usuários</span>
-            </button>
-            <button type="button" class="quick-action-btn" id="quickIntegrationsBtn">
-              <i>🔗</i>
-              <span>Configurar Integrações</span>
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <!-- Gerenciar Usuários (agora dentro do dashboard) -->
-      <section id="usersManagementSection" class="users-section">
-        <div class="users-section-header">
-          <h2 class="section-title" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
-            👥 Gerenciar Usuários
-          </h2>
-          <div class="users-section-controls">
-            <input
-              type="text"
-              id="searchUsersDashboard"
-              class="users-search-input"
-              placeholder="Buscar por nome ou e-mail"
-            />
-            <button type="button" class="admin-btn admin-btn-primary" id="addUserBtnDashboard">
-              ➕ Novo Usuário
-            </button>
-          </div>
-        </div>
-
-        <div class="users-table-container">
-          <table class="users-table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Email</th>
-                <th>Perfil</th>
-                <th>Status</th>
-                <th>Criado em</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="usersTableBody"></tbody>
-          </table>
-        </div>
-        <div id="usersEmptyState" style="display: none; padding: 16px; color: var(--muted);">
-          Nenhum usuário encontrado.
-        </div>
-      </section>
-
-      <!-- Gerenciar Senha de Configurações -->
-      <section class="settings-password-section" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid var(--border);">
-        <h2 class="section-title">🔐 Senha de Configurações</h2>
-        <p style="color: var(--muted); margin-bottom: 20px;">
-          Gerencie a senha que protege o acesso às configurações do sistema. Apenas administradores podem visualizar, criar ou alterar esta senha.
-        </p>
-        
-        <div id="passwordStatusCard" style="background: var(--background); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <p id="passwordStatusText" style="margin: 0; color: var(--muted);">Carregando status...</p>
-        </div>
-
-        <form id="settingsPasswordForm" style="display: none;">
-          <div style="display: grid; gap: 20px;">
-            <!-- Seleção de empresa (apenas para admin master) -->
-            <div id="companySelectContainer" style="display: none;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
-                Empresa *
-              </label>
-              <select id="companySelect"
-                      style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; background: white;">
-                <option value="">Selecione a empresa</option>
-              </select>
-              <small style="color: var(--muted); font-size: 12px; display: block; margin-top: 5px;">
-                Escolha para qual empresa esta senha de configurações será aplicada.
-              </small>
-            </div>
-            <div id="currentPasswordField" style="display: none;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
-                Senha Atual *
-              </label>
-              <input type="password" id="currentPasswordInput" placeholder="Digite a senha atual" 
-                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
-                Nova Senha *
-              </label>
-              <input type="password" id="newPasswordInput" placeholder="Digite a nova senha (mínimo 4 caracteres)" 
-                     minlength="4" required
-                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
-              <small style="color: var(--muted); font-size: 12px; display: block; margin-top: 5px;">
-                A senha deve ter pelo menos 4 caracteres
-              </small>
-            </div>
-
-            <div>
-              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">
-                Confirmar Nova Senha *
-              </label>
-              <input type="password" id="confirmPasswordInput" placeholder="Confirme a nova senha" 
-                     minlength="4" required
-                     style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px;">
-            </div>
-
-            <div style="display: flex; gap: 10px;">
-              <button type="submit" class="admin-btn admin-btn-primary" id="savePasswordBtn">
-                💾 Salvar Senha
-              </button>
-              <button type="button" class="admin-btn admin-btn-secondary" id="cancelPasswordBtn">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <div id="passwordActions" style="margin-top: 20px;">
-          <button type="button" class="admin-btn admin-btn-primary" id="createPasswordBtn" style="display: none;">
-            ➕ Criar Senha de Configurações
-          </button>
-          <button type="button" class="admin-btn admin-btn-primary" id="changePasswordBtn" style="display: none;">
-            🔄 Alterar Senha
-          </button>
-        </div>
-
-        <!-- Lista de empresas com senha configurada -->
-        <div id="settingsPasswordsListContainer" style="margin-top: 32px;">
-          <h3 style="margin: 0 0 12px 0; font-size: 1rem; font-weight: 600; color: var(--text);">
-            Empresas com senha de configurações
-          </h3>
-          <div id="settingsPasswordsEmpty" style="font-size: 0.9rem; color: var(--muted);">
-            Nenhuma empresa possui senha de configurações definida ainda.
-          </div>
-          <div class="users-table-container" id="settingsPasswordsTableWrapper" style="margin-top: 8px; display: none;">
-            <table class="users-table">
-              <thead>
-                <tr>
-                  <th>Empresa</th>
-                  <th>Email</th>
-                  <th>Atualizada em</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="settingsPasswordsTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2 id="topbarTitle">Visão Geral</h2>
+      <span id="topbarSub"></span>
     </div>
-  </main>
-
-  <!-- Modal simples para novo usuário -->
-  <div id="newUserModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="newUserModalTitle">Novo Usuário</h3>
-      </div>
-      <div class="modal-body">
-        <form id="newUserFormDashboard">
-          <div style="display: grid; gap: 16px;">
-            <div>
-              <label>Nome *</label>
-              <input type="text" id="newUserNameDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
-            </div>
-            <div>
-              <label>Email *</label>
-              <input type="email" id="newUserEmailDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
-            </div>
-            <div id="newUserPasswordGroupDashboard">
-              <label>Senha inicial *</label>
-              <input type="password" id="newUserPasswordDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
-            </div>
-            <div>
-              <label>Perfil *</label>
-              <select id="newUserRoleDashboard" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
-                <option value="moderator">Empresa</option>
-                <option value="admin_master">Administrador</option>
-              </select>
-            </div>
-            <div>
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
-                <input type="checkbox" id="createSettingsPasswordCheckbox" />
-                Criar também senha de configurações para esta empresa
-              </label>
-              <input
-                type="password"
-                id="settingsPasswordForUser"
-                placeholder="Senha de configurações"
-                style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; display: none;"
-              />
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
-        <button type="button" class="admin-btn admin-btn-secondary" id="cancelNewUserBtnDashboard">Cancelar</button>
-        <button type="button" class="admin-btn admin-btn-primary" id="saveNewUserBtnDashboard">Salvar</button>
-      </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary" id="topbarAction" onclick="topbarActionClick()" style="display:none;">+ Nova Empresa</button>
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="../js/config-api.js"></script>
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script>
-    // Dashboard Administrativo
-    class AdminDashboard {
-      constructor() {
-        // Estado do usuário e empresa selecionada
-        this.currentUser = null;
-        this.isAdminMaster = false;
-        this.selectedCompanyId = null;
-        this.users = [];
-        this.filteredUsers = [];
-        this.editingUserId = null;
-        this.init();
-      }
-
-      async init() {
-        await this.checkAdminAccess();
-        this.bindEvents();
-        this.loadDashboardData();
-      }
-
-      async checkAdminAccess() {
-        console.log('🔍 checkAdminAccess iniciado');
-        console.log('🔍 URL atual:', window.location.href);
-        
-        // Carregar user do localStorage diretamente (mais confiável)
-        const userData = localStorage.getItem('userData');
-        const token = localStorage.getItem('authToken');
-        
-        console.log('🔍 Token encontrado:', token ? 'Sim' : 'Não');
-        console.log('🔍 UserData encontrado:', userData ? 'Sim' : 'Não');
-        
-        if (!token || !userData) {
-          console.warn('⚠️ Token ou user não encontrado, redirecionando para login');
-          alert('Sessão não encontrada. Faça login novamente.');
-          window.location.href = '/css/index.html';
-          return;
-        }
-        
-        let user;
-        try {
-          user = JSON.parse(userData);
-          console.log('👤 User carregado do localStorage:', user);
-          console.log('👤 Email:', user.email);
-          console.log('👤 Role:', user.role);
-          console.log('👤 ID:', user.id);
-          
-          // Atualizar authManager se disponível
-          if (window.authManager) {
-            window.authManager.currentUser = user;
-            window.authManager.token = token;
-            console.log('✅ AuthManager atualizado');
-          }
-        } catch (e) {
-          console.error('❌ Erro ao parse userData:', e);
-          alert('Erro ao carregar dados do usuário. Faça login novamente.');
-          window.location.href = '/css/index.html';
-          return;
-        }
-        
-        // Normalizar role (garantir que seja string e trim)
-        let userRole = String(user.role || '').trim().toLowerCase();
-        const normalizedAdminRole = 'admin_master'.toLowerCase();
-        
-        console.log('🔍 Verificando role:', userRole);
-        console.log('🔍 Role original:', user.role);
-        console.log('🔍 Role normalizado:', userRole);
-        console.log('🔍 Comparando com admin_master (case-insensitive):', userRole === normalizedAdminRole);
-        console.log('🔍 Tipo do role:', typeof user.role);
-        console.log('🔍 Tipo do role normalizado:', typeof userRole);
-        
-        // Guardar informações do usuário logado
-        this.currentUser = user;
-        this.isAdminMaster = (userRole === normalizedAdminRole);
-        this.selectedCompanyId = user.id;
-
-        // Verificar se é admin - APENAS bloquear se NÃO for admin
-        // Comparação case-insensitive e com trim
-        if (userRole !== normalizedAdminRole) {
-          console.warn('❌ Acesso negado: usuário não é admin.');
-          console.warn('❌ Role recebido:', userRole);
-          console.warn('❌ Role esperado: admin_master');
-          console.warn('❌ Comparação estrita:', userRole === 'admin_master');
-          console.warn('❌ Comparação com trim:', userRole?.trim() === 'admin_master');
-          
-          // Redirecionar baseado no role
-          if (userRole === 'moderator') {
-            console.log('🔄 Redirecionando moderador para agendamentos');
-            window.location.href = '/app/agendamentos.html';
-          } else {
-            console.log('🔄 Redirecionando para login');
-            alert(`Acesso negado. Seu perfil é: ${userRole}. Apenas administradores podem acessar esta página.`);
-            window.location.href = '/css/index.html';
-          }
-          return;
-        }
-
-        console.log('✅ Acesso autorizado para admin!');
-        console.log('✅ User completo:', user);
-      }
-
-      async loadPasswordStatus() {
-        try {
-          // Descobrir empresa selecionada (quando houver seleção)
-          let companyId = this.selectedCompanyId;
-          const companySelect = document.getElementById('companySelect');
-          if (companySelect && companySelect.value) {
-            companyId = companySelect.value;
-          }
-
-          let url = '/api/settings-password';
-          if (companyId) {
-            url += `?companyId=${encodeURIComponent(companyId)}`;
-          }
-
-          const response = await window.authManager.apiRequest(url);
-          
-          if (response.success) {
-            const hasPassword = response.data.hasPassword;
-            const statusText = document.getElementById('passwordStatusText');
-            const createBtn = document.getElementById('createPasswordBtn');
-            const changeBtn = document.getElementById('changePasswordBtn');
-            
-            if (hasPassword) {
-              statusText.textContent = '✅ Senha de configurações está definida.';
-              statusText.style.color = 'var(--success, #28a745)';
-              createBtn.style.display = 'none';
-              changeBtn.style.display = 'inline-block';
-            } else {
-              statusText.textContent = '⚠️ Nenhuma senha de configurações definida. Crie uma senha para proteger o acesso às configurações.';
-              statusText.style.color = 'var(--warning, #ffc107)';
-              createBtn.style.display = 'inline-block';
-              changeBtn.style.display = 'none';
-            }
-          }
-        } catch (error) {
-          console.error('Erro ao carregar status da senha:', error);
-          const statusText = document.getElementById('passwordStatusText');
-          statusText.textContent = '❌ Erro ao carregar status da senha.';
-          statusText.style.color = 'var(--danger, #dc3545)';
-        }
-      }
-
-      bindPasswordEvents() {
-        // Botão criar senha
-        const createBtn = document.getElementById('createPasswordBtn');
-        if (createBtn) {
-          createBtn.addEventListener('click', () => {
-            document.getElementById('settingsPasswordForm').style.display = 'block';
-            document.getElementById('currentPasswordField').style.display = 'none';
-            document.getElementById('passwordActions').style.display = 'none';
-            document.getElementById('newPasswordInput').focus();
-          });
-        }
-
-        // Botão alterar senha
-        const changeBtn = document.getElementById('changePasswordBtn');
-        if (changeBtn) {
-          changeBtn.addEventListener('click', () => {
-            document.getElementById('settingsPasswordForm').style.display = 'block';
-            document.getElementById('currentPasswordField').style.display = 'block';
-            document.getElementById('passwordActions').style.display = 'none';
-            document.getElementById('currentPasswordInput').focus();
-          });
-        }
-
-        // Botão cancelar
-        const cancelBtn = document.getElementById('cancelPasswordBtn');
-        if (cancelBtn) {
-          cancelBtn.addEventListener('click', () => {
-            document.getElementById('settingsPasswordForm').style.display = 'none';
-            document.getElementById('passwordActions').style.display = 'block';
-            document.getElementById('settingsPasswordForm').reset();
-          });
-        }
-
-        // Seleção de empresa (quando disponível)
-        const companySelect = document.getElementById('companySelect');
-        if (companySelect) {
-          companySelect.addEventListener('change', () => {
-            // Atualizar empresa selecionada e recarregar status
-            this.selectedCompanyId = companySelect.value || null;
-            // Esconder formulário ao trocar de empresa para evitar confusão
-            const formEl = document.getElementById('settingsPasswordForm');
-            const actionsEl = document.getElementById('passwordActions');
-            if (formEl && actionsEl) {
-              formEl.style.display = 'none';
-              actionsEl.style.display = 'block';
-              formEl.reset();
-            }
-            this.loadPasswordStatus();
-          });
-        }
-
-        // Formulário de senha
-        const passwordForm = document.getElementById('settingsPasswordForm');
-        if (passwordForm) {
-          passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.savePassword();
-          });
-        }
-
-        // Eventos da seção de usuários no dashboard
-        const searchInput = document.getElementById('searchUsersDashboard');
-        if (searchInput) {
-          searchInput.addEventListener('input', () => this.filterUsers());
-        }
-
-        const addUserBtn = document.getElementById('addUserBtnDashboard');
-        if (addUserBtn) {
-          addUserBtn.addEventListener('click', () => this.openNewUserModal());
-        }
-
-        const cancelNewUserBtn = document.getElementById('cancelNewUserBtnDashboard');
-        if (cancelNewUserBtn) {
-          cancelNewUserBtn.addEventListener('click', () => this.closeNewUserModal());
-        }
-
-        const saveNewUserBtn = document.getElementById('saveNewUserBtnDashboard');
-        if (saveNewUserBtn) {
-          saveNewUserBtn.addEventListener('click', (e) => this.saveNewUser(e));
-        }
-
-        const newUserForm = document.getElementById('newUserFormDashboard');
-        if (newUserForm) {
-          newUserForm.addEventListener('submit', (e) => this.saveNewUser(e));
-        }
-
-        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
-        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
-        if (createSettingsCheckbox && settingsPasswordInput) {
-          createSettingsCheckbox.addEventListener('change', () => {
-            const show = createSettingsCheckbox.checked;
-            settingsPasswordInput.style.display = show ? 'block' : 'none';
-            if (!show) {
-              settingsPasswordInput.value = '';
-            }
-          });
-        }
-      }
-
-      async savePassword() {
-        const newPassword = document.getElementById('newPasswordInput').value;
-        const confirmPassword = document.getElementById('confirmPasswordInput').value;
-        const currentPassword = document.getElementById('currentPasswordInput').value;
-        const companySelect = document.getElementById('companySelect');
-        const companyId = companySelect && companySelect.value ? companySelect.value : this.selectedCompanyId;
-        const isCreating = document.getElementById('currentPasswordField').style.display === 'none' || !document.getElementById('currentPasswordField').offsetParent;
-
-        // Validações
-        if (isCreating && (!companyId || companySelect?.value === '')) {
-          alert('❌ Selecione a empresa para criar a senha de configurações.');
-          if (companySelect) companySelect.focus();
-          return;
-        }
-        if (!newPassword || newPassword.length < 4) {
-          alert('❌ A senha deve ter pelo menos 4 caracteres.');
-          return;
-        }
-
-        if (newPassword !== confirmPassword) {
-          alert('❌ As senhas não coincidem.');
-          return;
-        }
-
-        const saveBtn = document.getElementById('savePasswordBtn');
-        const originalText = saveBtn.textContent;
-        saveBtn.disabled = true;
-        saveBtn.textContent = '💾 Salvando...';
-
-        try {
-          const hasCurrentPassword = document.getElementById('currentPasswordField').style.display !== 'none';
-          
-          // Montar payload incluindo companyId quando houver
-          const payload = {
-            password: newPassword
-          };
-
-          if (hasCurrentPassword) {
-            payload.currentPassword = currentPassword;
-          }
-          if (companyId) {
-            payload.companyId = companyId;
-          }
-
-          let response;
-          if (hasCurrentPassword) {
-            // Atualizar senha existente
-            response = await window.authManager.apiRequest('/api/settings-password', {
-              method: 'PUT',
-              body: JSON.stringify(payload)
-            });
-          } else {
-            // Criar nova senha
-            response = await window.authManager.apiRequest('/api/settings-password', {
-              method: 'POST',
-              body: JSON.stringify(payload)
-            });
-          }
-
-          if (response.success) {
-            alert('✅ Senha de configurações salva com sucesso!');
-            document.getElementById('settingsPasswordForm').style.display = 'none';
-            document.getElementById('settingsPasswordForm').reset();
-            this.loadPasswordStatus();
-            document.getElementById('passwordActions').style.display = 'block';
-          } else {
-            throw new Error(response.message || 'Erro ao salvar senha');
-          }
-        } catch (error) {
-          console.error('Erro ao salvar senha:', error);
-          alert('❌ Erro ao salvar senha: ' + (error.message || 'Erro desconhecido'));
-        } finally {
-          saveBtn.disabled = false;
-          saveBtn.textContent = originalText;
-        }
-      }
-
-      filterUsers() {
-        const searchTerm = (document.getElementById('searchUsersDashboard')?.value || '').toLowerCase();
-        this.filteredUsers = this.users.filter(user => {
-          const name = (user.name || '').toLowerCase();
-          const email = (user.email || '').toLowerCase();
-          return name.includes(searchTerm) || email.includes(searchTerm);
-        });
-        this.renderUsers();
-      }
-
-      renderUsers() {
-        const tbody = document.getElementById('usersTableBody');
-        const emptyState = document.getElementById('usersEmptyState');
-        if (!tbody) return;
-
-        if (!this.filteredUsers || this.filteredUsers.length === 0) {
-          tbody.innerHTML = '';
-          if (emptyState) emptyState.style.display = 'block';
-          return;
-        }
-
-        if (emptyState) emptyState.style.display = 'none';
-
-        tbody.innerHTML = this.filteredUsers.map(user => {
-          const role = String(user.role || '').trim().toLowerCase();
-          const isActive = !!user.isActive;
-
-          let roleLabel = 'Desconhecido';
-          if (role === 'admin_master') roleLabel = 'Administrador';
-          else if (role === 'moderator') roleLabel = 'Empresa';
-
-          const createdAt = user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : '-';
-
-          return `
-            <tr>
-              <td>${user.name || '-'}</td>
-              <td>${user.email || '-'}</td>
-              <td>
-                <span class="user-role role-${role}">
-                  ${roleLabel}
-                </span>
-              </td>
-            <td>
-              <span class="user-status ${isActive ? 'status-active' : 'status-inactive'}">
-                ${isActive ? 'Ativo' : 'Inativo'}
-              </span>
-            </td>
-            <td>${createdAt}</td>
-            <td>
-              <div class="user-actions">
-                ${role === 'admin_master' ? '' : `
-                  <button
-                    type="button"
-                    class="user-action-btn btn-edit"
-                    data-user-id="${user.id}"
-                    data-action="edit"
-                  >
-                    ✏️ Editar
-                  </button>
-                  <button
-                    type="button"
-                    class="user-action-btn btn-delete"
-                    data-user-id="${user.id}"
-                    data-action="delete"
-                  >
-                    🗑️ Excluir
-                  </button>
-                  <button
-                    type="button"
-                    class="user-action-btn ${isActive ? 'btn-deactivate' : 'btn-activate'}"
-                    data-user-id="${user.id}"
-                    data-active="${isActive ? '1' : '0'}"
-                    data-action="toggle"
-                  >
-                    ${isActive ? '🚫 Desativar' : '✅ Reativar'}
-                  </button>
-                `}
-              </div>
-            </td>
-            </tr>
-          `;
-        }).join('');
-
-        // Bind dos botões de ações
-        tbody.querySelectorAll('.user-action-btn').forEach(btn => {
-          const action = btn.getAttribute('data-action');
-          btn.addEventListener('click', async () => {
-            const userId = parseInt(btn.getAttribute('data-user-id'), 10);
-            if (!userId) return;
-
-            if (action === 'edit') {
-              const user = this.users.find(u => u.id === userId);
-              if (user) {
-                this.openNewUserModal(user);
-              }
-            } else if (action === 'delete') {
-              await this.deleteUser(userId);
-            } else if (action === 'toggle') {
-              const isActive = btn.getAttribute('data-active') === '1';
-              await this.toggleUserStatus(userId, !isActive);
-            }
-          });
-        });
-      }
-
-      openNewUserModal(user = null) {
-        const modal = document.getElementById('newUserModal');
-        const titleEl = document.getElementById('newUserModalTitle');
-        const form = document.getElementById('newUserFormDashboard');
-        const passwordGroup = document.getElementById('newUserPasswordGroupDashboard');
-        const passwordInput = document.getElementById('newUserPasswordDashboard');
-        const roleSelect = document.getElementById('newUserRoleDashboard');
-        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
-        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
-
-        if (!modal || !form) return;
-
-        form.reset();
-        this.editingUserId = user && user.id ? user.id : null;
-
-        if (passwordGroup) passwordGroup.style.display = this.editingUserId ? 'none' : 'block';
-        if (passwordInput) passwordInput.value = '';
-
-        if (createSettingsCheckbox && settingsPasswordInput) {
-          // Opção de criar senha de configurações só faz sentido na criação
-          const shouldShowOption = !this.editingUserId;
-          createSettingsCheckbox.checked = false;
-          settingsPasswordInput.value = '';
-          settingsPasswordInput.style.display = 'none';
-          createSettingsCheckbox.parentElement.style.display = shouldShowOption ? 'flex' : 'none';
-        }
-
-        if (user) {
-          if (titleEl) titleEl.textContent = 'Editar Usuário';
-          document.getElementById('newUserNameDashboard').value = user.name || '';
-          document.getElementById('newUserEmailDashboard').value = user.email || '';
-          if (roleSelect) {
-            roleSelect.value = user.role || 'moderator';
-          }
-        } else {
-          if (titleEl) titleEl.textContent = 'Novo Usuário';
-          if (roleSelect) {
-            roleSelect.value = 'moderator';
-          }
-        }
-
-        modal.classList.add('show');
-        document.getElementById('newUserNameDashboard')?.focus();
-      }
-
-      closeNewUserModal() {
-        const modal = document.getElementById('newUserModal');
-        if (modal) {
-          modal.classList.remove('show');
-        }
-        this.editingUserId = null;
-      }
-
-      async saveNewUser(e) {
-        if (e) e.preventDefault();
-
-        const name = (document.getElementById('newUserNameDashboard')?.value || '').trim();
-        const email = (document.getElementById('newUserEmailDashboard')?.value || '').trim().toLowerCase();
-        const password = (document.getElementById('newUserPasswordDashboard')?.value || '');
-        const role = (document.getElementById('newUserRoleDashboard')?.value || 'moderator');
-        const createSettingsCheckbox = document.getElementById('createSettingsPasswordCheckbox');
-        const settingsPasswordInput = document.getElementById('settingsPasswordForUser');
-        const wantSettingsPassword = createSettingsCheckbox && createSettingsCheckbox.checked;
-        const settingsPassword = (settingsPasswordInput?.value || '').trim();
-
-        if (!name || !email || (!this.editingUserId && !password)) {
-          alert(this.editingUserId
-            ? 'Preencha nome e email.'
-            : 'Preencha nome, email e senha.');
-          return;
-        }
-
-        if (!this.editingUserId && wantSettingsPassword && !settingsPassword) {
-          alert('Informe a senha de configurações ou desmarque a opção.');
-          return;
-        }
-
-        const saveBtn = document.getElementById('saveNewUserBtnDashboard');
-        const originalText = saveBtn ? saveBtn.textContent : 'Salvar';
-        if (saveBtn) {
-          saveBtn.disabled = true;
-          saveBtn.textContent = 'Salvando...';
-        }
-
-        try {
-          let response;
-
-          if (this.editingUserId) {
-            // Atualizar usuário existente
-            const payload = { name, email, role };
-            if (password) {
-              payload.password = password;
-            }
-
-            response = await window.authManager.apiRequest(`/api/users/${this.editingUserId}`, {
-              method: 'PUT',
-              body: JSON.stringify(payload)
-            });
-
-            if (response.success) {
-              alert('Usuário atualizado com sucesso.');
-            }
-          } else {
-            // Criar novo usuário
-            response = await window.authManager.apiRequest('/api/users', {
-              method: 'POST',
-              body: JSON.stringify({ name, email, password, role })
-            });
-
-            if (response.success && wantSettingsPassword && settingsPassword && (role === 'moderator' || role === 'empresa')) {
-              try {
-                const createdUser = response.user;
-                if (createdUser && createdUser.id) {
-                  await window.authManager.apiRequest('/api/settings-password', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      password: settingsPassword,
-                      companyId: createdUser.id
-                    })
-                  });
-                }
-              } catch (err) {
-                console.error('Erro ao criar senha de configurações para nova empresa:', err);
-              }
-            }
-
-            if (response.success) {
-              alert('Usuário criado com sucesso.');
-            }
-          }
-
-          if (response && response.success) {
-            this.closeNewUserModal();
-            await this.loadDashboardData();
-          } else if (response) {
-            alert(response.message || 'Erro ao salvar usuário.');
-          }
-        } catch (error) {
-          console.error('Erro ao criar usuário:', error);
-          alert('Erro ao criar usuário.');
-        } finally {
-          if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = originalText;
-          }
-        }
-      }
-
-      async toggleUserStatus(userId, activate) {
-        if (!userId) return;
-
-        const confirmMsg = activate
-          ? 'Deseja realmente reativar este usuário?'
-          : 'Deseja realmente desativar este usuário?';
-
-        if (!window.confirm(confirmMsg)) return;
-
-        try {
-          const endpoint = activate ? `/api/users/${userId}/reactivate` : `/api/users/${userId}/deactivate`;
-          const response = await window.authManager.apiRequest(endpoint, { method: 'PATCH' });
-
-          if (response.success) {
-            await this.loadDashboardData();
-          } else {
-            alert(response.message || 'Erro ao alterar status do usuário.');
-          }
-        } catch (error) {
-          console.error('Erro ao alterar status do usuário:', error);
-          alert('Erro ao alterar status do usuário.');
-        }
-      }
-
-      async deleteUser(userId) {
-        if (!userId) return;
-        if (!window.confirm('Deseja realmente excluir este usuário? Esta ação não pode ser desfeita.')) {
-          return;
-        }
-
-        try {
-          const response = await window.authManager.apiRequest(`/api/users/${userId}`, {
-            method: 'DELETE'
-          });
-
-          if (response.success) {
-            await this.loadDashboardData();
-          } else {
-            alert(response.message || 'Erro ao excluir usuário.');
-          }
-        } catch (error) {
-          console.error('Erro ao excluir usuário:', error);
-          alert('Erro ao excluir usuário.');
-        }
-      }
-
-      bindEvents() {
-        // Botão de logout
-        const logoutBtn = document.getElementById('adminLogoutBtn');
-        if (logoutBtn) {
-          logoutBtn.addEventListener('click', () => {
-            if (window.authManager) {
-              window.authManager.logout();
-            }
-          });
-        }
-
-        // Gerenciar senha de configurações
-        this.bindPasswordEvents();
-        this.loadPasswordStatus();
-
-        // Ações rápidas
-        const quickUsersBtn = document.getElementById('quickUsersBtn');
-        if (quickUsersBtn) {
-          console.log('Quick Users Button found:', quickUsersBtn);
-          quickUsersBtn.addEventListener('click', (e) => {
-            console.log('Quick Users clicked');
-            e.preventDefault();
-            e.stopPropagation();
-            const section = document.getElementById('usersManagementSection');
-            if (section) {
-              section.scrollIntoView({ behavior: 'smooth' });
-            }
-          });
-        }
-
-        const quickIntegrationsBtn = document.getElementById('quickIntegrationsBtn');
-        if (quickIntegrationsBtn) {
-          quickIntegrationsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            window.location.href = '/admin/integrations.html';
-          });
-        }
-      }
-
-      async loadDashboardData() {
-        try {
-          // Carregar estatísticas dos usuários
-          const usersResponse = await window.authManager.apiRequest('/api/users');
-          if (usersResponse.success) {
-            const totalUsersEl = document.getElementById('totalUsers');
-            const activeUsersEl = document.getElementById('activeUsers');
-
-            const users = usersResponse.users;
-            const totalUsers = users.length;
-            const activeUsers = users.filter(u => u.isActive).length;
-
-            if (totalUsersEl) totalUsersEl.textContent = totalUsers;
-            if (activeUsersEl) activeUsersEl.textContent = activeUsers;
-
-            // Se for admin master, preencher seleção de empresas para senha de configurações
-            if (this.isAdminMaster) {
-              const companySelect = document.getElementById('companySelect');
-              const companySelectContainer = document.getElementById('companySelectContainer');
-              if (companySelect && companySelectContainer) {
-                // Considerar como "empresa" os usuários com role empresa, moderator ou admin_master
-                const companies = users.filter(u => {
-                  const role = String(u.role || '').trim().toLowerCase();
-                  return ['empresa', 'moderator', 'admin_master'].includes(role);
-                });
-
-                companySelect.innerHTML = '<option value=\"\">Selecione a empresa</option>';
-
-                companies.forEach((company) => {
-                  const option = document.createElement('option');
-                  option.value = company.id;
-                  option.textContent = `${company.name} (${company.email})`;
-                  companySelect.appendChild(option);
-                });
-
-                if (companies.length > 0) {
-                  companySelectContainer.style.display = 'block';
-                  // Não auto-selecionar: empresa é obrigatória ao criar senha
-                  if (this.selectedCompanyId) {
-                    companySelect.value = String(this.selectedCompanyId);
-                  } else {
-                    companySelect.value = '';
-                  }
-                } else {
-                  companySelectContainer.style.display = 'none';
-                }
-              }
-            }
-
-            // Atualizar lista de usuários no dashboard
-            this.users = users;
-            this.filteredUsers = [...users];
-            this.renderUsers();
-
-            // Carregar status de senha de configurações por empresa
-            if (this.isAdminMaster) {
-              await this.loadSettingsPasswordsForCompanies();
-            }
-          }
-
-          // Carregar estatísticas de agendamentos (hoje)
-          const today = new Date().toISOString().split('T')[0];
-          const appointmentsResponse = await window.authManager.apiRequest(`/api/appointments?date=${today}`);
-          if (appointmentsResponse.success) {
-            const totalAppointmentsEl = document.getElementById('totalAppointments');
-            if (totalAppointmentsEl) {
-              const totalAppointmentsToday = appointmentsResponse.appointments?.length || 0;
-              totalAppointmentsEl.textContent = totalAppointmentsToday;
-            }
-          }
-
-        } catch (error) {
-          console.error('Erro ao carregar dados do dashboard:', error);
-        }
-      }
-
-      // Removido cálculo de Score de Saúde da Empresa
-
-      async loadSettingsPasswordsForCompanies() {
-        const tableBody = document.getElementById('settingsPasswordsTableBody');
-        const emptyEl = document.getElementById('settingsPasswordsEmpty');
-        const wrapper = document.getElementById('settingsPasswordsTableWrapper');
-        if (!tableBody || !emptyEl || !wrapper) return;
-
-        try {
-          const companies = this.users.filter((u) => {
-            const role = String(u.role || '').trim().toLowerCase();
-            return ['empresa', 'moderator', 'admin_master'].includes(role);
-          });
-
-          const results = await Promise.all(
-            companies.map(async (company) => {
-              try {
-                const res = await window.authManager.apiRequest(`/api/settings-password?companyId=${company.id}`);
-                if (res.success && res.data && res.data.hasPassword) {
-                  return {
-                    company,
-                    hasPassword: true,
-                    updatedAt: res.data.updatedAt || res.data.createdAt || null
-                  };
-                }
-              } catch (e) {
-                console.error('Erro ao buscar status de senha para empresa', company.id, e);
-              }
-              return {
-                company,
-                hasPassword: false,
-                updatedAt: null
-              };
-            })
-          );
-
-          const withPassword = results.filter((r) => r.hasPassword);
-
-          if (!withPassword.length) {
-            emptyEl.style.display = 'block';
-            wrapper.style.display = 'none';
-            tableBody.innerHTML = '';
-            return;
-          }
-
-          emptyEl.style.display = 'none';
-          wrapper.style.display = 'block';
-
-          tableBody.innerHTML = withPassword
-            .map((item) => {
-              const { company, updatedAt } = item;
-              const dateStr = updatedAt ? new Date(updatedAt).toLocaleString('pt-BR') : '-';
-              return `
-                <tr>
-                  <td>${company.name || '-'}</td>
-                  <td>${company.email || '-'}</td>
-                  <td>${dateStr}</td>
-                  <td>
-                    <button
-                      type="button"
-                      class="user-action-btn btn-deactivate"
-                      data-company-id="${company.id}"
-                      data-action="reset-password"
-                    >
-                      🔁 Resetar senha
-                    </button>
-                  </td>
-                </tr>
-              `;
-            })
-            .join('');
-
-          // Bind dos botões de reset
-          tableBody.querySelectorAll('button[data-action="reset-password"]').forEach((btn) => {
-            btn.addEventListener('click', async () => {
-              const companyId = parseInt(btn.getAttribute('data-company-id'), 10);
-              if (!companyId) return;
-              await this.resetSettingsPasswordForCompany(companyId);
-            });
-          });
-        } catch (error) {
-          console.error('Erro ao carregar lista de senhas de configurações:', error);
-          emptyEl.style.display = 'block';
-          wrapper.style.display = 'none';
-          tableBody.innerHTML = '';
-        }
-      }
-
-      async resetSettingsPasswordForCompany(companyId) {
-        const company = this.users.find((u) => u.id === companyId);
-        const companyName = company ? company.name : 'empresa';
-
-        const confirmReset = window.confirm(
-          `Você deseja redefinir a senha de configurações para "${companyName}"?\n\nA senha atual deixará de funcionar.`
-        );
-        if (!confirmReset) return;
-
-        const newPassword = window.prompt('Digite a nova senha de configurações (mínimo 4 caracteres):');
-        if (!newPassword || newPassword.length < 4) {
-          alert('A nova senha deve ter pelo menos 4 caracteres.');
-          return;
-        }
-
-        try {
-          const response = await window.authManager.apiRequest('/api/settings-password', {
-            method: 'PUT',
-            body: JSON.stringify({
-              companyId,
-              password: newPassword
-              // currentPassword não é necessário para admin_master (tratado no backend)
-            })
-          });
-
-          if (response.success) {
-            alert('Senha de configurações redefinida com sucesso.');
-            await this.loadSettingsPasswordsForCompanies();
-          } else {
-            alert(response.message || 'Erro ao redefinir senha de configurações.');
-          }
-        } catch (error) {
-          console.error('Erro ao redefinir senha de configurações:', error);
-          alert('Erro ao redefinir senha de configurações.');
-        }
-      }
-    }
-
-    // Inicializar dashboard quando DOM estiver pronto
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Inicializar diretamente - checkAdminAccess vai verificar o acesso
-      new AdminDashboard();
+  <div class="content">
+
+    <!-- Visão Geral -->
+    <div class="section active" id="sec-overview">
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-icon">▣</div><div class="stat-value" id="st-tenants">—</div><div class="stat-label">Empresas Ativas</div></div>
+        <div class="stat-card primary"><div class="stat-icon">▤</div><div class="stat-value" id="st-appts">—</div><div class="stat-label">Agendamentos</div></div>
+        <div class="stat-card green"><div class="stat-icon">◧</div><div class="stat-value" id="st-plans">—</div><div class="stat-label">Planos</div></div>
+        <div class="stat-card orange"><div class="stat-icon">◈</div><div class="stat-value" id="st-niches">—</div><div class="stat-label">Nichos</div></div>
+      </div>
+      <div class="section-title">Empresas Cadastradas</div>
+      <div class="card">
+        <div class="card-body table-wrap">
+          <table>
+            <thead><tr><th>Empresa</th><th>Nicho</th><th>Plano</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="overviewTenantsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empresas -->
+    <div class="section" id="sec-empresas">
+      <div class="section-title">
+        Todas as Empresas
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Gerenciar Empresas</span>
+          <input type="text" id="searchTenant" placeholder="Buscar empresa..." style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:220px;background:var(--bg);" oninput="filterTenants()">
+        </div>
+        <div class="card-body table-wrap">
+          <table>
+            <thead><tr><th>Empresa</th><th>E-mail</th><th>Nicho</th><th>Plano</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tenantsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Planos -->
+    <div class="section" id="sec-planos">
+      <div class="section-title">
+        Planos Disponíveis
+      </div>
+      <div class="plans-grid" id="plansGrid"></div>
+    </div>
+
+    <!-- Nichos -->
+    <div class="section" id="sec-nichos">
+      <div class="section-title">Nichos de Mercado</div>
+      <div class="niches-grid" id="nichosGrid"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal: Empresa -->
+<div class="modal-bg" id="modalEmpresa">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modalEmpresaTitle">Nova Empresa</span>
+      <button class="modal-close-btn" onclick="closeModal('modalEmpresa')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="empId">
+
+      <div class="access-box" id="accessInfoBox" style="display:none;">
+        <div class="access-box-icon">🔑</div>
+        <div class="access-box-info">
+          <div class="access-box-title">Credenciais de Acesso</div>
+          <div class="access-box-detail" id="accessInfoText"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome da Empresa *</label>
+          <input type="text" id="empName" placeholder="Ex: Clínica Exemplo">
+        </div>
+        <div class="form-group">
+          <label>E-mail de Acesso *</label>
+          <input type="email" id="empEmail" placeholder="empresa@email.com">
+          <span class="form-hint">Será o login da empresa</span>
+        </div>
+      </div>
+
+      <div class="form-row" id="empPasswordRow">
+        <div class="form-group">
+          <label>Senha *</label>
+          <input type="password" id="empPassword" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="form-group">
+          <label>Confirmar Senha *</label>
+          <input type="password" id="empPasswordConfirm" placeholder="Repita a senha">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nicho</label>
+          <select id="empNiche"></select>
+        </div>
+        <div class="form-group">
+          <label>Plano</label>
+          <select id="empPlan"></select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Status</label>
+        <select id="empStatus">
+          <option value="active">Ativo</option>
+          <option value="suspended">Suspenso</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger btn-sm" id="empDeleteBtn" style="display:none;margin-right:auto" onclick="deleteEmpresa()">Remover</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalEmpresa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEmpresa()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Plano -->
+<div class="modal-bg" id="modalPlano">
+  <div class="modal" style="width:560px;">
+    <div class="modal-head">
+      <span class="modal-title" id="modalPlanoTitle">Novo Plano</span>
+      <button class="modal-close-btn" onclick="closeModal('modalPlano')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="planId">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome do Plano *</label>
+          <input type="text" id="planName" placeholder="Ex: Profissional">
+        </div>
+        <div class="form-group">
+          <label>Preço (R$/mês)</label>
+          <input type="number" id="planPrice" placeholder="0" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Máx. Agendamentos/mês</label>
+          <input type="number" id="planMaxAppts" placeholder="Ex: 500 (0 = ilimitado)" min="0">
+        </div>
+        <div class="form-group">
+          <label>Máx. Profissionais</label>
+          <input type="number" id="planMaxStaff" placeholder="Ex: 10 (0 = ilimitado)" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Recursos inclusos <span style="font-weight:400;color:var(--muted);">(um por linha)</span></label>
+        <textarea id="planFeatures" rows="5" placeholder="Ex:&#10;Até 500 agendamentos/mês&#10;Até 10 profissionais&#10;Acesso à API"></textarea>
+      </div>
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
+        <input type="checkbox" id="planActive" style="width:auto;" checked>
+        <label for="planActive" style="margin:0;font-weight:500;cursor:pointer;">Plano ativo (visível para seleção)</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('modalPlano')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePlan()">Salvar Plano</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-box" id="toastBox"></div>
+<script src="/js/config-api.js"></script>
+<script>
+const API = (() => {
+  if (window.API_CONFIG?.baseUrl) return window.API_CONFIG.baseUrl;
+  const h = window.location.hostname;
+  return (h==='localhost'||h==='127.0.0.1') ? `http://${h}:3000/api` : 'https://cloudd-agenda-backend.vercel.app/api';
+})();
+
+const token = () => localStorage.getItem('authToken');
+const userData = () => { try { return JSON.parse(localStorage.getItem('userData')||'null'); } catch { return null; } };
+
+const user = userData();
+if (!user || !token() || user.role !== 'admin_master') { window.location.href = '/'; throw 0; }
+document.getElementById('userName').textContent = user.name || user.email;
+document.getElementById('userAvatar').textContent = (user.name||user.email||'A')[0].toUpperCase();
+
+function logout() { localStorage.clear(); window.location.href = '/'; }
+
+function toast(msg, type='i') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastBox').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+async function api(path, opts={}) {
+  try {
+    const res = await fetch(API+path, {
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token(),...(opts.headers||{})},
+      ...opts
     });
-  </script>
+    if (res.status===401) { window.location.href='/'; return null; }
+    return res.json();
+  } catch(e) { toast('Erro de conexão','e'); return null; }
+}
+
+// ── State ──────────────────────────────────────────────────
+let allTenants=[], allPlans=[], allNiches=[];
+
+// ── Navigation ─────────────────────────────────────────────
+const topbarMeta = {
+  overview: { title:'Visão Geral',   sub:'Resumo da plataforma',               action:null },
+  empresas: { title:'Empresas',      sub:'Gerencie todas as empresas clientes', action:'+ Nova Empresa' },
+  planos:   { title:'Planos',        sub:'Planos e preços',                     action:'+ Novo Plano' },
+  nichos:   { title:'Nichos',        sub:'Segmentos de mercado',                action:null },
+};
+
+function nav(el, section) {
+  event.preventDefault();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+section).classList.add('active');
+  const meta = topbarMeta[section];
+  document.getElementById('topbarTitle').textContent = meta.title;
+  document.getElementById('topbarSub').textContent = meta.sub;
+  const btn = document.getElementById('topbarAction');
+  if (meta.action) { btn.textContent = meta.action; btn.style.display = ''; }
+  else { btn.style.display = 'none'; }
+  if (section==='empresas') renderTenants();
+  if (section==='planos') renderPlans();
+  if (section==='nichos') renderNiches();
+}
+
+function topbarActionClick() {
+  const active = document.querySelector('.section.active')?.id;
+  if (active==='sec-empresas'||active==='sec-overview') openNewTenant();
+  if (active==='sec-planos') openNewPlan();
+}
+
+// ── Load ────────────────────────────────────────────────────
+async function loadAll() {
+  const [statsRes, tenantsRes, plansRes, nichesRes] = await Promise.all([
+    api('/admin/saas/stats'),
+    api('/admin/saas/tenants'),
+    api('/admin/saas/plans'),
+    api('/admin/saas/niches'),
+  ]);
+
+  if (statsRes?.success) {
+    const s = statsRes.data;
+    document.getElementById('st-tenants').textContent = s.active_tenants ?? 0;
+    document.getElementById('st-appts').textContent = s.total_appointments ?? 0;
+    document.getElementById('st-plans').textContent = s.total_plans ?? 0;
+    document.getElementById('st-niches').textContent = s.total_niches ?? 0;
+  }
+
+  allTenants = tenantsRes?.data || [];
+  allPlans = plansRes?.data || [];
+  allNiches = nichesRes?.data || [];
+
+  renderOverviewTenants();
+  populateSelects();
+}
+
+const nicheIcons = { 'geral':'◈','saude-bem-estar':'◉','servicos-profissionais':'◧','educacional':'◑' };
+function nicheIcon(slug) { return nicheIcons[slug] || '◈'; }
+
+// ── Overview ────────────────────────────────────────────────
+function renderOverviewTenants() {
+  const tbody = document.getElementById('overviewTenantsTbody');
+  if (!allTenants.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted);">Nenhuma empresa cadastrada</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allTenants.map(t => `
+    <tr>
+      <td><strong>${t.name}</strong></td>
+      <td>${t.niche_name ? `<span>${t.niche_name}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${t.plan_name ? `<span class="badge badge-blue">${t.plan_name}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openEditTenant(${t.id})">Editar</button>
+        ${t.owner_email && t.status==='active' && t.niche_slug==='saude-bem-estar' ? `<button class="btn btn-primary btn-sm" onclick="viewAgenda(${t.id},'${(t.owner_email||'').replace(/'/g,'')}')" title="Abrir agenda da empresa">Ver Agenda</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Empresas ────────────────────────────────────────────────
+function renderTenants(filter='') {
+  const filtered = filter
+    ? allTenants.filter(t => t.name.toLowerCase().includes(filter) || (t.owner_email||'').toLowerCase().includes(filter))
+    : allTenants;
+  const tbody = document.getElementById('tenantsTbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted);">Nenhuma empresa encontrada</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(t => `
+    <tr>
+      <td>
+        <div style="font-weight:700;">${t.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${t.slug||''}</div>
+      </td>
+      <td style="color:var(--muted);">${t.owner_email||'—'}</td>
+      <td>${t.niche_name || '—'}</td>
+      <td>${t.plan_name ? `<span class="badge badge-blue">${t.plan_name}</span>` : '—'}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditTenant(${t.id})" title="Editar">Editar</button>
+        ${t.status==='active' && t.niche_slug==='saude-bem-estar' ? `<button class="btn btn-ghost btn-sm" onclick="viewAgenda(${t.id},'${(t.owner_email||'').replace(/'/g,'')}')" title="Ver agenda" style="color:var(--accent)">Ver Agenda</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="confirmDelete(${t.id},'${t.name.replace(/'/g,"\\'")}')">Remover</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterTenants() { renderTenants(document.getElementById('searchTenant').value.toLowerCase().trim()); }
+
+function statusBadge(s) {
+  const map = { active:['badge-green','Ativo'], suspended:['badge-gray','Suspenso'], cancelled:['badge-red','Cancelado'] };
+  const [cls,label] = map[s] || ['badge-gray', s||'—'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ── Ver Agenda (impersonação) ───────────────────────────────
+async function viewAgenda(tenantId, email) {
+  const res = await api(`/admin/saas/tenants/${tenantId}/impersonate`, { method: 'POST' });
+  if (res?.success) {
+    sessionStorage.setItem('_imp', JSON.stringify({ token: res.token, user: res.user }));
+    window.open('/app/agendamentos.html?imp=1', '_blank');
+    toast('Abrindo agenda da empresa...', 's');
+  } else {
+    toast(res?.error || 'Erro ao acessar agenda', 'e');
+  }
+}
+
+// ── Planos ──────────────────────────────────────────────────
+const planMeta = {
+  starter:      { icon:'◑', color:'#10b981', featured: false },
+  professional: { icon:'◉', color:'var(--accent)', featured: true },
+  enterprise:   { icon:'◈', color:'var(--primary)', featured: false },
+};
+
+function renderPlans() {
+  if (!allPlans.length) {
+    document.getElementById('plansGrid').innerHTML = '<div class="empty"><div class="empty-icon">◧</div><p>Nenhum plano cadastrado</p></div>';
+    return;
+  }
+  document.getElementById('plansGrid').innerHTML = allPlans.map(p => {
+    const meta = planMeta[p.slug] || { icon:'◧', color:'var(--muted)', featured: false };
+    const tenantCount = allTenants.filter(t => t.plan_id === p.id || t.plan_name === p.name).length;
+    const features = Array.isArray(p.features) ? p.features : (typeof p.features === 'string' ? p.features.split('\n').filter(Boolean) : []);
+    return `
+      <div class="plan-card ${meta.featured?'featured':''}">
+        ${meta.featured ? '<div class="plan-card-badge">Mais popular</div>' : ''}
+        <div style="font-size:22px;margin-bottom:8px;color:${meta.color};">${meta.icon}</div>
+        <div class="plan-name">${p.name}</div>
+        <div class="plan-price"><sup>R$</sup>${Number(p.price||0).toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
+        <div class="plan-cycle">/mês</div>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:4px;">
+          ${features.map(f => `
+            <div class="plan-feature">
+              <div class="chk" style="background:${meta.color}22;color:${meta.color}">✓</div>
+              ${f}
+            </div>
+          `).join('')}
+        </div>
+        <div class="plan-tenants">${tenantCount} empresa${tenantCount!==1?'s':''} neste plano</div>
+        <div class="plan-card-actions">
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openEditPlan(${p.id})">Editar Plano</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Nichos ──────────────────────────────────────────────────
+function renderNiches() {
+  // Sub-segmentos por nicho: [label, tipo-agenda, disponível]
+  const segmentMap = {
+    'saude-bem-estar': [
+      ['Clínica Médica',       'Agenda Saúde',     true ],
+      ['Clínica Odontológica', 'Agenda Saúde',     true ],
+      ['Estética',             'Agenda Estética',  false],
+      ['Barbearia',            'Agenda Barbearia', false],
+      ['Salão de Beleza',      'Agenda Salão',     false],
+    ],
+    'educacional': [
+      ['Escola de Idiomas',    'Agenda Educacional', false],
+      ['Tutoria Particular',   'Agenda Educacional', false],
+      ['Universidade',         'Agenda Educacional', false],
+    ],
+    'servicos-profissionais': [
+      ['Advocacia',            'Agenda Profissional', false],
+      ['Contabilidade',        'Agenda Profissional', false],
+      ['Consultoria',          'Agenda Profissional', false],
+    ],
+    'geral': [
+      ['Uso Geral',            'Agenda Geral', false],
+    ],
+  };
+
+  const descMap = {
+    'geral':                  'Segmento geral, sem configurações específicas',
+    'saude-bem-estar':        'Saúde, beleza e bem-estar',
+    'servicos-profissionais': 'Serviços especializados e consultoria',
+    'educacional':            'Ensino, cursos e tutoria',
+  };
+
+  document.getElementById('nichosGrid').innerHTML = allNiches.map(n => {
+    const segments = segmentMap[n.slug] || [];
+    const tenantCount = allTenants.filter(t => t.niche_id === n.id || t.niche_name === n.name).length;
+
+    const segRows = segments.map(([label, agenda, available]) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text);">${label}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface-2,#f1f5f9);color:var(--text-muted);border:1px solid var(--border);">${agenda}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;${available
+            ? 'background:#d1fae5;color:#065f46;'
+            : 'background:#f1f5f9;color:#94a3b8;'}">${available ? 'Disponível' : 'Em breve'}</span>
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="niche-card" style="flex-direction:column;align-items:flex-start;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="niche-icon">${nicheIcon(n.slug)}</div>
+          <div>
+            <div class="niche-name">${n.name}</div>
+            <div class="niche-desc">${descMap[n.slug]||n.description||''}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${tenantCount} empresa${tenantCount!==1?'s':''} ativa${tenantCount!==1?'s':''}</div>
+          </div>
+        </div>
+        <div style="width:100%;">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Tipos de Agenda</div>
+          ${segRows}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Selects ─────────────────────────────────────────────────
+function populateSelects() {
+  document.getElementById('empNiche').innerHTML =
+    '<option value="">Selecione o nicho</option>' +
+    allNiches.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+  document.getElementById('empPlan').innerHTML =
+    '<option value="">Selecione o plano</option>' +
+    allPlans.map(p => `<option value="${p.id}">${p.name} — R$${Number(p.price||0).toLocaleString('pt-BR')}/mês</option>`).join('');
+}
+
+// ── Modal: Empresa ──────────────────────────────────────────
+let editingTenantId = null;
+
+function openNewTenant() {
+  editingTenantId = null;
+  document.getElementById('modalEmpresaTitle').textContent = 'Nova Empresa';
+  document.getElementById('empId').value = '';
+  document.getElementById('empName').value = '';
+  document.getElementById('empEmail').value = '';
+  document.getElementById('empStatus').value = 'active';
+  // Garante que o bloco de senha está na versão obrigatória (pode ter sido alterado ao editar)
+  document.getElementById('empPasswordRow').innerHTML = `
+    <div class="form-group">
+      <label>Senha *</label>
+      <input type="password" id="empPassword" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="form-group">
+      <label>Confirmar Senha *</label>
+      <input type="password" id="empPasswordConfirm" placeholder="Repita a senha">
+    </div>`;
+  document.getElementById('empDeleteBtn').style.display = 'none';
+  document.getElementById('accessInfoBox').style.display = 'none';
+  populateSelects(); // garante que nicho/plano estejam carregados
+  openModal('modalEmpresa');
+  // Navega para seção empresas
+  const el = document.querySelector('[data-section="empresas"]');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-empresas').classList.add('active');
+  renderTenants();
+}
+
+function openEditTenant(id) {
+  const t = allTenants.find(x=>x.id===id);
+  if (!t) return;
+  editingTenantId = id;
+  document.getElementById('modalEmpresaTitle').textContent = 'Editar Empresa';
+  document.getElementById('empId').value = id;
+  document.getElementById('empName').value = t.name || '';
+  document.getElementById('empEmail').value = t.owner_email || '';
+  document.getElementById('empPassword').value = '';
+  document.getElementById('empPasswordConfirm').value = '';
+  document.getElementById('empStatus').value = t.status || 'active';
+  document.getElementById('empDeleteBtn').style.display = '';
+
+  // Populate selects first to ensure options exist, then set values
+  populateSelects();
+  setTimeout(() => {
+    document.getElementById('empNiche').value = t.niche_id != null ? String(t.niche_id) : '';
+    document.getElementById('empPlan').value = t.plan_id != null ? String(t.plan_id) : '';
+  }, 0);
+
+  // Campos de senha opcionais na edição
+  document.getElementById('empPasswordRow').innerHTML = `
+    <div class="form-group">
+      <label>Nova Senha <span style="font-weight:400;color:var(--muted);">(deixe em branco para manter)</span></label>
+      <input type="password" id="empPassword" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="form-group">
+      <label>Confirmar Nova Senha</label>
+      <input type="password" id="empPasswordConfirm" placeholder="Repita a senha">
+    </div>`;
+
+  // Access info
+  document.getElementById('accessInfoBox').style.display = 'flex';
+  document.getElementById('accessInfoText').innerHTML =
+    `Login: <strong>${t.owner_email||'—'}</strong>`;
+
+  openModal('modalEmpresa');
+}
+
+async function saveEmpresa() {
+  const name = document.getElementById('empName').value.trim();
+  const email = document.getElementById('empEmail').value.trim();
+  const pw = document.getElementById('empPassword').value;
+  const pwc = document.getElementById('empPasswordConfirm').value;
+  const nicheId = document.getElementById('empNiche').value;
+  const planId = document.getElementById('empPlan').value;
+  const status = document.getElementById('empStatus').value;
+
+  if (!name) { toast('Informe o nome da empresa','e'); return; }
+
+  if (editingTenantId) {
+    if (pw && pw.length < 6) { toast('Nova senha deve ter ao menos 6 caracteres','e'); return; }
+    if (pw && pw !== pwc) { toast('As senhas não coincidem','e'); return; }
+    const body = { name, plan_id: planId||null, niche_id: nicheId||null, status };
+    if (email) body.email = email;
+    if (pw)    body.password = pw;
+    const res = await api(`/admin/saas/tenants/${editingTenantId}`, { method:'PUT', body:JSON.stringify(body) });
+    if (!res) return;
+    if (res.success) {
+      toast('Empresa atualizada!','s');
+      closeModal('modalEmpresa');
+      await loadAll();
+      renderTenants();
+    } else toast(res.error||'Erro ao atualizar','e');
+  } else {
+    if (!email) { toast('Informe o e-mail','e'); return; }
+    if (!pw || pw.length < 6) { toast('Senha deve ter ao menos 6 caracteres','e'); return; }
+    if (pw !== pwc) { toast('As senhas não coincidem','e'); return; }
+    const body = { name, email, password:pw, niche_id:nicheId||undefined, plan_id:planId||undefined };
+    const res = await api('/admin/saas/empresas', { method:'POST', body:JSON.stringify(body) });
+    if (!res) return;
+    if (res.success || res.tenant) {
+      toast('Empresa criada com sucesso!','s');
+      closeModal('modalEmpresa');
+      await loadAll();
+      renderTenants();
+    } else toast(res.error||res.message||'Erro ao criar empresa','e');
+  }
+}
+
+function confirmDelete(id, name) {
+  if (!confirm(`Remover a empresa "${name}"?\n\nEsta ação é permanente e não pode ser desfeita.`)) return;
+  deleteEmpresa(id);
+}
+
+async function deleteEmpresa(id) {
+  const tid = id || editingTenantId;
+  if (!tid) return;
+  const res = await api(`/admin/saas/tenants/${tid}`, { method:'DELETE' });
+  if (!res) return;
+  if (res.success) {
+    toast('Empresa removida','s');
+    closeModal('modalEmpresa');
+    allTenants = allTenants.filter(t => t.id !== tid);
+    renderOverviewTenants();
+    renderTenants();
+  } else toast(res.error||'Erro ao remover','e');
+}
+
+// ── Modal: Plano ────────────────────────────────────────────
+let editingPlanId = null;
+
+function openNewPlan() {
+  editingPlanId = null;
+  document.getElementById('modalPlanoTitle').textContent = 'Novo Plano';
+  document.getElementById('planId').value = '';
+  document.getElementById('planName').value = '';
+  document.getElementById('planPrice').value = '';
+  document.getElementById('planMaxAppts').value = '';
+  document.getElementById('planMaxStaff').value = '';
+  document.getElementById('planFeatures').value = '';
+  document.getElementById('planActive').checked = true;
+  openModal('modalPlano');
+}
+
+function openEditPlan(id) {
+  const p = allPlans.find(x=>x.id===id);
+  if (!p) return;
+  editingPlanId = id;
+  document.getElementById('modalPlanoTitle').textContent = 'Editar Plano';
+  document.getElementById('planId').value = id;
+  document.getElementById('planName').value = p.name || '';
+  document.getElementById('planPrice').value = p.price != null ? p.price : '';
+
+  const limits = (typeof p.limits === 'object' && p.limits) ? p.limits : {};
+  document.getElementById('planMaxAppts').value = limits.max_appointments != null ? limits.max_appointments : '';
+  document.getElementById('planMaxStaff').value = limits.max_staff != null ? limits.max_staff : '';
+
+  // Features: pode ser array ou objeto com chave de texto
+  let featuresText = '';
+  if (Array.isArray(p.features)) {
+    featuresText = p.features.join('\n');
+  } else if (typeof p.features === 'object' && p.features) {
+    featuresText = Object.values(p.features).join('\n');
+  } else if (typeof p.features === 'string') {
+    featuresText = p.features;
+  }
+  document.getElementById('planFeatures').value = featuresText;
+  document.getElementById('planActive').checked = p.is_active !== false;
+  openModal('modalPlano');
+}
+
+async function savePlan() {
+  const name = document.getElementById('planName').value.trim();
+  if (!name) { toast('Informe o nome do plano','e'); return; }
+
+  const price = parseFloat(document.getElementById('planPrice').value) || 0;
+  const maxAppts = parseInt(document.getElementById('planMaxAppts').value) || 0;
+  const maxStaff = parseInt(document.getElementById('planMaxStaff').value) || 0;
+  const featuresRaw = document.getElementById('planFeatures').value.trim();
+  const features = featuresRaw ? featuresRaw.split('\n').map(f=>f.trim()).filter(Boolean) : [];
+  const is_active = document.getElementById('planActive').checked;
+
+  const body = {
+    name, price,
+    limits: { max_appointments: maxAppts, max_staff: maxStaff },
+    features,
+    is_active,
+  };
+
+  let res;
+  if (editingPlanId) {
+    res = await api(`/admin/saas/plans/${editingPlanId}`, { method:'PUT', body:JSON.stringify(body) });
+  } else {
+    res = await api('/admin/saas/plans', { method:'POST', body:JSON.stringify(body) });
+  }
+
+  if (!res) return;
+  if (res.success) {
+    toast(editingPlanId ? 'Plano atualizado!' : 'Plano criado!', 's');
+    closeModal('modalPlano');
+    await loadAll();
+    renderPlans();
+  } else {
+    toast(res.error || 'Erro ao salvar plano','e');
+  }
+}
+
+// ── Modal helpers ───────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+['modalEmpresa','modalPlano'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal(id);
+  });
+});
+
+// ── Init ────────────────────────────────────────────────────
+loadAll();
+</script>
 </body>
 </html>

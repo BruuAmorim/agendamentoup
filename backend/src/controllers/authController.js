@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { User } = require('../models');
 const LogService = require('../services/logService');
 const { query } = require('../config/database');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 /**
  * Controller de Autenticação
@@ -253,6 +255,83 @@ class AuthController {
     } catch (error) {
       console.error('[auth] Erro ao verificar senha de configurações:', error.message);
       res.status(500).json({ success: false, error: 'Erro interno do servidor', message: 'Erro ao verificar senha' });
+    }
+  }
+  static async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email é obrigatório' });
+      }
+
+      const user = await User.findOne({ where: { email: email.toLowerCase().trim() } });
+
+      // Resposta genérica para não revelar se o email existe
+      const genericMsg = { success: true, message: 'Se o email estiver cadastrado, você receberá as instruções em breve.' };
+
+      if (!user || !user.isActive) return res.json(genericMsg);
+
+      // Invalida tokens anteriores do usuário
+      await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+
+      await query(
+        'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [user.id, token, expiresAt.toISOString()]
+      );
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const resetLink = `${frontendUrl}/reset-password.html?token=${token}`;
+
+      await sendPasswordResetEmail(user.email, resetLink);
+
+      res.json(genericMsg);
+    } catch (error) {
+      console.error('[auth] Erro no forgotPassword:', error.message);
+      res.status(500).json({ success: false, message: 'Erro interno ao processar solicitação' });
+    }
+  }
+
+  static async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ success: false, message: 'Token e nova senha são obrigatórios' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ success: false, message: 'A senha deve ter pelo menos 6 caracteres' });
+      }
+
+      const result = await query(
+        'SELECT * FROM password_reset_tokens WHERE token = $1 AND used = false',
+        [token]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Token inválido ou já utilizado' });
+      }
+
+      const resetToken = result.rows[0];
+      if (new Date(resetToken.expires_at) < new Date()) {
+        return res.status(400).json({ success: false, message: 'Token expirado. Solicite um novo link.' });
+      }
+
+      const user = await User.findByPk(resetToken.user_id);
+      if (!user || !user.isActive) {
+        return res.status(400).json({ success: false, message: 'Usuário não encontrado' });
+      }
+
+      await user.update({ password });
+      await query('UPDATE password_reset_tokens SET used = true WHERE token = $1', [token]);
+
+      console.log(`[auth] Senha redefinida para usuário: ${user.email}`);
+      res.json({ success: true, message: 'Senha redefinida com sucesso! Você já pode fazer login.' });
+    } catch (error) {
+      console.error('[auth] Erro no resetPassword:', error.message);
+      res.status(500).json({ success: false, message: 'Erro interno ao redefinir senha' });
     }
   }
 }

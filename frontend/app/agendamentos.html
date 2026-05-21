@@ -1,601 +1,1527 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cloudd Agenda - Sistema de Agendamentos</title>
-
-  <!-- Fonte -->
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Agenda — Cloudd Agenda</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- jsPDF para exportação em PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  
-  <!-- SheetJS para exportação em Excel formatado -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/app-layout.css">
+  <style>
+    /* ── Export button ───────────────────────────── */
+    .btn-export {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .btn-export:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
+    .btn-export svg { flex-shrink: 0; }
+    .patient-lookup-tag {
+      display: none;
+      margin-top: 5px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .patient-lookup-tag.found { background: #dcfce7; color: #15803d; }
+    .patient-lookup-tag.new   { background: #f0f9ff; color: #0369a1; }
+    .filter-pro-wrap { display: flex; align-items: center; gap: 6px; }
+    .filter-pro-wrap label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    #filterEmployee, #filterStatus {
+      height: 34px; padding: 0 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      max-width: 180px;
+    }
+    #filterEmployee:focus, #filterStatus:focus { outline: none; border-color: var(--accent); }
+    /* ── Day-cell quick popup ────────────────────────── */
+    #calDayPopup {
+      position: fixed; z-index: 600;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.18);
+      min-width: 190px;
+      display: none;
+    }
+    #calDayPopup .cdp-date {
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      margin-bottom: 10px; text-transform: capitalize;
+    }
+    #calDayPopup .cdp-question {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      margin-bottom: 12px;
+    }
+    #calDayPopup .cdp-btn {
+      display: block; width: 100%; text-align: left;
+      padding: 7px 12px; border-radius: 7px; border: none;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: background .12s;
+    }
+    #calDayPopup .cdp-btn-primary {
+      background: var(--accent); color: #fff; margin-bottom: 6px;
+    }
+    #calDayPopup .cdp-btn-primary:hover { opacity: .88; }
+    #calDayPopup .cdp-btn-secondary {
+      background: var(--bg); color: var(--text-muted);
+    }
+    #calDayPopup .cdp-btn-secondary:hover { background: var(--border); color: var(--text); }
+  </style>
 </head>
-
 <body>
-  <!-- Background waves -->
-  <div class="waves-container" id="wavesContainer">
-    <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
-      <path fill="#cfe9ff"
-        d="M0,160L80,176C160,192,320,224,480,218.7C640,213,800,171,960,160C1120,149,1280,171,1360,181.3L1440,192V0H0Z" />
-    </svg>
-  </div>
 
-  <!-- Header -->
-  <header id="mainHeader">
-  <div class="header-content header-centered header-layout">
-    <div class="brand-left">
-      <img src="/assets/logo.jpg" alt="Logo EVA Cloudd" class="header-logo-left">
+
+<div class="app-shell">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" >
+        <svg width="44" height="44" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M29 23.5H9.5C6.5 23.5 4 21 4 18c0-2.7 2-5 4.6-5.4.2-3.5 3.1-6.1 6.6-6.1 1.8 0 3.4.7 4.6 1.8 1-1.1 2.4-1.8 4-1.8 2.9 0 5.2 2.3 5.2 5.2v.2c2.3.5 4 2.5 4 4.8 0 2.8-2.2 5-4 5z" fill="#0ea5e9"/>
+          <rect x="11" y="15" width="14" height="11" rx="1.5" stroke="white" stroke-width="1.2" fill="none"/>
+          <line x1="11" y1="18.5" x2="25" y2="18.5" stroke="white" stroke-width="1.2"/>
+          <line x1="15" y1="13.5" x2="15" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="21" y1="13.5" x2="21" y2="17" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <rect x="13" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="20" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="13" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="17" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+          <rect x="21" y="23" width="1.8" height="1.8" rx="0.4" fill="white"/>
+        </svg>
+      </div>
+      <span class="brand-name">EVA</span>
     </div>
-    <div class="header-center">
-      <img id="companyLogo" class="company-logo" alt="Logo da Empresa" style="display: none;">
-      <h1 class="header-title">
-        <span>Sistema de Agendamentos</span>
-      </h1>
 
-      <p class="header-subtitle">
-        Gerencie seus agendamentos de forma simples e eficiente
-      </p>
-    </div>
-
-    <div class="header-actions" id="headerActions">
-      <a href="/app/settings.html" class="logout-btn" id="settingsLink" title="Configurações" style="margin-right: 10px; text-decoration: none; display: none; align-items: center; background: #0091FF;">
-        ⚙️ Configurações
+    <nav class="sidebar-nav">
+      <a class="nav-item active" href="/app/agendamentos.html" title="Agenda">
+        <span class="nav-icon">📅</span>
+        <span class="nav-label">Agenda</span>
       </a>
-      <button id="logoutBtn" class="logout-btn" title="Sair">
-        🚪 Sair
+      <a class="nav-item" href="/app/pacientes.html" title="Pacientes">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">Pacientes</span>
+      </a>
+      <a class="nav-item" href="/app/settings.html" title="Configurações">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Configurações</span>
+      </a>
+      <a class="nav-item" href="/app/relatorios.html" title="Relatórios">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Relatórios</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="nav-item" id="userInfoNav" title="Usuário" style="cursor:default;">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label" id="sidebarUserName" style="font-size:11px;opacity:.7;"></span>
+      </div>
+      <button class="nav-item" id="sidebarLogout" title="Sair">
+        <span class="nav-icon">🚪</span>
+        <span class="nav-label">Sair</span>
       </button>
     </div>
-  </div>
-  </header>
+  </aside>
 
-  <!-- Main -->
-  <main id="mainContent">
-    <div class="container">
-      <div class="dashboard">
+  <!-- ══ MAIN BODY ════════════════════════════════════════ -->
+  <div class="app-body">
 
-        <!-- Card Novo Agendamento -->
-        <section class="card">
-          <h2>📅 Novo Agendamento</h2>
-          <p>Preencha os dados abaixo para criar um novo agendamento</p>
+    <!-- ── Left panel ─────────────────────────────────── -->
+    <div class="left-panel" id="leftPanel">
 
-          <form id="appointmentForm">
-            <div class="form-group">
-              <label>Profissional</label>
-              <select name="employee_id" id="employeeSelect">
-                <option value="">Qualquer profissional</option>
-                <!-- Funcionários serão carregados dinamicamente -->
-              </select>
-            </div>
+      <!-- Mini calendar -->
+      <div class="mini-cal" id="miniCalWidget">
+        <div class="mini-cal-header">
+          <button class="mini-cal-nav" id="miniCalPrev">‹</button>
+          <span class="mini-cal-title" id="miniCalTitle"></span>
+          <button class="mini-cal-nav" id="miniCalNext">›</button>
+        </div>
+        <div class="mini-cal-grid" id="miniCalGrid"></div>
+      </div>
 
-            <div class="form-group">
-              <label>Nome do Cliente *</label>
-              <input type="text" name="customer_name" placeholder="Nome completo" required>
-            </div>
+      <!-- Waiting list -->
+      <div class="waiting-list">
+        <div class="waiting-list-header">
+          <span class="waiting-list-title">Lista de Espera</span>
+          <button class="btn-waiting-add" id="btnAddWaiting" title="Adicionar à lista de espera">+</button>
+        </div>
 
-            <div class="form-group">
-              <label>Telefone</label>
-              <input type="tel" name="customer_phone" placeholder="(11) 99999-9999">
-            </div>
+        <div class="waiting-section" id="waitingUrgency">
+          <div class="waiting-section-label">Urgência</div>
+          <div id="urgencyList"></div>
+        </div>
 
-            <div class="form-group">
-              <label>Serviço</label>
-              <select name="service_type" id="serviceType">
-                <option value="">Selecione um serviço</option>
-                <!-- Serviços serão carregados dinamicamente -->
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Data *</label>
-              <input type="date" id="appointment_date" name="appointment_date" required>
-            </div>
-
-            <div class="form-group">
-              <label>Horário *</label>
-              <input type="time" id="appointment_time" name="appointment_time" placeholder="HH:MM" required>
-            </div>
-
-            <div class="actions">
-              <button type="button" class="btn-secondary" id="checkAvailability">Verificar Disponibilidade</button>
-              <button type="submit" class="btn-primary">Criar Agendamento</button>
-            </div>
-
-            <!-- Área para mostrar horários disponíveis -->
-            <div id="availableSlots" class="available-slots" style="display: none;">
-              <h4>Horários Disponíveis</h4>
-              <div id="slotsContainer" class="slots-container"></div>
-            </div>
-          </form>
-        </section>
-
-        <!-- Card Lista de Agendamentos -->
-        <section class="card" id="appointmentsCard">
-          <div class="appointments-inner">
-            <div class="filters">
-              <label>📆 Agendamentos por data</label>
-              <div class="filters-row">
-                <input type="date" id="filterDate">
-                <button type="button" class="btn-primary" id="refreshList">Atualizar Lista</button>
-              </div>
-              <div class="form-group" style="margin-top: 8px;">
-                <label>Profissional</label>
-                <select id="employeeFilter">
-                  <option value="">Todos os profissionais</option>
-                  <!-- Funcionários serão carregados dinamicamente -->
-                </select>
-              </div>
-            </div>
-
-            <div class="appointments-header-row">
-              <h3 class="appointments-title">📋 Agendamentos do Dia</h3>
-              <div class="appointments-actions">
-                <button type="button" class="btn-secondary btn-fullscreen" id="toggleFullscreenAppointments">
-                  ⛶ Tela cheia
-                </button>
-                <button type="button" class="btn-secondary" id="exportExcelBtn">📊 Excel</button>
-                <button type="button" class="btn-secondary" id="exportPdfBtn">📄 PDF</button>
-              </div>
-            </div>
-
-            <div class="form-group appointments-search" style="margin-top: 12px;">
-              <input type="text" id="filtro-nome" placeholder="🔍 Buscar cliente neste dia..." style="margin-bottom: 0;">
-            </div>
-
-            <div id="lista-agendamentos" class="appointments-list">
-              <div class="no-appointments-message">
-                Selecione uma data para visualizar os agendamentos
-              </div>
-            </div>
-
-            <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display:none;">
-              🔄 Atualizando...
-            </div>
-          </div>
-        </section>
-
+        <div class="waiting-section" id="waitingNormal">
+          <div class="waiting-section-label">Aguardando</div>
+          <div id="normalWaitList"></div>
+        </div>
       </div>
     </div>
-  </main>
 
-  <!-- Toast Container -->
-  <div id="toastContainer" class="toast-container"></div>
+    <!-- ── Calendar area ───────────────────────────────── -->
+    <div class="cal-area">
 
-  <!-- Modal de Visualização de Detalhes -->
-  <div id="detailsAppointmentModal" class="modal">
-    <div class="modal-content edit-modal">
-      <div class="modal-header">
-        <h3>📋 Detalhes do Agendamento</h3>
-        <button class="modal-close" id="detailsModalClose">&times;</button>
-      </div>
-      <div class="modal-body" id="detailsModalBody">
-        <!-- Conteúdo será preenchido dinamicamente -->
-      </div>
-      <div class="modal-footer">
-        <button id="detailsModalBack" class="btn-primary">Voltar</button>
-      </div>
-    </div>
-  </div>
+      <!-- Topbar -->
+      <div class="cal-topbar">
+        <div class="topbar-left">
+          <nav class="breadcrumb">
+            <a href="#">Home</a>
+            <span>›</span>
+            <a href="#">Agenda</a>
+            <span>›</span>
+            <span id="bcProfissional">Geral</span>
+          </nav>
 
-  <!-- Modal de Edição de Agendamento -->
-  <div id="editAppointmentModal" class="modal">
-    <div class="modal-content edit-modal">
-      <div class="modal-header">
-        <h3>✏️ Editar Agendamento</h3>
-        <button class="modal-close" id="editModalClose">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="editAppointmentForm">
-          <div class="form-group">
-            <label>Nome do Cliente *</label>
-            <input type="text" id="editCustomerName" name="customer_name" required>
+          <div class="cal-nav">
+            <button class="btn-nav" id="prevPeriod" title="Anterior">‹</button>
+            <button class="btn-today" id="todayBtn">Hoje</button>
+            <button class="btn-nav" id="nextPeriod" title="Próximo">›</button>
           </div>
 
-          <div class="form-group">
-            <label>Telefone</label>
-            <input type="tel" id="editCustomerPhone" name="customer_phone">
-          </div>
+          <span class="cal-period-title" id="calPeriodTitle"></span>
+        </div>
 
-          <div class="form-group">
-            <label>E-mail</label>
-            <input type="email" id="editCustomerEmail" name="customer_email">
-          </div>
-
-          <div class="form-group">
-            <label>CPF</label>
-            <input type="text" id="editCustomerCpf" name="customer_cpf">
-          </div>
-
-          <div class="form-group">
-            <label>Profissional</label>
-            <select id="editEmployeeSelect" name="employee_id">
-              <option value="">Qualquer profissional</option>
+        <div class="topbar-right">
+          <div class="filter-pro-wrap">
+            <label for="filterStatus">Status:</label>
+            <select id="filterStatus">
+              <option value="">Todos</option>
+              <option value="pending">Pendente</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="completed">Concluído</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="no_show">Faltou</option>
             </select>
           </div>
+          <div class="filter-pro-wrap">
+            <label for="filterEmployee">Profissional:</label>
+            <select id="filterEmployee">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="view-toggle">
+            <button class="view-btn" data-view="mes">Mês</button>
+            <button class="view-btn active" data-view="semana">Semana</button>
+            <button class="view-btn" data-view="dia">Dia</button>
+          </div>
+          <button class="btn-export" id="btnExport">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar PDF
+          </button>
+          <button class="btn-new-appt" id="btnNewAppt">+ Novo Agendamento</button>
+        </div>
+      </div>
 
+      <!-- Calendar grid -->
+      <div class="cal-grid-wrapper" id="calGridWrapper">
+        <div class="cal-grid" id="calGrid" style="--grid-cols:7"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ POPUP: Clique em dia vazio ════════════════════════ -->
+<div id="calDayPopup">
+  <div class="cdp-date" id="calDayPopupDate"></div>
+  <div class="cdp-question">Novo agendamento?</div>
+  <button class="cdp-btn cdp-btn-primary" onclick="calDayPopupNewAppt()">+ Criar agendamento</button>
+  <button class="cdp-btn cdp-btn-secondary" onclick="calDayPopupViewDay()">Ver dia completo</button>
+</div>
+
+<!-- ══ MODAL: Novo Agendamento ═══════════════════════════ -->
+<div class="modal-overlay" id="modalNewAppt">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title" id="modalApptTitle">Novo Agendamento</span>
+      <button class="modal-close" id="modalApptClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="formNewAppt">
+        <input type="hidden" id="apptEditId">
+
+        <input type="hidden" id="apptDuration" value="30">
+        <div class="form-row">
           <div class="form-group">
-            <label>Serviço</label>
-            <select id="editServiceType" name="service_type">
+            <label>Serviço *</label>
+            <select id="apptService">
               <option value="">Selecione um serviço</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Profissional</label>
+            <select id="apptEmployee">
+              <option value="">Qualquer</option>
+            </select>
+          </div>
+        </div>
 
+        <div class="form-group">
+          <label>Nome do Paciente *</label>
+          <input type="text" id="apptName" placeholder="Nome completo" required>
+        </div>
+
+        <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+          <div class="form-group">
+            <label>Telefone</label>
+            <input type="tel" id="apptPhone" placeholder="(00) 00000-0000">
+          </div>
+          <div class="form-group">
+            <label>CPF</label>
+            <input type="text" id="apptCpf" placeholder="000.000.000-00" maxlength="14">
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="apptEmail" placeholder="email@exemplo.com">
+          </div>
+        </div>
+        <div id="patientLookupTag" class="patient-lookup-tag"></div>
+
+        <div class="form-row">
           <div class="form-group">
             <label>Data *</label>
-            <input type="date" id="editAppointmentDate" name="appointment_date" required>
+            <input type="date" id="apptDate" required>
           </div>
-
           <div class="form-group">
             <label>Horário *</label>
-            <input type="time" id="editAppointmentTime" name="appointment_time" required>
+            <input type="time" id="apptTime" required>
           </div>
+        </div>
 
-          <div class="form-group">
-            <label>Observações</label>
-            <textarea id="editNotes" name="notes" rows="3"></textarea>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button id="editModalCancel" class="btn-secondary">Cancelar</button>
-        <button id="editModalSave" class="btn-primary">Salvar Alterações</button>
-      </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="apptStatus">
+            <option value="pending">Pendente</option>
+            <option value="confirmed">Confirmado</option>
+            <option value="completed">Concluído</option>
+            <option value="cancelled">Cancelado</option>
+            <option value="no_show">Faltou</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="apptNotes" rows="2" placeholder="Observações ou motivo da consulta..."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="modalApptDelete" style="display:none;margin-right:auto;">Excluir</button>
+      <button class="btn btn-secondary" id="modalApptCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalApptSave">Salvar Agendamento</button>
     </div>
   </div>
+</div>
 
-  <!-- Scripts -->
-  <!-- jsPDF + AutoTable para geração de PDFs de agendamentos -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js" referrerpolicy="no-referrer"></script>
-  <script src="/js/config-api.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/app.js"></script>
+<!-- ══ MODAL: Detalhes do agendamento ════════════════════ -->
+<div class="modal-overlay" id="modalDetail">
+  <div class="modal-card" style="width:400px;">
+    <div class="modal-header">
+      <span class="modal-title">Detalhes do Agendamento</span>
+      <button class="modal-close" id="modalDetailClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalDetailBody"></div>
+    <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
+      <select id="detailStatusSel" style="height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);cursor:pointer;flex:1;min-width:140px;">
+        <option value="pending">Pendente</option>
+        <option value="confirmed">Confirmado</option>
+        <option value="completed">Concluído</option>
+        <option value="cancelled">Cancelado</option>
+        <option value="no_show">Faltou</option>
+      </select>
+      <button class="btn btn-primary" id="detailApplyStatus">Aplicar Status</button>
+      <button class="btn btn-secondary" id="detailEditAppt">Editar</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    // Inicializar aplicação do usuário
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Aguardar authManager estar disponível
-      if (!window.authManager) {
-        let attempts = 0;
-        while (!window.authManager && attempts < 20) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-      }
-      
-      // Verificar autenticação - tentar múltiplas fontes
-      let user = null;
-      if (window.authManager && window.authManager.currentUser) {
-        user = window.authManager.currentUser;
-      } else {
-        // Tentar do localStorage
-        const userData = localStorage.getItem('userData');
-        if (userData) {
-          try {
-            user = JSON.parse(userData);
-            if (window.authManager) {
-              window.authManager.currentUser = user;
-              window.authManager.token = localStorage.getItem('authToken');
-            }
-          } catch (e) {
-            console.error('Erro ao parse userData:', e);
-          }
-        }
-      }
-      
-      // Se não autenticado, redirecionar para login
-      if (!user) {
-        console.warn('Usuário não autenticado, redirecionando para login');
-        window.location.href = '/';
-        return;
-      }
-      
-      // Se for admin, redirecionar para dashboard admin
-      if (user.role === 'admin_master') {
-        console.log('Admin detectado, redirecionando para dashboard');
-        window.location.href = '/admin/dashboard.html';
-        return;
-      }
-      
-      // Permitir empresa, moderador (compatibilidade) e usuário comum
-      console.log('✅ Acesso permitido - Role:', user.role);
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
 
+<script src="/js/config-api.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════
+//  CLOUDD AGENDA — Calendar App (Health Niche)
+// ══════════════════════════════════════════════════════════
 
-      // Botão de logout
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-          // Remover token do localStorage
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('userData');
+const API = (() => {
+  if (window.API_CONFIG && window.API_CONFIG.baseUrl) return window.API_CONFIG.baseUrl;
+  const h = window.location.hostname;
+  return (h === 'localhost' || h === '127.0.0.1') ? `http://${h}:3000/api` : 'https://cloudd-agenda-backend.vercel.app/api';
+})();
 
-          // Redirecionar para página de login
-          window.location.href = '/';
-        });
-      }
+// Suporte a impersonação via admin panel
+(function () {
+  if (new URLSearchParams(window.location.search).get('imp') !== '1') return;
+  const raw = sessionStorage.getItem('_imp');
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    sessionStorage.setItem('_impToken', d.token);
+    sessionStorage.setItem('_impUser', JSON.stringify(d.user));
+    sessionStorage.removeItem('_imp');
+    history.replaceState({}, '', window.location.pathname);
+  } catch (e) { /* ignore */ }
+})();
 
-      // Configurar data mínima como hoje
-      const dateInput = document.getElementById('appointment_date');
-      if (dateInput) {
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        dateInput.setAttribute('min', todayStr);
-      }
+const _isImpersonating = () => !!sessionStorage.getItem('_impToken');
+const token = () => sessionStorage.getItem('_impToken') || localStorage.getItem('authToken');
+const userData = () => {
+  const imp = sessionStorage.getItem('_impUser');
+  if (imp) try { return JSON.parse(imp); } catch { /* ignore */ }
+  try { return JSON.parse(localStorage.getItem('userData') || 'null'); } catch { return null; }
+};
 
-      // `window.app` já é inicializado em /js/app.js (new Aevum).
-      // Não chamar init() novamente aqui para evitar eventos duplicados.
+// ── Toast ────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── Auth ─────────────────────────────────────────────────
+function checkAuth() {
+  const user = userData();
+  if (!user || !token()) { window.location.href = '/'; return null; }
+  if (user.role === 'admin_master' && !_isImpersonating()) { window.location.href = '/admin/dashboard.html'; return null; }
+  document.getElementById('sidebarUserName').textContent = user.name || user.email;
+  return user;
+}
+
+// ── API helpers ──────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token(), ...opts.headers },
+    ...opts,
+  });
+  if (res.status === 401) { window.location.href = '/'; return null; }
+  return res.json();
+}
+
+// ── Calendar state ───────────────────────────────────────
+const CAL = {
+  view: 'semana',          // 'semana' | 'dia' | 'mes'
+  anchor: new Date(),      // reference date
+  appointments: [],
+  employees: [],
+  services: [],
+  serviceColorMap: {},
+  miniCalDate: new Date(),
+  currentApptId: null,
+  filterEmployee: null,    // employee_id string | null = todos
+  filterStatus: null,      // status string | null = todos
+
+  startHour: 7,
+  endHour: 20,
+  pxPerMin: 1,             // 60px / hour
+};
+
+function pxPerMin() { return CAL.endHour > CAL.startHour ? 60 : 1; }
+function minutesSinceMidnight(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+function gridTop(timeStr) {
+  const mins = minutesSinceMidnight(timeStr);
+  const start = CAL.startHour * 60;
+  return Math.max(0, (mins - start)) * pxPerMin();
+}
+function gridHeight(duration) {
+  return Math.max(20, duration * pxPerMin());
+}
+function gridTotalH() {
+  return (CAL.endHour - CAL.startHour) * 60 * pxPerMin();
+}
+
+// ── Date helpers ─────────────────────────────────────────
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+function startOfWeek(d) {
+  const r = new Date(d);
+  const day = r.getDay();
+  r.setDate(r.getDate() - day);
+  return r;
+}
+function isSameDay(a, b) {
+  return fmtDate(a) === fmtDate(b);
+}
+function ptMonth(d) {
+  return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+function ptShortDay(d) {
+  return d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','').toUpperCase();
+}
+
+// ── Load data ────────────────────────────────────────────
+async function loadAppointments() {
+  const data = await apiFetch('/appointments');
+  if (!data) return;
+  CAL.appointments = Array.isArray(data) ? data : (data.appointments || data.data || []);
+}
+
+async function loadEmployees() {
+  const data = await apiFetch('/staff');
+  if (!data) return;
+  CAL.employees = Array.isArray(data) ? data : (data.data || data.funcionarios || []);
+
+  // Populate modal select
+  const apptSel = document.getElementById('apptEmployee');
+  if (apptSel) {
+    const cur = apptSel.value;
+    while (apptSel.options.length > 1) apptSel.remove(1);
+    CAL.employees.forEach(e => apptSel.add(new Option(e.nome || e.name, e.id)));
+    apptSel.value = cur;
+  }
+
+  // Populate filter dropdown
+  const filterSel = document.getElementById('filterEmployee');
+  const curFilter = filterSel.value;
+  while (filterSel.options.length > 1) filterSel.remove(1);
+  CAL.employees.forEach(e => filterSel.add(new Option(e.nome || e.name, e.id)));
+  if (curFilter) filterSel.value = curFilter;
+}
+
+async function loadCalSettings() {
+  try {
+    const data = await apiFetch('/moderator/settings');
+    const s = data?.data || data?.settings;
+    if (!s?.services) return;
+    const raw = typeof s.services === 'string' ? JSON.parse(s.services) : (Array.isArray(s.services) ? s.services : []);
+    CAL.services = raw.map(item => typeof item === 'string' ? { name: item, duration: 30 } : item);
+    CAL.serviceColorMap = {};
+    CAL.services.forEach(svc => {
+      if (svc.name && svc.color) CAL.serviceColorMap[svc.name.toLowerCase()] = svc.color;
     });
-  </script>
+    populateServiceSelect();
+  } catch(e) { /* non-critical */ }
+}
 
+function populateServiceSelect() {
+  const sel = document.getElementById('apptService');
+  if (!sel) return;
+  const cur = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  CAL.services.forEach(svc => {
+    const dur = svc.duration || 30;
+    const durLabel = dur >= 60 ? (dur % 60 === 0 ? `${dur/60}h` : `${Math.floor(dur/60)}h${dur%60}min`) : `${dur}min`;
+    const opt = new Option(`${svc.name} — ${durLabel}`, svc.name);
+    opt.dataset.duration = dur;
+    sel.add(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function svcColorStyle(a) {
+  const key = (a.service_type || '').toLowerCase();
+  const hex = key ? CAL.serviceColorMap[key] : null;
+  if (!hex || hex.length < 7) return '';
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const dr = Math.round(r * .38), dg = Math.round(g * .38), db = Math.round(b * .38);
+  return `background:rgba(${r},${g},${b},.13);border-left-color:${hex};color:rgb(${dr},${dg},${db});`;
+}
+
+// ── Filter helpers ────────────────────────────────────────
+function matchesEmployeeFilter(a) {
+  if (!CAL.filterEmployee) return true;
+  return String(a.employee_id) === String(CAL.filterEmployee);
+}
+function matchesStatusFilter(a) {
+  if (!CAL.filterStatus) return true;
+  return a.status === CAL.filterStatus;
+}
+function matchesFilters(a) {
+  return matchesEmployeeFilter(a) && matchesStatusFilter(a);
+}
+
+// ── Week view ────────────────────────────────────────────
+function weekRange() {
+  const start = startOfWeek(CAL.anchor);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+function buildDayBodyHtml(d) {
+  const px = pxPerMin();
+  let inner = '';
+  for (let h = CAL.startHour; h < CAL.endHour; h++) {
+    const top = (h - CAL.startHour) * 60 * px;
+    inner += `<div class="cal-hour-line main" style="top:${top}px;"></div>`;
+    inner += `<div class="cal-slot" data-date="${fmtDate(d)}" data-time="${String(h).padStart(2,'0')}:00" style="top:${top}px;height:${px*30}px;"></div>`;
+    inner += `<div class="cal-slot" data-date="${fmtDate(d)}" data-time="${String(h).padStart(2,'0')}:30" style="top:${top+px*30}px;height:${px*30}px;"></div>`;
+  }
+  return inner;
+}
+
+function buildTimeColHtml(totalH) {
+  const px = pxPerMin();
+  let inner = '';
+  for (let h = CAL.startHour; h < CAL.endHour; h++) {
+    const top = (h - CAL.startHour) * 60 * px;
+    inner += `<div class="cal-hour-mark" style="top:${top}px;">${String(h).padStart(2,'0')}:00</div>`;
+  }
+  return `<div class="cal-time-col-body" style="position:relative;height:${totalH}px;">${inner}</div>`;
+}
+
+// ── helpers shared by list views ─────────────────────────
+function timeEnd(a) {
+  const m = minutesSinceMidnight(a.appointment_time) + (a.duration_minutes || 60);
+  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+
+function buildApptListItem(a) {
+  const svcStyle = svcColorStyle(a);
+  const showConfirm = a.status !== 'confirmed' && a.status !== 'cancelled' && a.status !== 'no_show';
+  const showCancel  = a.status !== 'cancelled';
+  const waNum = (a.customer_phone || '').replace(/\D/g, '');
+  const waName = encodeURIComponent(a.customer_name || '');
+  return `<div class="list-appt-item appt-card ${apptClass(a)}" data-id="${a.id}" draggable="true" style="${svcStyle}">
+    <div class="list-appt-time">${a.appointment_time?.substring(0,5)} — ${timeEnd(a)}</div>
+    <div class="list-appt-name">${a.customer_name}</div>
+    ${a.customer_phone ? `<div class="list-appt-sub">${a.customer_phone}</div>` : ''}
+    <div class="list-appt-sub">${a.service_type || apptTypeLabel(a)}</div>
+    <div class="appt-quick-actions" draggable="false">
+      ${showConfirm ? `<button class="qa-btn qa-confirm" data-action="confirm" data-appt-id="${a.id}" title="Confirmar">&#10003;</button>` : ''}
+      <button class="qa-btn qa-edit" data-action="edit" data-appt-id="${a.id}" title="Editar">&#9998;</button>
+      ${showCancel ? `<button class="qa-btn qa-cancel" data-action="cancel" data-appt-id="${a.id}" title="Cancelar">&#215;</button>` : ''}
+      ${waNum ? `<button class="qa-btn qa-whatsapp" data-action="whatsapp" data-appt-id="${a.id}" data-phone="${waNum}" data-name="${waName}" title="WhatsApp">&#128172;</button>` : ''}
+    </div>
+  </div>`;
+}
+
+const _boundListContainers = new WeakSet();
+function bindListApptClicks(container) {
+  if (_boundListContainers.has(container)) return;
+  _boundListContainers.add(container);
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (btn) {
+      const action = btn.dataset.action;
+      const id = btn.dataset.apptId;
+      if (action === 'confirm') quickConfirm(id);
+      else if (action === 'cancel') quickCancel(id);
+      else if (action === 'edit') quickEdit(id);
+      else if (action === 'whatsapp') quickWhatsApp(btn.dataset.phone, decodeURIComponent(btn.dataset.name));
+      return;
+    }
+    const item = e.target.closest('.list-appt-item');
+    if (item) openDetailModal(item.dataset.id);
+  });
+}
+
+// ── Quick actions ─────────────────────────────────────────
+window.quickConfirm = (id) => updateApptStatus(id, 'confirmed');
+window.quickCancel  = (id) => { if (confirm('Cancelar este agendamento?')) updateApptStatus(id, 'cancelled'); };
+window.quickEdit    = (id) => { const a = CAL.appointments.find(x => x.id == id); if (a) openEditModal(a); };
+window.quickWhatsApp = (phone, name) => window.open(`https://wa.me/55${phone}?text=${encodeURIComponent('Olá ' + name + '!')}`, '_blank');
+
+// ── Drag and drop ─────────────────────────────────────────
+let _dragId = null;
+
+function bindDragDrop(container) {
+  container.querySelectorAll('.list-appt-item[draggable]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      _dragId = el.dataset.id;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => el.classList.add('dragging'), 0);
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      _dragId = null;
+    });
+  });
+
+  container.querySelectorAll('.list-day-body').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      if (!_dragId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', e => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', async e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!_dragId) return;
+      const newDate = zone.closest('.list-day-col')?.querySelector('.list-day-header')?.dataset.date;
+      if (!newDate) return;
+      const appt = CAL.appointments.find(a => a.id == _dragId);
+      if (!appt || appt.appointment_date === newDate) return;
+      const id = _dragId;
+      _dragId = null;
+      const result = await apiFetch(`/appointments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ appointment_date: newDate })
+      });
+      if (result?.success || result?.id || result?.appointment) {
+        toast('Agendamento movido!', 'success');
+        await loadAppointments();
+        renderView();
+      } else {
+        toast('Erro ao mover agendamento', 'error');
+      }
+    });
+  });
+}
+
+// ── Week view (list) ─────────────────────────────────────
+function renderWeek() {
+  const days = weekRange();
+  const grid = document.getElementById('calGrid');
+  const today = new Date();
+
+  grid.style.gridTemplateColumns = '';
+  grid.classList.add('list-mode');
+
+  let html = '';
+  days.forEach(d => {
+    const dateStr = fmtDate(d);
+    const isToday = isSameDay(d, today);
+    const dayAppts = CAL.appointments
+      .filter(a => (a.appointment_date||'').slice(0,10) === dateStr && matchesFilters(a))
+      .sort((a, b) => (a.appointment_time||'').localeCompare(b.appointment_time||''));
+
+    const apptHtml = dayAppts.length
+      ? dayAppts.map(buildApptListItem).join('')
+      : `<div style="font-size:12px;color:var(--text-muted);padding:16px 12px;text-align:center;">Sem agendamentos</div>`;
+
+    html += `<div class="list-day-col ${isToday ? 'list-day-today' : ''}">
+      <div class="list-day-header" data-date="${dateStr}" style="cursor:pointer;">
+        <div class="cal-day-name">${ptShortDay(d)}</div>
+        <div class="cal-day-num ${isToday ? 'today-circle' : ''}">${d.getDate()}</div>
+      </div>
+      <div class="list-day-body">
+        ${apptHtml}
+        <div class="list-add-btn" data-date="${dateStr}">+ Agendar</div>
+      </div>
+    </div>`;
+  });
+
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.list-day-header[data-date]').forEach(h => {
+    h.addEventListener('click', () => {
+      CAL.anchor = new Date(h.dataset.date + 'T12:00:00');
+      CAL.view = 'dia'; setActiveView('dia'); renderView();
+    });
+  });
+  grid.querySelectorAll('.list-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => openNewApptModal(btn.dataset.date, '08:00'));
+  });
+  bindListApptClicks(grid);
+  bindDragDrop(grid);
+
+  const first = days[0], last = days[6];
+  const sameMonth = first.getMonth() === last.getMonth();
+  document.getElementById('calPeriodTitle').textContent = sameMonth
+    ? `${first.getDate()} — ${last.getDate()} de ${first.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
+    : `${first.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} — ${last.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+// ── Day view (list) ──────────────────────────────────────
+function renderDay() {
+  const d = CAL.anchor;
+  const grid = document.getElementById('calGrid');
+  const isToday = isSameDay(d, new Date());
+  const dateStr = fmtDate(d);
+
+  grid.style.gridTemplateColumns = '1fr';
+  grid.style.setProperty('--grid-cols', 1);
+
+  const dayAppts = CAL.appointments
+    .filter(a => (a.appointment_date||'').slice(0,10) === dateStr && matchesFilters(a))
+    .sort((a, b) => (a.appointment_time||'').localeCompare(b.appointment_time||''));
+
+  const apptHtml = dayAppts.length
+    ? dayAppts.map(buildApptListItem).join('')
+    : `<div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+        <div style="font-size:32px;margin-bottom:10px;">—</div>
+        <p style="font-size:14px;">Nenhum agendamento neste dia.</p>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="openNewApptModal('${dateStr}','08:00')">+ Novo Agendamento</button>
+      </div>`;
+
+  grid.innerHTML = `<div class="list-day-col list-day-single ${isToday ? 'list-day-today' : ''}">
+    <div class="list-day-header">
+      <div class="cal-day-name">${d.toLocaleDateString('pt-BR',{weekday:'long'}).toUpperCase()}</div>
+      <div class="cal-day-num ${isToday ? 'today-circle' : ''}">${d.getDate()}</div>
+    </div>
+    <div class="list-day-body" data-date="${dateStr}">${apptHtml}</div>
+  </div>`;
+
+  bindListApptClicks(grid);
+  bindDragDrop(grid);
+
+  document.getElementById('calPeriodTitle').textContent =
+    d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ── Month view (Google Calendar style) ───────────────────
+function renderMonth() {
+  const grid = document.getElementById('calGrid');
+  const anchor = CAL.anchor;
+  const year = anchor.getFullYear(), month = anchor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const today = new Date();
+
+  // Reset list-mode from week view and use pure 7-col grid
+  grid.classList.remove('list-mode');
+  grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+  grid.style.removeProperty('--grid-cols');
+
+  // Status dot colors
+  const dotColor = { pending:'#ca8a04', confirmed:'#16a34a', cancelled:'#ef4444', completed:'#4f46e5', no_show:'#6b7280' };
+
+  // ── Header row ──
+  const dayHeaders = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let html = dayHeaders.map((d, i) => {
+    const isWk = i === 0 || i === 6;
+    return `<div class="month-hdr-cell" style="${isWk ? 'color:var(--text-muted);' : ''}">${d}.</div>`;
+  }).join('');
+
+  // ── Pad before month start ──
+  const startPad = firstDay.getDay();
+  for (let i = 0; i < startPad; i++) {
+    const d2 = addDays(firstDay, -startPad + i);
+    html += `<div class="month-day-cell month-day-other"><span class="month-day-num">${d2.getDate()}</span></div>`;
+  }
+
+  // ── Day cells ──
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(year, month, d);
+    const dateStr = fmtDate(date);
+    const isToday = isSameDay(date, today);
+    const isWk = date.getDay() === 0 || date.getDay() === 6;
+    const dayAppts = CAL.appointments
+      .filter(a => (a.appointment_date||'').slice(0,10) === dateStr && matchesFilters(a))
+      .sort((a, b) => (a.appointment_time||'').localeCompare(b.appointment_time||''));
+    const visible = dayAppts.slice(0, 3);
+    const overflow = dayAppts.length - 3;
+
+    const eventsHtml = visible.map(a => {
+      const svcHex = (a.service_type ? CAL.serviceColorMap[a.service_type.toLowerCase()] : null);
+      const color = svcHex || dotColor[a.status] || '#ca8a04';
+      const time = a.appointment_time?.substring(0,5);
+      return `<div class="month-event" data-id="${a.id}" style="--evt-color:${color};">
+        <span class="month-event-dot" style="background:${color};"></span>
+        <span class="month-event-time">${time}</span>
+        <span class="month-event-title">${a.customer_name}</span>
+      </div>`;
+    }).join('');
+
+    html += `<div class="month-day-cell${isToday ? ' month-day-today' : ''}${isWk ? ' month-day-wk' : ''}" data-date="${dateStr}">
+      <span class="month-day-num${isToday ? ' month-day-num-today' : ''}">${d}</span>
+      ${eventsHtml}
+      ${overflow > 0 ? `<div class="month-more" data-date="${dateStr}">Mais ${overflow}</div>` : ''}
+    </div>`;
+  }
+
+  // ── End pad ──
+  const totalCells = startPad + lastDay.getDate();
+  const endPad = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= endPad; i++) {
+    html += `<div class="month-day-cell month-day-other"><span class="month-day-num">${i}</span></div>`;
+  }
+
+  grid.innerHTML = html;
+
+  document.getElementById('calPeriodTitle').textContent =
+    firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  // Click day cell → show quick popup
+  grid.querySelectorAll('.month-day-cell[data-date]').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.month-event') || e.target.closest('.month-more')) return;
+      showCalDayPopup(el.dataset.date, e.currentTarget);
+    });
+  });
+  // Click event pill → open detail
+  grid.querySelectorAll('.month-event').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); openDetailModal(el.dataset.id); });
+  });
+  // Click "Mais N" → switch to day view
+  grid.querySelectorAll('.month-more').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      CAL.anchor = new Date(el.dataset.date + 'T12:00:00');
+      CAL.view = 'dia'; setActiveView('dia'); renderView();
+    });
+  });
+}
+
+// ── Place appointments on week/day grid ──────────────────
+function apptClass(a) {
+  return a.status || 'pending';
+}
+
+function apptTypeLabel(a) {
+  const notes = (a.notes || '').toLowerCase();
+  if (notes.includes('retorno')) return 'Retorno';
+  if (notes.includes('urgên') || notes.includes('urgen')) return 'Urgência';
+  if (notes.includes('exame')) return 'Exame';
+  if (notes.includes('proced')) return 'Procedimento';
+  if (notes.includes('almoço') || notes.includes('almoco')) return 'Almoço';
+  if (notes.includes('recado')) return 'Recado';
+  return 'Consulta';
+}
+
+function placeAppointmentsOnGrid(days) {
+  const dayStrings = days.map(fmtDate);
+
+  CAL.appointments.forEach(a => {
+    if (!dayStrings.includes((a.appointment_date||'').slice(0,10))) return;
+    const col = document.querySelector(`.cal-day-col[data-date="${a.appointment_date}"]`);
+    if (!col) return;
+
+    const top = gridTop(a.appointment_time);
+    const height = gridHeight(a.duration_minutes || 60);
+
+    const card = document.createElement('div');
+    card.className = `appt-card ${apptClass(a)}`;
+    card.dataset.id = a.id;
+    card.style.top = top + 'px';
+    card.style.height = Math.max(height, 22) + 'px';
+
+    const timeEnd = (() => {
+      const m = minutesSinceMidnight(a.appointment_time) + (a.duration_minutes || 60);
+      return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+    })();
+
+    card.innerHTML = `
+      <div class="appt-time">${a.appointment_time?.substring(0,5)} — ${timeEnd}</div>
+      <div class="appt-name">${a.customer_name}</div>
+      ${a.customer_phone ? `<div class="appt-phone">${a.customer_phone}</div>` : ''}
+      <div class="appt-type">${apptTypeLabel(a)}</div>
+    `;
+
+    card.addEventListener('click', e => { e.stopPropagation(); openDetailModal(a.id); });
+    col.appendChild(card);
+  });
+}
+
+// ── Main render dispatcher ───────────────────────────────
+function renderView() {
+  updateBreadcrumb();
+  if (CAL.view === 'semana') renderWeek();
+  else if (CAL.view === 'dia') renderDay();
+  else renderMonth();
+  renderMiniCal(CAL.miniCalDate.getFullYear(), CAL.miniCalDate.getMonth());
+}
+
+function updateBreadcrumb() {
+  const user = userData();
+  document.getElementById('bcProfissional').textContent = user?.name || 'Agenda';
+}
+
+// ── Navigation ────────────────────────────────────────────
+function navigate(dir) {
+  const a = new Date(CAL.anchor);
+  if (CAL.view === 'mes') a.setMonth(a.getMonth() + dir);
+  else if (CAL.view === 'semana') a.setDate(a.getDate() + dir * 7);
+  else a.setDate(a.getDate() + dir);
+  CAL.anchor = a;
+  renderView();
+}
+
+function setActiveView(v) {
+  CAL.view = v;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+}
+
+// ── Mini calendar ─────────────────────────────────────────
+function renderMiniCal(year, month) {
+  const title = document.getElementById('miniCalTitle');
+  const grid = document.getElementById('miniCalGrid');
+  title.textContent = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const today = new Date();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const days = ['Do','Se','Te','Qu','Qu','Se','Sá'];
+  let html = days.map(d => `<div class="mini-cal-day-name">${d}</div>`).join('');
+
+  const pad = firstDay.getDay();
+  for (let i = 0; i < pad; i++) {
+    const d = addDays(firstDay, -pad + i);
+    html += `<div class="mini-cal-day other-month">${d.getDate()}</div>`;
+  }
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(year, month, d);
+    const isToday = isSameDay(date, today);
+    const isSelected = isSameDay(date, CAL.anchor);
+    const dateStr = fmtDate(date);
+    const hasAppt = CAL.appointments.some(a => (a.appointment_date||'').slice(0,10) === dateStr);
+    html += `<div class="mini-cal-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}"
+      data-date="${dateStr}" style="position:relative;"
+      title="${date.toLocaleDateString('pt-BR')}">
+      ${d}
+      ${hasAppt && !isToday ? `<span style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent);display:block;"></span>` : ''}
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.mini-cal-day[data-date]').forEach(el => {
+    el.addEventListener('click', () => {
+      CAL.anchor = new Date(el.dataset.date + 'T12:00:00');
+      if (CAL.view === 'mes') { CAL.view = 'dia'; setActiveView('dia'); }
+      renderView();
+    });
+  });
+}
+
+// ── New appointment modal ─────────────────────────────────
+function openNewApptModal(date, time) {
+  CAL.currentApptId = null;
+  document.getElementById('modalApptTitle').textContent = 'Novo Agendamento';
+  document.getElementById('apptEditId').value = '';
+  document.getElementById('formNewAppt').reset();
+  document.getElementById('apptDate').value = date || fmtDate(CAL.anchor);
+  document.getElementById('apptTime').value = time || '08:00';
+  document.getElementById('modalApptDelete').style.display = 'none';
+  document.getElementById('modalApptSave').textContent = 'Salvar Agendamento';
+  clearPatientLookup();
+  openModal('modalNewAppt');
+}
+
+function openEditModal(appt) {
+  CAL.currentApptId = appt.id;
+  document.getElementById('modalApptTitle').textContent = 'Editar Agendamento';
+  document.getElementById('apptEditId').value = appt.id;
+  document.getElementById('apptName').value = appt.customer_name || '';
+  document.getElementById('apptPhone').value = appt.customer_phone || '';
+  document.getElementById('apptCpf').value = appt.customer_cpf || '';
+  document.getElementById('apptEmail').value = appt.customer_email || '';
+  document.getElementById('apptDate').value = appt.appointment_date || '';
+  document.getElementById('apptTime').value = appt.appointment_time?.substring(0,5) || '';
+  document.getElementById('apptStatus').value = appt.status || 'pending';
+  // Service: set name, then pick duration from service config or saved value
+  const svcSel = document.getElementById('apptService');
+  svcSel.value = appt.service_type || '';
+  const selOpt = svcSel.options[svcSel.selectedIndex];
+  document.getElementById('apptDuration').value = selOpt?.dataset?.duration || appt.duration_minutes || 60;
+  document.getElementById('apptNotes').value = appt.notes || '';
+  document.getElementById('modalApptDelete').style.display = 'block';
+  document.getElementById('modalApptSave').textContent = 'Salvar Alterações';
+  closeModal('modalDetail');
+  openModal('modalNewAppt');
+}
+
+// ── Detail modal ──────────────────────────────────────────
+function openDetailModal(apptId) {
+  const a = CAL.appointments.find(x => x.id == apptId);
+  if (!a) return;
+  CAL.currentApptId = apptId;
+
+  const statusLabels = { pending: 'Pendente', confirmed: 'Confirmado', cancelled: 'Cancelado', completed: 'Concluído', no_show: 'Faltou' };
+  const badges = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled', completed: 'badge-completed', no_show: 'badge-noshow' };
+
+  const timeEnd = (() => {
+    const m = minutesSinceMidnight(a.appointment_time) + (a.duration_minutes || 60);
+    return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+  })();
+
+  document.getElementById('modalDetailBody').innerHTML = `
+    <div class="detail-field"><label>Paciente</label><span style="font-size:16px;font-weight:700;">${a.customer_name}</span></div>
+    <div class="detail-field"><label>Telefone</label><span>${a.customer_phone || '—'}</span></div>
+    <div class="detail-field"><label>E-mail</label><span>${a.customer_email || '—'}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="detail-field"><label>Data</label><span>${new Date(a.appointment_date + 'T00:00').toLocaleDateString('pt-BR')}</span></div>
+      <div class="detail-field"><label>Horário</label><span>${a.appointment_time?.substring(0,5)} — ${timeEnd}</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="detail-field"><label>Tipo</label><span>${apptTypeLabel(a)}</span></div>
+      <div class="detail-field"><label>Status</label><span class="status-badge ${badges[a.status] || 'badge-pending'}">${statusLabels[a.status] || a.status}</span></div>
+    </div>
+    ${a.notes ? `<div class="detail-field"><label>Observações</label><span>${a.notes}</span></div>` : ''}
+    <div class="detail-field"><label>Protocolo</label><span style="font-family:monospace;font-size:12px;">${a.protocol || '—'}</span></div>
+  `;
+
+  document.getElementById('detailStatusSel').value = a.status || 'pending';
+  openModal('modalDetail');
+}
+
+// ── Save appointment ──────────────────────────────────────
+async function saveAppointment() {
+  const id = document.getElementById('apptEditId').value;
+  const body = {
+    customer_name: document.getElementById('apptName').value.trim(),
+    customer_phone: document.getElementById('apptPhone').value.trim(),
+    customer_cpf: document.getElementById('apptCpf').value.trim() || null,
+    customer_email: document.getElementById('apptEmail').value.trim(),
+    appointment_date: document.getElementById('apptDate').value,
+    appointment_time: document.getElementById('apptTime').value,
+    duration_minutes: parseInt(document.getElementById('apptDuration').value) || 30,
+    status: document.getElementById('apptStatus').value,
+    service_type: document.getElementById('apptService').value,
+    notes: document.getElementById('apptNotes').value.trim(),
+    employee_id: document.getElementById('apptEmployee').value || null,
+  };
+
+  if (!body.customer_name || !body.appointment_date || !body.appointment_time) {
+    toast('Preencha os campos obrigatórios (nome, data e horário)', 'error');
+    return;
+  }
+  if (!body.service_type) {
+    toast('Selecione um serviço', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('modalApptSave');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    let result;
+    if (id) {
+      result = await apiFetch(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
+      result = await apiFetch('/appointments', { method: 'POST', body: JSON.stringify(body) });
+    }
+
+    if (result && (result.success || result.id || result.appointment)) {
+      toast(id ? 'Agendamento atualizado!' : 'Agendamento criado!', 'success');
+      closeModal('modalNewAppt');
+      await loadAppointments();
+      renderView();
+    } else {
+      toast(result?.message || result?.error || 'Erro ao salvar agendamento', 'error');
+    }
+  } catch (e) {
+    toast('Erro de conexão', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = id ? 'Salvar Alterações' : 'Salvar Agendamento';
+  }
+}
+
+async function updateApptStatus(id, status) {
+  const result = await apiFetch(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+  if (result && (result.success || result.id || result.appointment || result.data)) {
+    const labels = { confirmed:'Confirmado', cancelled:'Cancelado', pending:'Pendente', completed:'Concluído', no_show:'Faltou' };
+    toast(`Marcado como ${labels[status] || status}`, 'success');
+    closeModal('modalDetail');
+    await loadAppointments();
+    renderView();
+  } else {
+    toast(result?.message || result?.error || 'Erro ao atualizar status', 'error');
+  }
+}
+
+async function deleteAppointment(id) {
+  if (!confirm('Excluir este agendamento? Esta ação não pode ser desfeita.')) return;
+  const result = await apiFetch(`/appointments/${id}`, { method: 'DELETE' });
+  if (result && (result.success || result.message)) {
+    toast('Agendamento excluído', 'info');
+    closeModal('modalNewAppt');
+    await loadAppointments();
+    renderView();
+  } else {
+    toast('Erro ao excluir agendamento', 'error');
+  }
+}
+
+// ── Modal helpers ─────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── PDF Export ────────────────────────────────────────────
+function exportPDF(mode) {
+  const anchor = new Date(CAL.anchor);
+  const statusLabels = {
+    pending: 'Pendente', confirmed: 'Confirmado',
+    cancelled: 'Cancelado', completed: 'Concluído', no_show: 'Faltou'
+  };
+
+  let title, appts;
+
+  if (mode === 'dia') {
+    const dateStr = fmtDate(anchor);
+    appts = CAL.appointments
+      .filter(a => (a.appointment_date||'').slice(0,10) === dateStr)
+      .sort((a, b) => (a.appointment_time||'').localeCompare(b.appointment_time||''));
+    title = `Agenda — ${anchor.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  } else if (mode === 'semana') {
+    const days = weekRange();
+    const start = fmtDate(days[0]), end = fmtDate(days[6]);
+    appts = CAL.appointments
+      .filter(a => { const d = (a.appointment_date||'').slice(0,10); return d >= start && d <= end; })
+      .sort((a, b) => (a.appointment_date||'').localeCompare(b.appointment_date||'') || (a.appointment_time||'').localeCompare(b.appointment_time||''));
+    title = `Agenda — Semana de ${days[0].toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })} a ${days[6].toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  } else {
+    const year = anchor.getFullYear(), month = anchor.getMonth();
+    const startStr = `${year}-${String(month+1).padStart(2,'0')}-01`;
+    const endStr = fmtDate(new Date(year, month+1, 0));
+    appts = CAL.appointments
+      .filter(a => { const d = (a.appointment_date||'').slice(0,10); return d >= startStr && d <= endStr; })
+      .sort((a, b) => (a.appointment_date||'').localeCompare(b.appointment_date||'') || (a.appointment_time||'').localeCompare(b.appointment_time||''));
+    title = `Agenda — ${anchor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+  }
+
+  const rows = appts.map(a => {
+    const date = new Date(a.appointment_date + 'T00:00').toLocaleDateString('pt-BR');
+    const start = a.appointment_time?.substring(0,5) || '—';
+    const totalMin = (a.appointment_time ? minutesSinceMidnight(a.appointment_time) : 0) + (a.duration_minutes || 60);
+    const end = `${String(Math.floor(totalMin/60)).padStart(2,'0')}:${String(totalMin%60).padStart(2,'0')}`;
+    const status = statusLabels[a.status] || a.status || '—';
+    const statusColor = { Pendente:'#f59e0b', Confirmado:'#16a34a', Cancelado:'#94a3b8', Concluído:'#4f46e5', Faltou:'#6b7280' }[status] || '#999';
+    return `<tr>
+      <td>${date}</td>
+      <td style="white-space:nowrap;">${start} — ${end}</td>
+      <td style="font-weight:600;">${a.customer_name || '—'}</td>
+      <td>${a.customer_phone || '—'}</td>
+      <td>${apptTypeLabel(a)}</td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${statusColor}20;color:${statusColor};">${status}</span></td>
+    </tr>`;
+  }).join('');
+
+  const user = userData();
+  const companyName = user?.company_name || user?.name || 'Cloudd Agenda';
+  const now = new Date().toLocaleString('pt-BR');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
   <style>
-    .appointment-list-item {
-      position: relative;
-    }
-
-    .appointment-list-actions {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      display: flex;
-      gap: 5px;
-    }
-
-    .btn-details, .btn-edit, .btn-delete {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 5px;
-      border-radius: 4px;
-      font-size: 14px;
-      transition: background-color 0.2s;
-    }
-
-    .btn-details {
-      color: #0099ff;
-    }
-
-    .btn-details:hover {
-      background-color: rgba(0, 153, 255, 0.1);
-    }
-
-    .btn-edit:hover {
-      background-color: rgba(52, 152, 219, 0.1);
-    }
-
-    .btn-delete:hover {
-      background-color: rgba(231, 76, 60, 0.1);
-    }
-
-    .logout-btn {
-      background: var(--danger, #dc3545);
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background-color 0.2s;
-    }
-
-    .logout-btn:hover {
-      background: var(--danger-dark, #c82333);
-    }
-
-    /* Fundo da página levemente diferente para destacar cards */
-    body {
-      background-color: #f5f7fb;
-    }
-
-    /* Container interno centralizado para a lista de agendamentos */
-    .appointments-inner {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .appointments-header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .appointments-title {
-      margin: 0;
-    }
-
-    .appointments-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn-fullscreen {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background-color: #0091ff;
-      color: #ffffff;
-    }
-
-    .btn-fullscreen:hover {
-      background-color: #0077cc;
-    }
-
-    /* Lista de agendamentos como card interno */
-    .appointments-list {
-      max-height: 400px;
-      overflow-y: auto;
-      margin-top: 12px;
-    }
-
-    .appointment-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      background-color: #ffffff;
-      margin-bottom: 8px;
-      gap: 12px;
-    }
-
-    .appointment-info h4 {
-      margin: 0;
-      font-size: 14px;
-    }
-
-    .appointment-info p {
-      margin: 2px 0 0;
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .appointment-protocol {
-      font-weight: 500;
-    }
-
-    /* ===== Tela cheia (painel de visualização) ===== */
-    .fullscreen-mode #appointmentsCard.fullscreen .filters,
-    .fullscreen-mode #appointmentsCard.fullscreen .appointments-search {
-      display: none;
-    }
-
-    .fullscreen-mode #appointmentsCard.fullscreen .appointments-inner {
-      max-width: 1000px;
-      margin-top: 24px;
-    }
-
-    .fullscreen-mode #appointmentsCard.fullscreen .appointments-header-row {
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    .fullscreen-mode #appointmentsCard.fullscreen .appointments-title {
-      font-size: 32px;
-      text-align: center;
-    }
-
-    .fullscreen-mode #appointmentsCard.fullscreen .appointments-actions {
-      margin-top: 8px;
-    }
-
-    /* Ocultar ações (lupa/editar/excluir) em modo somente visualização */
-    .fullscreen-mode #appointmentsCard.fullscreen .appointment-list-actions,
-    .fullscreen-mode #appointmentsCard.fullscreen .appointment-actions {
-      display: none;
-    }
-
-    .auto-refresh-indicator {
-      position: absolute;
-      right: 24px;
-      bottom: 16px;
-      background: rgba(15, 118, 255, 0.08);
-      color: #2563eb;
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
-    }
-
-    .appointment-actions {
-      display: flex;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-
-    .action-btn {
-      border: none;
-      background: #f3f4f6;
-      border-radius: 6px;
-      cursor: pointer;
-      padding: 4px 6px;
-      font-size: 14px;
-      transition: background-color 0.15s;
-    }
-
-    .action-btn:hover {
-      background: #e5e7eb;
-    }
-
-    /* Card de agendamentos em tela cheia */
-    #appointmentsCard.fullscreen {
-      position: fixed;
-      inset: 0;
-      z-index: 1500;
-      margin: 0;
-      border-radius: 0;
-      max-width: 100%;
-      width: 100%;
-      height: 100%;
-      background: #ffffff;
-      box-shadow: none;
-      padding: 24px;
-      overflow: auto;
-    }
-
-    #appointmentsCard.fullscreen .appointments-inner {
-      max-width: 1100px;
-    }
-
-    #appointmentsCard.fullscreen .appointments-list {
-      max-height: none;
-    }
-
-    /* ===== Colunas por funcionário em tela cheia ===== */
-    .appointments-columns-grid {
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 16px;
-      align-items: flex-start;
-      justify-content: flex-start;
-      overflow-x: auto;
-      padding-bottom: 8px;
-    }
-
-    .appointments-column {
-      min-width: 260px;
-      max-width: 320px;
-      flex: 1 0 260px;
-      background: #f9fafb;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      padding: 10px 10px 8px;
-      box-sizing: border-box;
-    }
-
-    .appointments-column-header {
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-    }
-
-    .appointments-column-title {
-      font-weight: 600;
-      font-size: 14px;
-      color: #111827;
-      margin-bottom: 2px;
-    }
-
-    .appointments-column-subtitle {
-      font-size: 11px;
-      color: #6b7280;
-    }
-
-    .appointments-column-body .appointment-list-item {
-      margin-bottom: 6px;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #111; padding: 32px; background: #fff; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; border-bottom: 2px solid #111; padding-bottom: 16px; }
+    .header-left h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .header-left p { font-size: 11px; color: #666; }
+    .header-right { text-align: right; font-size: 11px; color: #666; }
+    .header-right strong { display: block; font-size: 13px; font-weight: 700; color: #111; margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background: #f3f4f6; text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #555; border-bottom: 1.5px solid #e5e7eb; }
+    td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .empty { text-align: center; padding: 60px 20px; color: #aaa; font-size: 14px; }
+    .footer { margin-top: 24px; font-size: 10px; color: #aaa; text-align: right; }
+    @media print { body { padding: 16px; } @page { margin: 1cm; } }
   </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>${title}</h1>
+      <p>Total: ${appts.length} agendamento${appts.length !== 1 ? 's' : ''}</p>
+    </div>
+    <div class="header-right">
+      <strong>${companyName}</strong>
+      Gerado em ${now}
+    </div>
+  </div>
+  ${appts.length
+    ? `<table>
+        <thead><tr><th>Data</th><th>Horário</th><th>Paciente</th><th>Telefone</th><th>Tipo</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+       </table>`
+    : `<div class="empty">Nenhum agendamento no período selecionado.</div>`}
+  <div class="footer">Cloudd Agenda — ${now}</div>
+</body>
+</html>`;
 
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
+}
+
+// ── Waiting list (simulated from pending appointments) ────
+function renderWaitingList() {
+  const today = fmtDate(new Date());
+  const pending = CAL.appointments.filter(a => a.status === 'pending' && a.appointment_date === today);
+  const urgency = pending.filter(a => (a.notes || '').toLowerCase().includes('urgên') || (a.notes || '').toLowerCase().includes('urgen'));
+  const normal = pending.filter(a => !urgency.includes(a));
+
+  function itemHtml(a) {
+    const initials = a.customer_name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    return `<div class="waiting-item" data-id="${a.id}">
+      <div class="waiting-avatar">${initials}</div>
+      <div>
+        <div class="waiting-name">${a.customer_name}</div>
+        <div class="waiting-time">${a.appointment_time?.substring(0,5)}</div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('urgencyList').innerHTML = urgency.length
+    ? urgency.map(itemHtml).join('') : '<div style="font-size:11px;color:var(--text-muted);padding:4px 0;">Nenhum</div>';
+
+  document.getElementById('normalWaitList').innerHTML = normal.length
+    ? normal.map(itemHtml).join('') : '<div style="font-size:11px;color:var(--text-muted);padding:4px 0;">Nenhum</div>';
+
+  document.querySelectorAll('.waiting-item').forEach(el => {
+    el.addEventListener('click', () => openDetailModal(el.dataset.id));
+  });
+}
+
+// ── Service select — auto-set duration ───────────────────
+document.getElementById('apptService').addEventListener('change', function () {
+  const opt = this.options[this.selectedIndex];
+  if (opt && opt.dataset.duration) {
+    document.getElementById('apptDuration').value = opt.dataset.duration;
+  }
+});
+
+// ── Status filter ─────────────────────────────────────────
+document.getElementById('filterStatus').addEventListener('change', function () {
+  CAL.filterStatus = this.value || null;
+  renderView();
+});
+
+// ── Professional filter ───────────────────────────────────
+document.getElementById('filterEmployee').addEventListener('change', function () {
+  CAL.filterEmployee = this.value || null;
+  const label = CAL.filterEmployee
+    ? (this.options[this.selectedIndex].text)
+    : (userData()?.name || 'Agenda');
+  document.getElementById('bcProfissional').textContent = label;
+  renderView();
+});
+
+// ── Patient lookup (phone field in appointment modal) ─────
+let _lookupTimer = null;
+
+function clearPatientLookup() {
+  const tag = document.getElementById('patientLookupTag');
+  tag.style.display = 'none';
+  tag.className = 'patient-lookup-tag';
+  tag.textContent = '';
+}
+
+document.getElementById('apptPhone').addEventListener('input', function () {
+  clearTimeout(_lookupTimer);
+  const raw = this.value.replace(/\D/g, '');
+  if (raw.length < 7) { clearPatientLookup(); return; }
+  _lookupTimer = setTimeout(async () => {
+    try {
+      const data = await apiFetch('/patients/search?q=' + encodeURIComponent(this.value.trim()));
+      if (!data) return;
+      const tag = document.getElementById('patientLookupTag');
+      if (data.patients && data.patients.length > 0) {
+        const p = data.patients[0];
+        tag.className = 'patient-lookup-tag found';
+        tag.innerHTML = `Paciente cadastrado: <strong>${p.name}</strong>${p.health_insurance ? ' &mdash; ' + p.health_insurance : ''}`;
+        tag.style.display = 'block';
+        const nameInput = document.getElementById('apptName');
+        if (!nameInput.value.trim()) nameInput.value = p.name;
+        if (!document.getElementById('apptCpf').value.trim() && p.cpf) document.getElementById('apptCpf').value = p.cpf;
+        if (!document.getElementById('apptEmail').value.trim() && p.email) document.getElementById('apptEmail').value = p.email;
+      } else {
+        tag.className = 'patient-lookup-tag new';
+        tag.textContent = 'Novo paciente — ficha será criada automaticamente ao salvar';
+        tag.style.display = 'block';
+      }
+    } catch { /* silent */ }
+  }, 400);
+});
+
+// ── Patient lookup (CPF field) ────────────────────────────
+let _cpfLookupTimer = null;
+document.getElementById('apptCpf').addEventListener('input', function () {
+  clearTimeout(_cpfLookupTimer);
+  const digits = this.value.replace(/\D/g, '');
+  if (digits.length < 11) return;
+  _cpfLookupTimer = setTimeout(async () => {
+    try {
+      const data = await apiFetch('/patients/search?q=' + encodeURIComponent(this.value.trim()));
+      if (!data) return;
+      const tag = document.getElementById('patientLookupTag');
+      if (data.patients && data.patients.length > 0) {
+        const p = data.patients[0];
+        tag.className = 'patient-lookup-tag found';
+        tag.innerHTML = `Paciente cadastrado: <strong>${p.name}</strong>${p.health_insurance ? ' &mdash; ' + p.health_insurance : ''}`;
+        tag.style.display = 'block';
+        const nameInput = document.getElementById('apptName');
+        if (!nameInput.value.trim()) nameInput.value = p.name;
+        if (!document.getElementById('apptPhone').value.trim() && p.phone) document.getElementById('apptPhone').value = p.phone;
+        if (!document.getElementById('apptEmail').value.trim() && p.email) document.getElementById('apptEmail').value = p.email;
+      }
+    } catch { /* silent */ }
+  }, 400);
+});
+
+// ── Sidebar toggle (hover expand) ────────────────────────
+const sidebar = document.getElementById('sidebar');
+sidebar.addEventListener('mouseenter', () => sidebar.classList.add('expanded'));
+sidebar.addEventListener('mouseleave', () => sidebar.classList.remove('expanded'));
+
+// ── Event listeners ───────────────────────────────────────
+document.getElementById('prevPeriod').addEventListener('click', () => navigate(-1));
+document.getElementById('nextPeriod').addEventListener('click', () => navigate(1));
+document.getElementById('todayBtn').addEventListener('click', () => {
+  CAL.anchor = new Date();
+  renderView();
+});
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setActiveView(btn.dataset.view);
+    renderView();
+  });
+});
+
+document.getElementById('btnNewAppt').addEventListener('click', () => openNewApptModal());
+document.getElementById('modalApptClose').addEventListener('click', () => closeModal('modalNewAppt'));
+document.getElementById('modalApptCancel').addEventListener('click', () => closeModal('modalNewAppt'));
+document.getElementById('modalApptSave').addEventListener('click', saveAppointment);
+document.getElementById('modalApptDelete').addEventListener('click', () => deleteAppointment(CAL.currentApptId));
+
+document.getElementById('modalDetailClose').addEventListener('click', () => closeModal('modalDetail'));
+document.getElementById('detailEditAppt').addEventListener('click', () => {
+  const a = CAL.appointments.find(x => x.id == CAL.currentApptId);
+  if (a) openEditModal(a);
+});
+document.getElementById('detailApplyStatus').addEventListener('click', () => {
+  const status = document.getElementById('detailStatusSel').value;
+  updateApptStatus(CAL.currentApptId, status);
+});
+
+// Close modals on backdrop click
+['modalNewAppt', 'modalDetail'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal(id);
+  });
+});
+
+// Mini cal navigation
+document.getElementById('miniCalPrev').addEventListener('click', () => {
+  CAL.miniCalDate.setMonth(CAL.miniCalDate.getMonth() - 1);
+  renderMiniCal(CAL.miniCalDate.getFullYear(), CAL.miniCalDate.getMonth());
+});
+document.getElementById('miniCalNext').addEventListener('click', () => {
+  CAL.miniCalDate.setMonth(CAL.miniCalDate.getMonth() + 1);
+  renderMiniCal(CAL.miniCalDate.getFullYear(), CAL.miniCalDate.getMonth());
+});
+
+// Sidebar logout
+document.getElementById('sidebarLogout').addEventListener('click', () => {
+  if (_isImpersonating()) {
+    sessionStorage.removeItem('_impToken');
+    sessionStorage.removeItem('_impUser');
+    window.close();
+    window.location.href = '/admin/dashboard.html';
+    return;
+  }
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('userData');
+  window.location.href = '/';
+});
+
+// Add waiting list button
+document.getElementById('btnAddWaiting').addEventListener('click', () => openNewApptModal());
+
+// Export button — usa a view atual
+document.getElementById('btnExport').addEventListener('click', () => {
+  const mode = CAL.view === 'semana' ? 'semana' : CAL.view === 'mes' ? 'mes' : 'dia';
+  exportPDF(mode);
+});
+
+// ── Init ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = checkAuth();
+  if (!user) return;
+
+  // ── Quick popup ao clicar em dia vazio do mês ──────────
+  let _cdpDate = null;
+
+  window.showCalDayPopup = function showCalDayPopup(dateStr, cellEl) {
+    _cdpDate = dateStr;
+    const popup = document.getElementById('calDayPopup');
+    const d = new Date(dateStr + 'T12:00:00');
+    document.getElementById('calDayPopupDate').textContent =
+      d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    popup.style.display = 'block';
+    const rect = cellEl.getBoundingClientRect();
+    popup.style.top  = (rect.bottom + 4) + 'px';
+    popup.style.left = rect.left + 'px';
+
+    requestAnimationFrame(() => {
+      const pr = popup.getBoundingClientRect();
+      if (pr.right  > window.innerWidth  - 8) popup.style.left = (window.innerWidth  - pr.width  - 8) + 'px';
+      if (pr.bottom > window.innerHeight - 8) popup.style.top  = (rect.top - pr.height - 4) + 'px';
+    });
+  }
+
+  window.calDayPopupNewAppt = function() {
+    const date = _cdpDate;
+    document.getElementById('calDayPopup').style.display = 'none';
+    _cdpDate = null;
+    openNewApptModal(date);
+  };
+
+  window.calDayPopupViewDay = function() {
+    const date = _cdpDate;
+    document.getElementById('calDayPopup').style.display = 'none';
+    _cdpDate = null;
+    CAL.anchor = new Date(date + 'T12:00:00');
+    CAL.view = 'dia'; setActiveView('dia'); renderView();
+  };
+
+  document.addEventListener('click', e => {
+    const popup = document.getElementById('calDayPopup');
+    if (popup.style.display !== 'none' && !popup.contains(e.target) && !e.target.closest('.month-day-cell')) {
+      popup.style.display = 'none';
+      _cdpDate = null;
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const popup = document.getElementById('calDayPopup');
+      popup.style.display = 'none';
+      _cdpDate = null;
+    }
+  });
+
+  try {
+    await Promise.all([loadAppointments(), loadEmployees(), loadCalSettings()]);
+    renderView();
+    renderWaitingList();
+
+    // Auto-refresh every 60s
+    setInterval(async () => {
+      await loadAppointments();
+      renderView();
+      renderWaitingList();
+    }, 60000);
+  } catch(e) {
+    console.error('Erro ao inicializar agenda:', e);
+    toast('Erro ao carregar dados', 'error');
+  }
+});
+</script>
 </body>
 </html>

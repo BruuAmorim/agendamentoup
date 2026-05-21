@@ -36,21 +36,23 @@ class ModeratorController {
 
       const today = new Date().toISOString().split('T')[0];
 
-      // Query para total de agendamentos do dia
+      // Query para total de agendamentos do dia (isolado por empresa)
       const todayQuery = `
         SELECT COUNT(*) as total
         FROM appointments
         WHERE appointment_date = $1
+          AND user_id = $2
           AND status != 'cancelled'
       `;
 
-      // Query para serviço mais popular do dia
+      // Query para serviço mais popular do dia (isolado por empresa)
       const topServiceQuery = `
         SELECT
           COALESCE(service_type, 'Serviço Geral') as service,
           COUNT(*) as count
         FROM appointments
         WHERE appointment_date = $1
+          AND user_id = $2
           AND status != 'cancelled'
           AND (service_type IS NOT NULL AND service_type != '')
         GROUP BY COALESCE(service_type, 'Serviço Geral')
@@ -61,8 +63,8 @@ class ModeratorController {
       let todayResult, topServiceResult;
       try {
         [todayResult, topServiceResult] = await Promise.all([
-          query(todayQuery, [today]),
-          query(topServiceQuery, [today])
+          query(todayQuery, [today, targetUserId]),
+          query(topServiceQuery, [today, targetUserId])
         ]);
       } catch (dbError) {
         // Se a tabela appointments não existir, retornar valores padrão
@@ -142,7 +144,7 @@ class ModeratorController {
       
       const settingsQuery = `
         SELECT company_name, services, working_hours, working_days, employee_limit, created_at, updated_at,
-               campos_visiveis, campos_extras, logo, slot_interval
+               campos_visiveis, campos_extras, logo, slot_interval, patient_fields
         FROM moderator_settings
         WHERE user_id = $1
       `;
@@ -165,7 +167,8 @@ class ModeratorController {
               campos_visiveis: ['nome', 'telefone'],
               campos_extras: [],
               logo: null,
-              slot_interval: 30
+              slot_interval: 30,
+              patient_fields: null
             }
           });
         }
@@ -181,7 +184,8 @@ class ModeratorController {
         campos_visiveis: ['nome', 'telefone'],
         campos_extras: [],
         logo: null,
-        slot_interval: 30
+        slot_interval: 30,
+        patient_fields: null
       };
 
       if (result.rows.length > 0) {
@@ -193,17 +197,19 @@ class ModeratorController {
         let workingDays = row.working_days;
         let camposVisiveis = row.campos_visiveis;
         let camposExtras = row.campos_extras;
-        
+        let patientFields = row.patient_fields;
+
         try {
           if (typeof services === 'string') services = JSON.parse(services);
           if (typeof workingHours === 'string') workingHours = JSON.parse(workingHours);
           if (typeof workingDays === 'string') workingDays = JSON.parse(workingDays);
           if (typeof camposVisiveis === 'string') camposVisiveis = JSON.parse(camposVisiveis);
           if (typeof camposExtras === 'string') camposExtras = JSON.parse(camposExtras);
+          if (typeof patientFields === 'string') patientFields = JSON.parse(patientFields);
         } catch (e) {
           console.warn('Erro ao fazer parse do JSON:', e);
         }
-        
+
         settings = {
           company_name: row.company_name,
           services: services || [],
@@ -213,7 +219,8 @@ class ModeratorController {
           campos_visiveis: camposVisiveis || ['nome', 'telefone'],
           campos_extras: camposExtras || [],
           logo: row.logo || null,
-          slot_interval: row.slot_interval || 30
+          slot_interval: row.slot_interval || 30,
+          patient_fields: patientFields || null
         };
       }
 
@@ -257,7 +264,7 @@ class ModeratorController {
         });
       }
 
-      const { company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval } = req.body;
+      const { company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval, patient_fields } = req.body;
 
       // Validar dados
       if (typeof company_name !== 'string' && company_name !== null) {
@@ -311,30 +318,33 @@ class ModeratorController {
       const checkResult = await query(checkQuery, [user.id]);
 
       // Query para buscar configurações (usada em ambos os casos)
-      const selectQuery = 'SELECT company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval FROM moderator_settings WHERE user_id = $1';
+      const selectQuery = 'SELECT company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval, patient_fields FROM moderator_settings WHERE user_id = $1';
       
       if (checkResult.rows.length > 0) {
         // Preparar campos adicionais
         const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
         const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
         const slotInterval = slot_interval && !isNaN(slot_interval) ? parseInt(slot_interval) : 30;
+        const patientFieldsJson = Array.isArray(patient_fields) ? JSON.stringify(patient_fields) : null;
 
         const updateQuery = `
           UPDATE moderator_settings
-          SET company_name = $1, services = $2, working_hours = $4, working_days = $5, 
-              campos_visiveis = $6, campos_extras = $7, logo = $8, slot_interval = $9, updated_at = CURRENT_TIMESTAMP
+          SET company_name = $1, services = $2, working_hours = $4, working_days = $5,
+              campos_visiveis = $6, campos_extras = $7, logo = $8, slot_interval = $9,
+              patient_fields = $10, updated_at = CURRENT_TIMESTAMP
           WHERE user_id = $3
         `;
         await query(updateQuery, [
-          company_name, 
-          JSON.stringify(services), 
+          company_name,
+          JSON.stringify(services),
           user.id,
           JSON.stringify(validWorkingHours),
           JSON.stringify(validWorkingDays),
           camposVisiveis,
           camposExtras,
           logo || null,
-          slotInterval
+          slotInterval,
+          patientFieldsJson
         ]);
         
         // Buscar dados atualizados (usar SELECT separado para garantir compatibilidade com SQLite)
@@ -347,21 +357,23 @@ class ModeratorController {
           const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
           const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
           const slotInterval = slot_interval && !isNaN(slot_interval) ? parseInt(slot_interval) : 30;
+          const patientFieldsJson = Array.isArray(patient_fields) ? JSON.stringify(patient_fields) : null;
 
           const insertQuery = `
-            INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval, patient_fields)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           `;
           await query(insertQuery, [
-            user.id, 
-            company_name, 
+            user.id,
+            company_name,
             JSON.stringify(services),
             JSON.stringify(validWorkingHours),
             JSON.stringify(validWorkingDays),
             camposVisiveis,
             camposExtras,
             logo || null,
-            slotInterval
+            slotInterval,
+            patientFieldsJson
           ]);
           
           // Buscar novamente
@@ -396,10 +408,11 @@ class ModeratorController {
           if (!Array.isArray(parsedWorkingDays)) parsedWorkingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         }
         
-        // Parse campos_visiveis e campos_extras se necessário
+        // Parse campos_visiveis, campos_extras e patient_fields se necessário
         let parsedCamposVisiveis = row.campos_visiveis;
         let parsedCamposExtras = row.campos_extras;
-        
+        let parsedPatientFields = row.patient_fields;
+
         try {
           if (typeof parsedCamposVisiveis === 'string' && parsedCamposVisiveis.trim()) {
             parsedCamposVisiveis = JSON.parse(parsedCamposVisiveis);
@@ -407,12 +420,15 @@ class ModeratorController {
           if (typeof parsedCamposExtras === 'string' && parsedCamposExtras.trim()) {
             parsedCamposExtras = JSON.parse(parsedCamposExtras);
           }
+          if (typeof parsedPatientFields === 'string' && parsedPatientFields.trim()) {
+            parsedPatientFields = JSON.parse(parsedPatientFields);
+          }
         } catch (e) {
           console.warn('⚠️ Erro ao fazer parse dos campos:', e.message);
           if (!Array.isArray(parsedCamposVisiveis)) parsedCamposVisiveis = ['nome', 'telefone'];
           if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
         }
-        
+
         const settingsData = {
           company_name: row.company_name || null,
           services: parsedServices || [],
@@ -421,7 +437,8 @@ class ModeratorController {
           campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
           campos_extras: parsedCamposExtras || [],
           logo: row.logo || null,
-          slot_interval: row.slot_interval || 30
+          slot_interval: row.slot_interval || 30,
+          patient_fields: parsedPatientFields || null
         };
 
         // Registrar log
@@ -438,21 +455,23 @@ class ModeratorController {
         const camposVisiveis = Array.isArray(campos_visiveis) ? JSON.stringify(campos_visiveis) : JSON.stringify(['nome', 'telefone']);
         const camposExtras = Array.isArray(campos_extras) ? JSON.stringify(campos_extras) : JSON.stringify([]);
         const slotInterval = slot_interval && !isNaN(slot_interval) ? parseInt(slot_interval) : 30;
+        const patientFieldsJson = Array.isArray(patient_fields) ? JSON.stringify(patient_fields) : null;
 
         const insertQuery = `
-          INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          INSERT INTO moderator_settings (user_id, company_name, services, working_hours, working_days, campos_visiveis, campos_extras, logo, slot_interval, patient_fields)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `;
         await query(insertQuery, [
-          user.id, 
-          company_name, 
+          user.id,
+          company_name,
           JSON.stringify(services),
           JSON.stringify(validWorkingHours),
           JSON.stringify(validWorkingDays),
           camposVisiveis,
           camposExtras,
           logo || null,
-          slotInterval
+          slotInterval,
+          patientFieldsJson
         ]);
         
         // Buscar dados inseridos (usar SELECT separado para garantir compatibilidade com SQLite)
@@ -492,10 +511,11 @@ class ModeratorController {
           if (!Array.isArray(parsedWorkingDays)) parsedWorkingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         }
         
-        // Parse campos_visiveis e campos_extras se necessário
+        // Parse campos_visiveis, campos_extras e patient_fields se necessário
         let parsedCamposVisiveis = row.campos_visiveis;
         let parsedCamposExtras = row.campos_extras;
-        
+        let parsedPatientFields = row.patient_fields;
+
         try {
           if (typeof parsedCamposVisiveis === 'string' && parsedCamposVisiveis.trim()) {
             parsedCamposVisiveis = JSON.parse(parsedCamposVisiveis);
@@ -503,12 +523,15 @@ class ModeratorController {
           if (typeof parsedCamposExtras === 'string' && parsedCamposExtras.trim()) {
             parsedCamposExtras = JSON.parse(parsedCamposExtras);
           }
+          if (typeof parsedPatientFields === 'string' && parsedPatientFields.trim()) {
+            parsedPatientFields = JSON.parse(parsedPatientFields);
+          }
         } catch (e) {
           console.warn('⚠️ Erro ao fazer parse dos campos:', e.message);
           if (!Array.isArray(parsedCamposVisiveis)) parsedCamposVisiveis = ['nome', 'telefone'];
           if (!Array.isArray(parsedCamposExtras)) parsedCamposExtras = [];
         }
-        
+
         const settingsData = {
           company_name: row.company_name || null,
           services: parsedServices || [],
@@ -517,7 +540,8 @@ class ModeratorController {
           campos_visiveis: parsedCamposVisiveis || ['nome', 'telefone'],
           campos_extras: parsedCamposExtras || [],
           logo: row.logo || null,
-          slot_interval: row.slot_interval || 30
+          slot_interval: row.slot_interval || 30,
+          patient_fields: parsedPatientFields || null
         };
 
         // Registrar log
@@ -775,6 +799,81 @@ class ModeratorController {
         error: 'Erro interno do servidor',
         message: 'Não foi possível remover o funcionário'
       });
+    }
+  }
+  // ── Services CRUD ────────────────────────────────────────────
+
+  async getServices(req, res) {
+    try {
+      const empresaId = req.user.id;
+      const { sequelize } = require('../config/database');
+      const dialect = sequelize.getDialect();
+      const sql = dialect === 'sqlite'
+        ? 'SELECT * FROM company_services WHERE empresa_id = ? AND active = 1 ORDER BY name ASC'
+        : 'SELECT * FROM company_services WHERE empresa_id = $1 AND active = true ORDER BY name ASC';
+      const result = await query(sql, [empresaId]);
+      return res.json({ success: true, data: result.rows });
+    } catch (err) {
+      console.error('getServices:', err.message);
+      return res.status(500).json({ success: false, error: 'Erro ao buscar serviços' });
+    }
+  }
+
+  async createService(req, res) {
+    try {
+      const empresaId = req.user.id;
+      const { name, duration_minutes, price } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ success: false, error: 'Nome obrigatório' });
+      const dur = parseInt(duration_minutes) || 30;
+      const { sequelize } = require('../config/database');
+      const dialect = sequelize.getDialect();
+      const sql = dialect === 'sqlite'
+        ? 'INSERT INTO company_services (empresa_id, name, duration_minutes, price) VALUES (?, ?, ?, ?)'
+        : 'INSERT INTO company_services (empresa_id, name, duration_minutes, price) VALUES ($1, $2, $3, $4) RETURNING *';
+      const params = [empresaId, name.trim(), dur, price || null];
+      const result = await query(sql, params);
+      const id = dialect === 'sqlite' ? result.lastID : result.rows[0]?.id;
+      return res.json({ success: true, data: { id, empresa_id: empresaId, name: name.trim(), duration_minutes: dur, price: price || null } });
+    } catch (err) {
+      console.error('createService:', err.message);
+      return res.status(500).json({ success: false, error: 'Erro ao criar serviço' });
+    }
+  }
+
+  async updateService(req, res) {
+    try {
+      const empresaId = req.user.id;
+      const { id } = req.params;
+      const { name, duration_minutes, price } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ success: false, error: 'Nome obrigatório' });
+      const dur = parseInt(duration_minutes) || 30;
+      const { sequelize } = require('../config/database');
+      const dialect = sequelize.getDialect();
+      const sql = dialect === 'sqlite'
+        ? 'UPDATE company_services SET name = ?, duration_minutes = ?, price = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?'
+        : 'UPDATE company_services SET name = $1, duration_minutes = $2, price = $3, updated_at = NOW() WHERE id = $4 AND empresa_id = $5';
+      await query(sql, [name.trim(), dur, price || null, id, empresaId]);
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('updateService:', err.message);
+      return res.status(500).json({ success: false, error: 'Erro ao atualizar serviço' });
+    }
+  }
+
+  async deleteService(req, res) {
+    try {
+      const empresaId = req.user.id;
+      const { id } = req.params;
+      const { sequelize } = require('../config/database');
+      const dialect = sequelize.getDialect();
+      const sql = dialect === 'sqlite'
+        ? 'UPDATE company_services SET active = 0 WHERE id = ? AND empresa_id = ?'
+        : 'UPDATE company_services SET active = false WHERE id = $1 AND empresa_id = $2';
+      await query(sql, [id, empresaId]);
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('deleteService:', err.message);
+      return res.status(500).json({ success: false, error: 'Erro ao remover serviço' });
     }
   }
 }

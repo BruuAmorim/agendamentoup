@@ -17,9 +17,12 @@ router.delete('/:id', UserController.deleteUser); // Exclusão permanente
 router.patch('/:id/deactivate', UserController.deactivateUser); // Desativar (soft delete)
 router.patch('/:id/reactivate', UserController.reactivateUser);
 
+// Reset de senha por admin
+router.put('/:id/reset-password', UserController.resetPassword);
+
 // Rotas admin para gerenciar funcionários de moderadores
-router.get('/:id/employees', UserController.getModeratorEmployees); // Listar funcionários do moderador
-router.post('/:id/employees', UserController.addModeratorEmployee); // Adicionar funcionário ao moderador
-router.delete('/:id/employees/:employeeId', UserController.removeModeratorEmployee); // Remover funcionário
+router.get('/:id/employees', UserController.getModeratorEmployees);
+router.post('/:id/employees', UserController.addModeratorEmployee);
+router.delete('/:id/employees/:employeeId', UserController.removeModeratorEmployee);
 
 module.exports = router;

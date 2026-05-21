@@ -1,24 +1,4 @@
-// DEBUG: Interceptar todas as chamadas fetch
-const originalFetch = window.fetch;
-window.fetch = function(...args) {
-    console.log("🔍 [FETCH INTERCEPTADO] URL:", args[0]);
-    console.log("🔍 [FETCH INTERCEPTADO] Método:", args[1]?.method || 'GET');
-    
-    // Verifica se a URL contém /api/api/
-    if (typeof args[0] === 'string' && args[0].includes('/api/api/')) {
-        console.error("❌ ERRO ENCONTRADO: URL com /api/api/ duplicado!");
-        console.error("❌ URL original:", args[0]);
-        
-        // Corrige a URL
-        const correctedUrl = args[0].replace('/api/api/', '/api/');
-        console.log("✅ URL corrigida:", correctedUrl);
-        args[0] = correctedUrl;
-    }
-    
-    return originalFetch.apply(this, args);
-};
-
-// Sistema de Autenticação Aevum
+// Sistema de Autenticação Cloudd Agenda
 class AuthManager {
     constructor() {
         this.currentUser = null;
@@ -43,8 +23,8 @@ class AuthManager {
             return `http://${hostname}:3000`;
         }
 
-        // Em produção (Firebase, Vercel, domínio público), usar API do Vercel
-        return 'https://cloudd-agenda-backend.vercel.app';
+        // Em produção: URL relativa — Firebase Hosting roteia /api/** para a Function
+        return '';
     }
 
     init() {
