@@ -48,8 +48,8 @@ const API_CONFIG = {
       return localApi;
     }
 
-    // Produção: URL relativa — Firebase Hosting roteia /api/** para a Function
-    return '/api';
+    // Produção: backend no Vercel (Firebase Hosting não tem proxy para /api)
+    return 'https://cloudd-agenda-backend.vercel.app/api';
   },
 
   // Configurações de timeout e retry
