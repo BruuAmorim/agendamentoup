@@ -1,5 +1,5 @@
 {
-  "name": "EvAgendamento SaaS — WhatsApp IA",
+  "name": "Cloudd Agenda — WhatsApp IA",
   "nodes": [
     {
       "parameters": {
@@ -16,12 +16,12 @@
     },
     {
       "parameters": {
-        "functionCode": "return [\n  {\n    json: {\n      phone: $json.body.contactNumber || \"\",\n      message: $json.body.bodyMensage || \"\",\n      contactId: $json.body.ContactID || \"\"\n    }\n  }\n];"
+        "jsCode": "const phone = $json.body?.contactNumber || $json.body?.phone || '';\nconst message = $json.body?.bodyMensage || $json.body?.message || $json.body?.text || '';\nconst contactId = $json.body?.ContactID || $json.body?.contactId || phone;\n\nif (!phone) throw new Error('phone ausente no payload');\nif (!message) throw new Error('message ausente no payload');\nif (!contactId) throw new Error('contactId ausente no payload');\n\nconst now = new Date();\nconst currentDateISO = now.toISOString().split('T')[0];\nconst currentDate = now.toLocaleDateString('pt-BR', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Sao_Paulo'\n});\n\nreturn { phone, message, contactId, currentDate, currentDateISO };"
       },
       "id": "cc39e1a1-580c-4998-bf2f-8168ba92edb3",
-      "name": "Normalize Input",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "name": "Validar Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [64, 816]
     },
     {
@@ -44,20 +44,21 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.contactId }}-session"
+        "sessionKey": "={{ $json.contactId }}",
+        "contextWindowLength": 10
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [64, 976],
       "id": "cf0e30d1-eab8-4e7b-8667-d5459d0ff0f6",
-      "name": "Simple Memory"
+      "name": "Memória Contextual"
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $json.message }}",
+        "text": "={{ '[Data atual: ' + $json.currentDate + ']\n' + $json.message }}",
         "options": {
-          "systemMessage": "Você é a assistente virtual da empresa, atendendo pelo WhatsApp. Seu nome é Eva.\n\nCOMO VOCÊ SE COMUNICA\n- Português brasileiro, tom leve e próximo — como uma atendente humana simpática.\n- Mensagens curtas. Máximo 3 linhas por resposta.\n- Nunca use palavras como \"claro!\", \"certamente!\", \"com prazer!\" — soa robótico.\n- Não repita o nome do cliente a cada mensagem.\n- Não use bullet points nem listas com traços. Escreva em linguagem natural.\n- Jamais mostre JSON, IDs internos, nomes de ferramentas ou protocolo técnico.\n\nCOMO CONDUZIR O AGENDAMENTO\nColete as informações de forma natural, não mecânica. Você pode pedir mais de uma coisa na mesma mensagem quando fizer sentido.\n\nInformações necessárias para agendar: nome, telefone, serviço, profissional (se houver), data e horário.\n\nExemplo de abordagem natural:\n- \"Oi! Tudo bem? Me diz seu nome e o que você quer fazer aqui.\"\n- Quando o cliente responder com nome + serviço: já avança para data/horário.\n- Se faltar só o telefone: peça junto com a confirmação final.\n\nSEMPRE use as ferramentas antes de falar sobre serviços, profissionais ou horários — nunca invente.\n\nQUANDO CONFIRMAR O AGENDAMENTO\nRecapitule tudo em uma mensagem só, de forma natural:\n\"Então fica assim: [serviço] com [profissional] na [data] às [hora]. Confirmo?\"\nSó execute criar_compromisso após o cliente dizer sim.\nApós criar, mostre o protocolo: \"Agendado! Protocolo: AG-XXXX. Até lá!\"\n\nREMARCAR OU CANCELAR\n- Peça o protocolo (ex: AG-XXXX) ou o telefone para localizar o agendamento.\n- Mostre o que encontrou e confirme antes de qualquer ação.\n- Para cancelar, peça confirmação explícita antes de executar.\n\nFERRAMENTAS DISPONÍVEIS (use pelos nomes exatos):\n- buscar_servicos\n- buscar_profissional\n- verificar_disponibilidade (parâmetro: date em YYYY-MM-DD)\n- buscar_agendamento (parâmetro: protocol ou phone)\n- criar_compromisso\n- remarcar_agendamento (parâmetro: id, appointment_date, appointment_time)\n- cancelar_consulta (parâmetro: id)\n\nSe uma ferramenta falhar, diga algo como \"deixa eu verificar de outro jeito\" e tente outra abordagem."
+          "systemMessage": "Você é a assistente virtual da empresa, atendendo pelo WhatsApp. Seu nome é Eva.\n\nCOMO VOCÊ SE COMUNICA\n- Português brasileiro, tom leve e próximo — como uma atendente humana simpática.\n- Mensagens curtas. Máximo 3 linhas por resposta.\n- Nunca use palavras como \"claro!\", \"certamente!\", \"com prazer!\" — soa robótico.\n- Não repita o nome do cliente a cada mensagem.\n- Não use bullet points nem listas com traços. Escreva em linguagem natural.\n- Jamais mostre JSON, IDs internos, nomes de ferramentas ou protocolo técnico.\n\nCOMO CONDUZIR O AGENDAMENTO\nColete as informações de forma natural, não mecânica. Você pode pedir mais de uma coisa na mesma mensagem quando fizer sentido.\n\nInformações necessárias para agendar: nome, telefone, serviço, profissional (se houver), data e horário.\n\nExemplo de abordagem natural:\n- Oi! Tudo bem? Me diz seu nome e o que você quer fazer aqui.\n- Quando o cliente responder com nome + serviço: já avança para data/horário.\n- Se faltar só o telefone: peça junto com a confirmação final.\n\nSEMPRE use as ferramentas antes de falar sobre serviços, profissionais ou horários — nunca invente.\n\nQUANDO CONFIRMAR O AGENDAMENTO\nRecapitule tudo em uma mensagem só, de forma natural:\nEntão fica assim: [serviço] com [profissional] na [data] às [hora]. Confirmo?\nSó execute criar_compromisso após o cliente dizer sim.\nApós criar, mostre o protocolo: Agendado! Protocolo: AG-XXXX. Até lá!\n\nREMARCAR OU CANCELAR\n- Peça o protocolo (ex: AG-XXXX) ou o telefone para localizar o agendamento.\n- Mostre o que encontrou e confirme antes de qualquer ação.\n- Para cancelar, peça confirmação explícita antes de executar.\n\nFERRAMENTAS DISPONÍVEIS (use pelos nomes exatos):\n- buscar_servicos\n- buscar_profissional\n- verificar_disponibilidade (parâmetro: date em YYYY-MM-DD)\n- buscar_agendamento (parâmetros: protocol ou phone)\n- criar_compromisso (campos obrigatórios: customer_name, customer_phone, service_type, employee_id integer, appointment_date YYYY-MM-DD, appointment_time HH:MM)\n- remarcar_agendamento (parâmetros: id, appointment_date, appointment_time)\n- cancelar_consulta (parâmetro: id)\n\nSe uma ferramenta falhar, diga algo como \"deixa eu verificar de outro jeito\" e tente outra abordagem."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -68,7 +69,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lista os serviços disponíveis na empresa. Use antes de falar qualquer serviço ou preço.",
+        "toolDescription": "Retorna lista de serviços disponíveis com nome e duração. Chame SEMPRE antes de mencionar qualquer serviço ou preço.",
         "url": "https://cloudd-agenda-backend.vercel.app/api/public/company/services",
         "sendHeaders": true,
         "headerParameters": {
@@ -79,7 +80,7 @@
             }
           ]
         },
-        "options": {}
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -89,7 +90,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lista os profissionais disponíveis na empresa. Use antes de perguntar preferência de profissional.",
+        "toolDescription": "Retorna lista de profissionais com id e nome. Chame antes de perguntar preferência de profissional. O campo id é o employee_id usado em criar_compromisso.",
         "url": "https://cloudd-agenda-backend.vercel.app/api/public/company/staff",
         "sendHeaders": true,
         "headerParameters": {
@@ -100,7 +101,7 @@
             }
           ]
         },
-        "options": {}
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -110,14 +111,14 @@
     },
     {
       "parameters": {
-        "toolDescription": "Verifica horários disponíveis em uma data. Parâmetro obrigatório: date (formato YYYY-MM-DD). Opcional: employee_id.",
-        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/available/{{$json.date}}",
+        "toolDescription": "Verifica horários livres em uma data. Parâmetro obrigatório: date (YYYY-MM-DD, ex: 2026-05-22). Opcional: employee_id (integer). Retorna lista de slots disponíveis.",
+        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/available/{{ $json.date ?? $json.appointment_date ?? $json.data ?? '' }}",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "employee_id",
-              "value": "={{ $json.employee_id || '' }}"
+              "value": "={{ $json.employee_id ?? $json.funcionario_id ?? '' }}"
             }
           ]
         },
@@ -130,7 +131,7 @@
             }
           ]
         },
-        "options": {}
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -164,7 +165,7 @@
             }
           ]
         },
-        "options": {}
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -174,7 +175,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Cria um novo agendamento. Campos obrigatórios: customer_name, customer_phone, service_type, appointment_date (YYYY-MM-DD), appointment_time (HH:MM). Opcional: professional, notes.",
+        "toolDescription": "Cria novo agendamento. Campos obrigatórios: customer_name (string), customer_phone (string), service_type (string — nome do serviço), employee_id (integer — obtido em buscar_profissional), appointment_date (YYYY-MM-DD), appointment_time (HH:MM).",
         "method": "POST",
         "url": "https://cloudd-agenda-backend.vercel.app/api/public/appointments",
         "sendHeaders": true,
@@ -192,8 +193,8 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"customer_name\": \"{{ $json.customer_name }}\",\n  \"customer_phone\": \"{{ $json.customer_phone }}\",\n  \"service_type\": \"{{ $json.service_type }}\",\n  \"appointment_date\": \"{{ $json.appointment_date }}\",\n  \"appointment_time\": \"{{ $json.appointment_time }}\",\n  \"professional\": \"{{ $json.professional || '' }}\",\n  \"notes\": \"Agendado via WhatsApp\"\n}",
-        "options": {}
+        "jsonBody": "={\n  \"customer_name\": \"{{ $json.customer_name }}\",\n  \"customer_phone\": \"{{ $json.customer_phone }}\",\n  \"service_type\": \"{{ $json.service_type }}\",\n  \"employee_id\": {{ $json.employee_id }},\n  \"appointment_date\": \"{{ $json.appointment_date }}\",\n  \"appointment_time\": \"{{ $json.appointment_time }}\",\n  \"notes\": \"Agendado via WhatsApp\"\n}",
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -205,7 +206,7 @@
       "parameters": {
         "toolDescription": "Remarca agendamento para nova data/hora. Parâmetros obrigatórios: id (obtido via buscar_agendamento), appointment_date (YYYY-MM-DD), appointment_time (HH:MM).",
         "method": "PUT",
-        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/{{ $json.id }}",
+        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/{{ $json.id ?? $json.appointment_id ?? $json.appointmentId ?? '' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -221,8 +222,8 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"appointment_date\": \"{{ $json.appointment_date }}\",\n  \"appointment_time\": \"{{ $json.appointment_time }}\",\n  \"notes\": \"Remarcado via WhatsApp\"\n}",
-        "options": {}
+        "jsonBody": "={\n  \"appointment_date\": \"{{ $json.appointment_date ?? $json.date ?? '' }}\",\n  \"appointment_time\": \"{{ $json.appointment_time ?? $json.time ?? '' }}\",\n  \"notes\": \"Remarcado via WhatsApp\"\n}",
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -234,7 +235,7 @@
       "parameters": {
         "toolDescription": "Cancela um agendamento. Parâmetro obrigatório: id (obtido via buscar_agendamento). Use SOMENTE após confirmação explícita do cliente.",
         "method": "DELETE",
-        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/{{ $json.id }}",
+        "url": "=https://cloudd-agenda-backend.vercel.app/api/public/appointments/{{ $json.id ?? $json.appointment_id ?? $json.appointmentId ?? '' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -244,7 +245,7 @@
             }
           ]
         },
-        "options": {}
+        "options": { "timeout": 10000 }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.3,
@@ -254,7 +255,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const agentOutput = $json.output || '';\nconst clean = agentOutput\n  .replace(/\\[Used tools:[\\s\\S]*?\\]/g, '')\n  .replace(/\\*\\*(.*?)\\*\\*/g, '$1')\n  .trim();\nreturn { messageToClient: clean || 'Pode repetir? Tive um problema aqui.' };"
+        "jsCode": "const agentOutput = $json.output || '';\nconst clean = agentOutput\n  .replace(/\\[Used tools:[\\s\\S]*?\\]/g, '')\n  .replace(/\\[Tool call:[\\s\\S]*?\\]/g, '')\n  .replace(/```[\\s\\S]*?```/g, '')\n  .replace(/\\*\\*(.*?)\\*\\*/g, '$1')\n  .replace(/\\*(.*?)\\*/g, '$1')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\nreturn { messageToClient: clean || 'Pode repetir? Tive um problema aqui.' };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -264,30 +265,31 @@
     },
     {
       "parameters": {
-        "requestMethod": "POST",
+        "method": "POST",
         "url": "https://newapi.clouddchat.com/v1/api/external/8efd1338-0612-495d-9d22-06b31ab3b36e/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRJZCI6MSwicHJvZmlsZSI6ImFkbWluIiwic2Vzc2lvbklkIjoyLCJjaGFubmVsVHlwZSI6IndoYXRzYXBwIiwiaWF0IjoxNzY4NDExMjY1LCJleHAiOjE4MzE0ODMyNjV9.ryqdpsaEd2VsJVmwtioVn9yN2zmEpa-_ar8frxQ40wQ",
-        "jsonParameters": true,
-        "bodyParametersJson": "={\n  \"number\": \"{{ $node['Normalize Input'].json['phone'] }}\",\n  \"body\": {{ JSON.stringify($json.messageToClient) }},\n  \"externalKey\": \"8efd1338-0612-495b-bfdf-7d96ce85791b\"\n}",
-        "options": {}
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { number: $('Validar Entrada').item.json.phone, body: $json.messageToClient, externalKey: '8efd1338-0612-495b-bfdf-7d96ce85791b' } }}",
+        "options": { "timeout": 15000 }
       },
       "id": "e2f56012-8543-4294-9d06-4df4dc6afc62",
       "name": "Enviar WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
+      "typeVersion": 4.2,
       "position": [752, 816]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Validar Entrada", "type": "main", "index": 0 }]]
     },
-    "Normalize Input": {
+    "Validar Entrada": {
       "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
     },
     "Groq Chat Model": {
       "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
     },
-    "Simple Memory": {
+    "Memória Contextual": {
       "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
     },
     "buscar_servicos": {

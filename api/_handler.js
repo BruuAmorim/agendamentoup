@@ -10,7 +10,7 @@ let app;
 let appLoadError = null;
 
 try {
-  app = require('../backend/server');
+  app = require('../backend/app');
 } catch (error) {
   appLoadError = error;
 }
