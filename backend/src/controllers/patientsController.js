@@ -195,8 +195,8 @@ exports.search = async (req, res) => {
 };
 
 // ── GET /api/n8n/patients?search=xxx  (autenticado por API Key) ──────────────
-// Aceita ?search= ou ?q= ; busca por nome, telefone ou CPF
-// CPF e telefone: compara dígitos normalizados (ignora pontos, traços, espaços)
+// Busca por nome, telefone ou CPF (com normalização de dígitos).
+// Fallback: se não achar em patients, busca na tabela appointments pelo histórico.
 exports.searchN8n = async (req, res) => {
   try {
     const empresaId = req.empresa?.id;
@@ -207,45 +207,94 @@ exports.searchN8n = async (req, res) => {
 
     const dialect = sequelize.getDialect();
     const like = `%${q}%`;
-    // Apenas dígitos do termo buscado (para comparar com CPF/telefone sem formatação)
     const digits = q.replace(/\D/g, '');
     const digitsLike = digits.length >= 3 ? `%${digits}%` : null;
 
-    let sql, params;
+    // ── 1. Busca na tabela patients ──────────────────────────────────────────
+    let patientsSql, patientsParams;
     if (dialect === 'sqlite') {
-      // SQLite: strip formatação manualmente com REPLACE encadeado
-      const stripCpf  = `REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '')`;
-      const stripPhone = `REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '(', '')`;
+      const stripCpf   = `REPLACE(REPLACE(REPLACE(cpf,   '.',''),'-',''),' ','')`;
+      const stripPhone  = `REPLACE(REPLACE(REPLACE(phone, '-',''),' ',''),'(','')`;
       if (digitsLike) {
-        sql = `SELECT * FROM patients
-               WHERE empresa_id = ?
-                 AND (name LIKE ?
-                      OR ${stripCpf}  LIKE ?
-                      OR ${stripPhone} LIKE ?)
-               ORDER BY name ASC LIMIT 5`;
-        params = [empresaId, like, digitsLike, digitsLike];
+        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' as source
+                       FROM patients
+                       WHERE empresa_id = ? AND (name LIKE ? OR ${stripCpf} LIKE ? OR ${stripPhone} LIKE ?)
+                       ORDER BY name ASC LIMIT 5`;
+        patientsParams = [empresaId, like, digitsLike, digitsLike];
       } else {
-        sql = `SELECT * FROM patients WHERE empresa_id = ? AND name LIKE ? ORDER BY name ASC LIMIT 5`;
-        params = [empresaId, like];
+        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' as source
+                       FROM patients WHERE empresa_id = ? AND name LIKE ? ORDER BY name ASC LIMIT 5`;
+        patientsParams = [empresaId, like];
       }
     } else {
-      // PostgreSQL: REGEXP_REPLACE remove qualquer não-dígito para comparar CPF/telefone
       if (digitsLike) {
-        sql = `SELECT * FROM patients
-               WHERE empresa_id = $1
-                 AND (name ILIKE $2
-                      OR REGEXP_REPLACE(cpf,   '[^0-9]', '', 'g') ILIKE $3
-                      OR REGEXP_REPLACE(phone, '[^0-9]', '', 'g') ILIKE $3)
-               ORDER BY name ASC LIMIT 5`;
-        params = [empresaId, like, digitsLike];
+        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' AS source
+                       FROM patients
+                       WHERE empresa_id = $1
+                         AND (name ILIKE $2
+                              OR REGEXP_REPLACE(cpf,   '[^0-9]','','g') ILIKE $3
+                              OR REGEXP_REPLACE(phone, '[^0-9]','','g') ILIKE $3)
+                       ORDER BY name ASC LIMIT 5`;
+        patientsParams = [empresaId, like, digitsLike];
       } else {
-        sql = `SELECT * FROM patients WHERE empresa_id = $1 AND name ILIKE $2 ORDER BY name ASC LIMIT 5`;
-        params = [empresaId, like];
+        patientsSql = `SELECT id, empresa_id, name, phone, email, cpf, birth_date, health_insurance, notes, 'patient' AS source
+                       FROM patients WHERE empresa_id = $1 AND name ILIKE $2 ORDER BY name ASC LIMIT 5`;
+        patientsParams = [empresaId, like];
       }
     }
 
-    const r = await query(sql, params);
-    res.json({ success: true, data: r.rows });
+    const patientsResult = await query(patientsSql, patientsParams);
+    if (patientsResult.rows.length > 0) {
+      return res.json({ success: true, data: patientsResult.rows });
+    }
+
+    // ── 2. Fallback: busca em appointments (histórico de agendamentos) ────────
+    // Retorna dados do cliente mais recente que bate com o identificador
+    let apptSql, apptParams;
+    if (dialect === 'sqlite') {
+      const stripCpf   = `REPLACE(REPLACE(REPLACE(customer_cpf,   '.',''),'-',''),' ','')`;
+      const stripPhone  = `REPLACE(REPLACE(REPLACE(customer_phone, '-',''),' ',''),'(','')`;
+      if (digitsLike) {
+        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
+                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
+                   FROM appointments
+                   WHERE user_id = ?
+                     AND (customer_name LIKE ? OR ${stripCpf} LIKE ? OR ${stripPhone} LIKE ?)
+                     AND status != 'cancelled'
+                   ORDER BY appointment_date DESC LIMIT 5`;
+        apptParams = [empresaId, like, digitsLike, digitsLike];
+      } else {
+        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
+                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
+                   FROM appointments
+                   WHERE user_id = ? AND customer_name LIKE ? AND status != 'cancelled'
+                   ORDER BY appointment_date DESC LIMIT 5`;
+        apptParams = [empresaId, like];
+      }
+    } else {
+      if (digitsLike) {
+        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
+                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
+                   FROM appointments
+                   WHERE user_id = $1
+                     AND (customer_name ILIKE $2
+                          OR REGEXP_REPLACE(customer_cpf,   '[^0-9]','','g') ILIKE $3
+                          OR REGEXP_REPLACE(customer_phone, '[^0-9]','','g') ILIKE $3)
+                     AND status != 'cancelled'
+                   ORDER BY appointment_date DESC LIMIT 5`;
+        apptParams = [empresaId, like, digitsLike];
+      } else {
+        apptSql = `SELECT DISTINCT customer_name AS name, customer_phone AS phone, customer_email AS email,
+                          customer_cpf AS cpf, user_id AS empresa_id, 'appointment_history' AS source
+                   FROM appointments
+                   WHERE user_id = $1 AND customer_name ILIKE $2 AND status != 'cancelled'
+                   ORDER BY appointment_date DESC LIMIT 5`;
+        apptParams = [empresaId, like];
+      }
+    }
+
+    const apptResult = await query(apptSql, apptParams);
+    res.json({ success: true, data: apptResult.rows });
   } catch (e) {
     console.error('patientsController.searchN8n:', e);
     res.status(500).json({ success: false, message: e.message });
