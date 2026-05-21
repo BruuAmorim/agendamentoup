@@ -196,6 +196,7 @@ exports.search = async (req, res) => {
 
 // ── GET /api/n8n/patients?search=xxx  (autenticado por API Key) ──────────────
 // Aceita ?search= ou ?q= ; busca por nome, telefone ou CPF
+// CPF e telefone: compara dígitos normalizados (ignora pontos, traços, espaços)
 exports.searchN8n = async (req, res) => {
   try {
     const empresaId = req.empresa?.id;
@@ -203,12 +204,47 @@ exports.searchN8n = async (req, res) => {
     await ensureTable();
     const q = String(req.query.search || req.query.q || '').trim();
     if (q.length < 2) return res.json({ success: true, data: [] });
+
     const dialect = sequelize.getDialect();
     const like = `%${q}%`;
-    const sql = dialect === 'sqlite'
-      ? 'SELECT * FROM patients WHERE empresa_id = ? AND (phone LIKE ? OR name LIKE ? OR cpf LIKE ?) ORDER BY name ASC LIMIT 5'
-      : 'SELECT * FROM patients WHERE empresa_id = $1 AND (phone ILIKE $2 OR name ILIKE $3 OR cpf ILIKE $4) ORDER BY name ASC LIMIT 5';
-    const r = await query(sql, [empresaId, like, like, like]);
+    // Apenas dígitos do termo buscado (para comparar com CPF/telefone sem formatação)
+    const digits = q.replace(/\D/g, '');
+    const digitsLike = digits.length >= 3 ? `%${digits}%` : null;
+
+    let sql, params;
+    if (dialect === 'sqlite') {
+      // SQLite: strip formatação manualmente com REPLACE encadeado
+      const stripCpf  = `REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '')`;
+      const stripPhone = `REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '(', '')`;
+      if (digitsLike) {
+        sql = `SELECT * FROM patients
+               WHERE empresa_id = ?
+                 AND (name LIKE ?
+                      OR ${stripCpf}  LIKE ?
+                      OR ${stripPhone} LIKE ?)
+               ORDER BY name ASC LIMIT 5`;
+        params = [empresaId, like, digitsLike, digitsLike];
+      } else {
+        sql = `SELECT * FROM patients WHERE empresa_id = ? AND name LIKE ? ORDER BY name ASC LIMIT 5`;
+        params = [empresaId, like];
+      }
+    } else {
+      // PostgreSQL: REGEXP_REPLACE remove qualquer não-dígito para comparar CPF/telefone
+      if (digitsLike) {
+        sql = `SELECT * FROM patients
+               WHERE empresa_id = $1
+                 AND (name ILIKE $2
+                      OR REGEXP_REPLACE(cpf,   '[^0-9]', '', 'g') ILIKE $3
+                      OR REGEXP_REPLACE(phone, '[^0-9]', '', 'g') ILIKE $3)
+               ORDER BY name ASC LIMIT 5`;
+        params = [empresaId, like, digitsLike];
+      } else {
+        sql = `SELECT * FROM patients WHERE empresa_id = $1 AND name ILIKE $2 ORDER BY name ASC LIMIT 5`;
+        params = [empresaId, like];
+      }
+    }
+
+    const r = await query(sql, params);
     res.json({ success: true, data: r.rows });
   } catch (e) {
     console.error('patientsController.searchN8n:', e);
