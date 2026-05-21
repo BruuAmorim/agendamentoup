@@ -1,4 +1,3 @@
-const nodemailer = require('nodemailer');
 const https = require('https');
 
 const EMAIL_TEMPLATE = (resetLink) => `
@@ -77,8 +76,9 @@ async function sendViaResend(toEmail, resetLink) {
   });
 }
 
-// SMTP via nodemailer
+// SMTP via nodemailer (lazy require — nodemailer may not be installed in all envs)
 async function sendViaSmtp(toEmail, resetLink) {
+  const nodemailer = require('nodemailer');
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@clouddagenda.com';
   const transport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,

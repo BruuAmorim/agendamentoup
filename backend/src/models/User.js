@@ -82,7 +82,7 @@ module.exports = (sequelize) => {
       beforeCreate: async (user) => {
         try {
           if (user.password && typeof user.password === 'string' && !user.password.startsWith('$2')) {
-            const salt = await bcrypt.genSalt(12);
+            const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(user.password, salt);
           }
         } catch (error) {
@@ -93,7 +93,7 @@ module.exports = (sequelize) => {
       beforeUpdate: async (user) => {
         try {
           if (user.changed('password') && user.password && typeof user.password === 'string' && !user.password.startsWith('$2')) {
-            const salt = await bcrypt.genSalt(12);
+            const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(user.password, salt);
           }
         } catch (error) {

@@ -99,12 +99,26 @@ app.get('/', (req, res) => res.json({
   timestamp: new Date().toISOString()
 }));
 
-app.get('/api/health', (req, res) => res.json({
-  status: 'ok',
-  message: 'Cloudd Agenda API está funcionando',
-  version: API_CONFIG.info.version,
-  timestamp: new Date().toISOString()
-}));
+app.get('/api/health', async (req, res) => {
+  try {
+    const { sequelize } = require('./src/config/database');
+    await sequelize.query('SELECT 1');
+    res.json({
+      status: 'ok',
+      db: 'ok',
+      message: 'Cloudd Agenda API está funcionando',
+      version: API_CONFIG.info.version,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'error',
+      db: 'unreachable',
+      message: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

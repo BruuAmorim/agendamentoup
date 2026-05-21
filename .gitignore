@@ -14,7 +14,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-
+.claude
 # Logs
 logs
 *.log
@@ -123,3 +123,6 @@ config.local.json
 .env*.local
 backend/.env.production
 backend/.env.local
+
+# Pasta functions/ (template vazio — Firebase usa backend/)
+functions/node_modules/

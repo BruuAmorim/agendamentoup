@@ -36,18 +36,22 @@ class WebhookService {
         data: data
       };
 
-      // Disparar webhook de forma assíncrona (não bloquear a resposta)
-      axios.post(integration.webhookUrl, payload, {
-        timeout: 5000, // 5 segundos
-        headers: {
-          'Content-Type': 'application/json',
+      const fireWithRetry = async (attempt = 1) => {
+        try {
+          await axios.post(integration.webhookUrl, payload, {
+            timeout: 5000,
+            headers: { 'Content-Type': 'application/json' }
+          });
+          console.log(`✅ Webhook disparado com sucesso: ${event}`);
+        } catch (err) {
+          if (attempt < 3) {
+            setTimeout(() => fireWithRetry(attempt + 1), attempt * 1000);
+          } else {
+            console.error(`❌ Webhook falhou após ${attempt} tentativas (${event}):`, err.message);
+          }
         }
-      }).then(() => {
-        console.log(`✅ Webhook disparado com sucesso: ${event}`);
-      }).catch((error) => {
-        console.error(`❌ Erro ao disparar webhook (${event}):`, error.message);
-        // Não lançar erro - falha no webhook não deve quebrar o fluxo principal
-      });
+      };
+      fireWithRetry();
 
       return { success: true, message: 'Webhook disparado' };
 

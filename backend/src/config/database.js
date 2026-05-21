@@ -34,7 +34,7 @@ if (useMemoryStorage) {
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false
+        rejectUnauthorized: process.env.DB_REJECT_UNAUTH !== 'false'
       },
       statement_timeout: 10000,
       query_timeout: 10000

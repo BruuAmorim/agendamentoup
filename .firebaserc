@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "cloudd-agenda"
+  },
+  "targets": {
+    "cloudd-agenda": {
+      "hosting": {
+        "empresa": ["cloudd-agenda"],
+        "admin": ["cloudd-agenda-admin"]
+      }
+    }
   }
 }

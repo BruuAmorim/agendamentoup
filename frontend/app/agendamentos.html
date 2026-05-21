@@ -1511,12 +1511,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderView();
     renderWaitingList();
 
-    // Auto-refresh every 60s
-    setInterval(async () => {
+    // Auto-refresh every 60s — cleared on page unload to avoid stale callbacks
+    const refreshTimer = setInterval(async () => {
       await loadAppointments();
       renderView();
       renderWaitingList();
     }, 60000);
+    window.addEventListener('beforeunload', () => clearInterval(refreshTimer), { once: true });
   } catch(e) {
     console.error('Erro ao inicializar agenda:', e);
     toast('Erro ao carregar dados', 'error');

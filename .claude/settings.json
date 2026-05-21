@@ -66,7 +66,26 @@
       "Bash(tasklist /FI \"IMAGENAME eq node.exe\" /V)",
       "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Select-Object Id, CPU, WorkingSet, MainWindowTitle, @{N='CommandLine';E={\\(Get-WmiObject Win32_Process -Filter \"ProcessId=$\\($_.Id\\)\"\\).CommandLine}})",
       "PowerShell(Stop-Process -Id 20528, 26768 -Force -ErrorAction SilentlyContinue)",
-      "Bash(node -e \"const Database = require\\('better-sqlite3'\\); const db = new Database\\(':memory:'\\); db.exec\\('CREATE TABLE t \\(used INTEGER DEFAULT 0\\)'\\); db.exec\\('INSERT INTO t VALUES \\(0\\)'\\); const r = db.prepare\\('SELECT * FROM t WHERE used = false'\\).all\\(\\); console.log\\('SQLite used=false works:', r.length > 0\\);\")"
+      "Bash(node -e \"const Database = require\\('better-sqlite3'\\); const db = new Database\\(':memory:'\\); db.exec\\('CREATE TABLE t \\(used INTEGER DEFAULT 0\\)'\\); db.exec\\('INSERT INTO t VALUES \\(0\\)'\\); const r = db.prepare\\('SELECT * FROM t WHERE used = false'\\).all\\(\\); console.log\\('SQLite used=false works:', r.length > 0\\);\")",
+      "Bash(firebase --version)",
+      "Bash(npx vercel *)",
+      "Bash(firebase projects:list)",
+      "Bash(firebase hosting:sites:list)",
+      "Bash(firebase hosting:sites:create cloudd-agenda-admin)",
+      "Bash(firebase deploy *)",
+      "Bash(git ls-files *)",
+      "Bash(grep -rn \"reseller\\\\.js\" frontend/ --include=\"*.html\")",
+      "Bash(grep -rn \"reseller\\\\.js\" frontend/ --include=\"*.js\")",
+      "Bash(sed -n '310,320p' backend/src/services/cloudChatService.js)",
+      "Bash(sed -n '620,631p' backend/src/services/cloudChatService.js)",
+      "Bash(cat functions/.gitignore)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('functions',''\\),indent=2\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./firebase.json'\\); console.log\\(JSON.stringify\\(d.functions,null,2\\)\\)\")",
+      "Bash(node -e \"require\\('./backend/app.js'\\); console.log\\('app.js: OK'\\)\")",
+      "Bash(node -e \"const app = require\\('./backend/app.js'\\); console.log\\('Backend OK — type:', typeof app\\);\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Bruna\\.claude\\projects\\c--Users-Bruna-Desktop-agendamentoup\\memory"

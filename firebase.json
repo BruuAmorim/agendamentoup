@@ -1,20 +1,28 @@
 {
-  "hosting": {
-    "public": "frontend",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "/api/**",
-        "function": {
-          "functionId": "api",
-          "region": "southamerica-east1"
-        }
-      },
-      { "source": "/admin/dashboard", "destination": "/admin/dashboard.html" },
-      { "source": "/admin/users", "destination": "/admin/users.html" },
-      { "source": "/admin/integrations", "destination": "/admin/integrations.html" }
-    ]
-  },
+  "hosting": [
+    {
+      "target": "empresa",
+      "public": "frontend",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "cleanUrls": false,
+      "rewrites": [
+        { "source": "/app/**", "destination": "/app/agendamentos.html" }
+      ]
+    },
+    {
+      "target": "admin",
+      "public": "frontend/admin",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "cleanUrls": true,
+      "rewrites": [
+        { "source": "/dashboard", "destination": "/dashboard.html" },
+        { "source": "/users", "destination": "/users.html" },
+        { "source": "/integrations", "destination": "/integrations.html" },
+        { "source": "/saas", "destination": "/saas.html" },
+        { "source": "**", "destination": "/dashboard.html" }
+      ]
+    }
+  ],
   "functions": [
     {
       "source": "backend",

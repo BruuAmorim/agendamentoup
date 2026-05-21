@@ -19,6 +19,11 @@ async function initializeDatabase() {
     } catch (e) {
       console.warn('⚠️ Erro ao verificar tabela password_reset_tokens:', e.message);
     }
+    try {
+      await migrateIndexes(dialect);
+    } catch (e) {
+      console.warn('⚠️ Erro ao criar indexes:', e.message);
+    }
 
     if (process.env.NODE_ENV === 'development') {
       const dialect = sequelize.getDialect();
@@ -72,6 +77,7 @@ async function runMigrations(dialect) {
   await seedDefaultPlansAndNiches(dialect);
   await autoCreateTenants(dialect);
   await migrateCompanyServices(dialect);
+  await migrateIndexes(dialect);
 
   if (dialect === 'sqlite') {
     const finalCheck = await query("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'", []);
@@ -821,6 +827,25 @@ async function migrateCompanyServices(dialect) {
     console.log('✅ Tabela company_services criada/verificada');
   } catch (e) {
     console.warn('⚠️ Erro ao criar company_services:', e.message);
+  }
+}
+
+async function migrateIndexes(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`CREATE INDEX IF NOT EXISTS idx_appointments_user_date ON appointments(user_id, appointment_date)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_patients_empresa ON patients(empresa_id)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_funcionarios_user ON funcionarios(user_id)`, []);
+    } else {
+      await query(`CREATE INDEX IF NOT EXISTS idx_appointments_user_date ON appointments(user_id, appointment_date)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_patients_empresa ON patients(empresa_id)`, []);
+      await query(`CREATE INDEX IF NOT EXISTS idx_funcionarios_user ON funcionarios(user_id)`, []);
+    }
+    console.log('✅ Indexes verificados/criados');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar indexes:', e.message);
   }
 }
 
