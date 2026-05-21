@@ -205,6 +205,10 @@ exports.searchN8n = async (req, res) => {
     const q = String(req.query.search || req.query.q || '').trim();
     if (q.length < 2) return res.json({ success: true, data: [] });
 
+    // debug: contar total de pacientes para confirmar empresa_id correto
+    const countR = await query('SELECT COUNT(*) as c FROM patients WHERE empresa_id = $1', [empresaId]);
+    const totalPatients = parseInt(countR.rows[0]?.c || 0);
+
     const dialect = sequelize.getDialect();
     const like = `%${q}%`;
     const digits = q.replace(/\D/g, '');
@@ -294,7 +298,13 @@ exports.searchN8n = async (req, res) => {
     }
 
     const apptResult = await query(apptSql, apptParams);
-    res.json({ success: true, data: apptResult.rows });
+    res.json({
+      success: true,
+      data: apptResult.rows,
+      _debug: apptResult.rows.length === 0
+        ? { empresa_id_usado: empresaId, total_pacientes_empresa: totalPatients, busca: q }
+        : undefined
+    });
   } catch (e) {
     console.error('patientsController.searchN8n:', e);
     res.status(500).json({ success: false, message: e.message });
