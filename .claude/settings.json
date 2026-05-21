@@ -85,7 +85,14 @@
       "Bash(node -e \"require\\('./backend/app.js'\\); console.log\\('app.js: OK'\\)\")",
       "Bash(node -e \"const app = require\\('./backend/app.js'\\); console.log\\('Backend OK — type:', typeof app\\);\")",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(del .env.vercel.tmp)",
+      "Bash(curl -s https://cloudd-agenda-backend.vercel.app/api/health)",
+      "Bash(curl -s https://cloudd-agenda-backend.vercel.app/)",
+      "Bash(curl -s -X POST https://cloudd-agenda-backend.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@clouddagenda.com\\\\\",\\\\\"password\\\\\":\\\\\"Admin@123\\\\\"}\")",
+      "Bash(node scripts/seed-production.js)",
+      "Bash(curl -s -X POST https://cloudd-agenda-backend.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"brunadevv@gmail.com\\\\\",\\\\\"password\\\\\":\\\\\"Admin@Dev2024!\\\\\"}\")",
+      "Bash(del \"c:\\\\Users\\\\Bruna\\\\Desktop\\\\agendamentoup\\\\scripts\\\\seed-production.js\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Bruna\\.claude\\projects\\c--Users-Bruna-Desktop-agendamentoup\\memory"

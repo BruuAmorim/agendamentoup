@@ -25,31 +25,28 @@ async function initializeDatabase() {
       console.warn('⚠️ Erro ao criar indexes:', e.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      const dialect = sequelize.getDialect();
-      if (dialect === 'sqlite') {
-        // Limpar tabela de backup residual de runs anteriores com falha
-        await sequelize.query('DROP TABLE IF EXISTS `users_backup`');
-        await sequelize.query('PRAGMA foreign_keys = OFF');
-        await sequelize.sync();
-        await sequelize.query('PRAGMA foreign_keys = ON');
-        console.log('✅ Modelos sincronizados (SQLite).');
-      } else {
-        await sequelize.sync();
-        console.log('✅ Modelos sincronizados.');
-      }
+    if (dialect === 'sqlite') {
+      // Limpar tabela de backup residual de runs anteriores com falha
+      await sequelize.query('DROP TABLE IF EXISTS `users_backup`');
+      await sequelize.query('PRAGMA foreign_keys = OFF');
+      await sequelize.sync();
+      await sequelize.query('PRAGMA foreign_keys = ON');
+      console.log('✅ Modelos sincronizados (SQLite).');
+    } else {
+      await sequelize.sync();
+      console.log('✅ Modelos sincronizados (PostgreSQL).');
+    }
 
-      try {
-        await runMigrations(dialect);
-        console.log('✅ Tabelas adicionais criadas/verificadas.');
-      } catch (error) {
-        console.error('❌ ERRO ao criar tabelas adicionais:', error.message);
-        console.error('❌ Stack:', error.stack);
-        if (error.message.includes('appointments')) {
-          throw error;
-        }
-        console.warn('⚠️  Continuando apesar do erro...');
+    try {
+      await runMigrations(dialect);
+      console.log('✅ Tabelas adicionais criadas/verificadas.');
+    } catch (error) {
+      console.error('❌ ERRO ao criar tabelas adicionais:', error.message);
+      console.error('❌ Stack:', error.stack);
+      if (error.message.includes('appointments')) {
+        throw error;
       }
+      console.warn('⚠️  Continuando apesar do erro...');
     }
   } catch (error) {
     console.error('❌ Erro ao inicializar banco de dados:', error);
