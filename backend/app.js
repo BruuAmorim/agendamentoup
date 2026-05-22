@@ -16,6 +16,9 @@ const moderatorRoutes = require('./src/routes/moderator');
 const staffRoutes = require('./src/routes/staffRoutes');
 const settingsPasswordRoutes = require('./src/routes/settingsPasswordRoutes');
 const logRoutes = require('./src/routes/logRoutes');
+const whatsappRoutes = require('./src/routes/whatsappRoutes');
+const externalIntegrationRoutes = require('./src/routes/externalIntegrationRoutes');
+const aiAssistantRoutes = require('./src/routes/aiAssistantRoutes');
 
 const app = express();
 
@@ -147,6 +150,9 @@ app.use('/api/patients', require('./src/routes/patientsRoutes'));
 app.use('/api/settings-password', settingsPasswordRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/admin/saas', require('./src/routes/adminSaasRoutes'));
+app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/external-integrations', externalIntegrationRoutes);
+app.use('/api/ai-assistant', aiAssistantRoutes);
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada', path: req.path }));

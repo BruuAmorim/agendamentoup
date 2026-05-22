@@ -231,30 +231,129 @@
     .panel-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
     /* ── Integrations ────────────────────────────────── */
-    .integration-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px 18px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 10px;
-      background: var(--bg);
-      opacity: .65;
+    .integ-section { margin-bottom: 28px; }
+    .integ-section-title {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
     }
-    .integration-icon { font-size: 24px; width: 36px; text-align: center; }
-    .integration-info { flex: 1; }
-    .integration-info strong { font-size: 13px; font-weight: 600; color: var(--text); display: block; }
-    .integration-info span { font-size: 12px; color: var(--text-muted); }
+    .integ-card {
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .integ-card-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .integ-card-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .integ-card-icon.green { background: #dcfce7; }
+    .integ-card-icon.blue  { background: #dbeafe; }
+    .integ-card-icon.purple{ background: #ede9fe; }
+    .integ-card-icon.orange{ background: #ffedd5; }
+    .integ-card-meta { flex: 1; }
+    .integ-card-meta strong { font-size: 14px; font-weight: 700; color: var(--text); display: block; margin-bottom: 3px; }
+    .integ-card-meta span { font-size: 12px; color: var(--text-muted); }
+    .integ-card-body { padding: 18px 20px; }
+    .integ-status-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 4px 10px;
+      border-radius: 20px; flex-shrink: 0;
+    }
+    .status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .status-badge.connected    { background:#dcfce7; color:#15803d; }
+    .status-badge.connected::before { background:#22c55e; }
+    .status-badge.connecting   { background:#fef9c3; color:#854d0e; }
+    .status-badge.connecting::before { background:#eab308; animation: pulse-dot 1s infinite; }
+    .status-badge.disconnected { background:#f1f5f9; color:#64748b; }
+    .status-badge.disconnected::before { background:#94a3b8; }
+    .status-badge.error        { background:#fee2e2; color:#dc2626; }
+    .status-badge.error::before { background:#ef4444; }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .integ-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .integ-actions button {
+      padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid; cursor: pointer; transition: all .15s;
+    }
+    .btn-connect { background: #0ea5e9; color: white; border-color: #0ea5e9; }
+    .btn-connect:hover { background: #0284c7; }
+    .btn-danger { background: white; color: #dc2626; border-color: #fca5a5; }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-secondary-sm { background: var(--bg); color: var(--text); border-color: var(--border); }
+    .btn-secondary-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .integ-info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;
+    }
+    .integ-info-item { background: var(--bg); border-radius: 8px; padding: 10px 14px; }
+    .integ-info-item label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 3px; }
+    .integ-info-item span { font-size: 13px; font-weight: 500; color: var(--text); }
+    /* QR Code Modal */
+    .qr-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; backdrop-filter: blur(4px);
+    }
+    .qr-modal {
+      background: var(--surface); border-radius: 16px; padding: 32px;
+      max-width: 380px; width: 90%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .qr-modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .qr-modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+    .qr-box {
+      width: 220px; height: 220px; margin: 0 auto 20px;
+      border: 3px solid var(--border); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      background: white; overflow: hidden;
+    }
+    .qr-box img { width: 200px; height: 200px; object-fit: contain; }
+    .qr-spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .qr-step { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.6; }
+    .qr-step strong { color: var(--text); }
+    /* External Integrations Table */
+    .ext-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ext-table th {
+      text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+      color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border);
+    }
+    .ext-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .ext-table tr:last-child td { border-bottom: none; }
+    /* AI Assistant */
+    .ai-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .ai-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--bg); border-radius: 10px; margin-bottom: 16px; }
+    .ai-toggle-row .toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
+    .ai-toggle-row .toggle-sub { font-size: 11px; color: var(--text-muted); }
+    .toggle-switch {
+      position: relative; width: 44px; height: 24px; flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: var(--border);
+      border-radius: 24px; cursor: pointer; transition: .2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; background: white;
+      border-radius: 50%; top: 3px; left: 3px; transition: .2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #22c55e; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
     .badge-soon {
-      font-size: 11px;
-      padding: 3px 9px;
-      border-radius: 20px;
-      background: var(--bg);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-      font-weight: 600;
-      flex-shrink: 0;
+      font-size: 11px; padding: 3px 9px; border-radius: 20px;
+      background: var(--bg); color: var(--text-muted);
+      border: 1px solid var(--border); font-weight: 600; flex-shrink: 0;
     }
 
     .validation-msg { color: #dc2626; font-size: 12px; margin-top: 8px; display: none; }
@@ -324,7 +423,6 @@
         </button>
         <button class="stab" data-tab="integracoes" onclick="switchTab('integracoes', this)">
           <span class="stab-icon">&#9679;</span> Integrações
-          <span class="stab-badge">Em breve</span>
         </button>
       </div>
 
@@ -410,51 +508,251 @@
 
         <!-- Integrações -->
         <div class="panel-section" id="tab-integracoes">
-          <p class="panel-title">API Key — n8n / WhatsApp</p>
 
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
-            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#374151;">Chave de integração</p>
-            <p style="margin:0 0 16px;font-size:12px;color:#6b7280;line-height:1.5;">
-              Use esta chave no header <code style="background:#e5e7eb;padding:1px 5px;border-radius:4px;">x-api-key</code> para conectar o n8n e outros sistemas ao Cloudd Agenda.<br>
-              A chave só é exibida no momento da geração — guarde-a em local seguro.
+          <!-- ── WhatsApp ──────────────────────────────── -->
+          <div class="integ-section">
+            <p class="integ-section-title">
+              <span style="font-size:18px;">💬</span> WhatsApp
             </p>
-
-            <div id="apiKeyStatusBlock" style="display:none;margin-bottom:16px;">
-              <span style="font-size:12px;color:#6b7280;" id="apiKeyStatusText"></span>
-            </div>
-
-            <div id="apiKeyRevealBlock" style="display:none;margin-bottom:16px;">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <input id="apiKeyReveal" type="text" readonly
-                  style="flex:1;min-width:0;font-family:monospace;font-size:12px;background:#1e293b;color:#4ade80;
-                         border:1px solid #334155;border-radius:8px;padding:10px 14px;cursor:text;" />
-                <button onclick="copyApiKey()"
-                  style="padding:10px 18px;background:#4f46e5;color:white;border:none;border-radius:8px;
-                         font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
-                  Copiar
-                </button>
+            <div class="integ-card">
+              <div class="integ-card-header">
+                <div class="integ-card-icon green">💬</div>
+                <div class="integ-card-meta">
+                  <strong>WhatsApp via QR Code</strong>
+                  <span>Conecte seu WhatsApp pessoal ou Business. Resposta automática com IA.</span>
+                </div>
               </div>
-              <p style="margin:8px 0 0;font-size:11px;color:#f59e0b;">
-                Atenção: esta chave não será exibida novamente. Copie agora.
-              </p>
+              <div class="integ-card-body">
+                <div class="integ-status-row" style="margin-bottom:14px;">
+                  <span class="status-badge disconnected" id="waStatusBadge">Desconectado</span>
+                  <span style="font-size:12px;color:var(--text-muted);" id="waStatusDetail"></span>
+                </div>
+                <div class="integ-info-grid" id="waInfoGrid" style="display:none;">
+                  <div class="integ-info-item">
+                    <label>Numero</label>
+                    <span id="waPhone">—</span>
+                  </div>
+                  <div class="integ-info-item">
+                    <label>Nome</label>
+                    <span id="waProfile">—</span>
+                  </div>
+                  <div class="integ-info-item">
+                    <label>Conectado em</label>
+                    <span id="waConnectedAt">—</span>
+                  </div>
+                  <div class="integ-info-item">
+                    <label>Ultima atividade</label>
+                    <span id="waLastActivity">—</span>
+                  </div>
+                </div>
+                <div class="integ-actions">
+                  <button class="integ-actions btn-connect" id="btnWaConnect" onclick="waConnect()">Conectar WhatsApp</button>
+                  <button class="integ-actions btn-secondary-sm" id="btnWaReconnect" style="display:none;" onclick="waReconnect()">Reconectar</button>
+                  <button class="integ-actions btn-danger" id="btnWaDisconnect" style="display:none;" onclick="waDisconnect()">Desconectar</button>
+                </div>
+              </div>
             </div>
-
-            <button id="btnGenerateKey" onclick="generateApiKey()"
-              style="padding:10px 20px;background:#0ea5e9;color:white;border:none;border-radius:8px;
-                     font-size:13px;font-weight:600;cursor:pointer;">
-              Gerar nova chave
-            </button>
           </div>
 
-          <p class="panel-title" style="margin-top:8px;">Outras integrações</p>
-          <div class="integration-card">
-            <span class="integration-icon">💬</span>
-            <div class="integration-info">
-              <strong>WhatsApp</strong>
-              <span>Envie lembretes automáticos de consulta</span>
+          <!-- ── Assistente IA ──────────────────────────── -->
+          <div class="integ-section">
+            <p class="integ-section-title">
+              <span style="font-size:18px;">🤖</span> Assistente IA
+            </p>
+            <div class="integ-card">
+              <div class="integ-card-header">
+                <div class="integ-card-icon purple">🤖</div>
+                <div class="integ-card-meta">
+                  <strong>Respostas automáticas com IA</strong>
+                  <span>A IA responde clientes, agenda consultas e encaminha para humano quando necessário.</span>
+                </div>
+              </div>
+              <div class="integ-card-body">
+                <div class="ai-toggle-row">
+                  <div>
+                    <div class="toggle-label">Ativar assistente IA</div>
+                    <div class="toggle-sub" id="aiToggleSub">IA desativada</div>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="aiActiveToggle" onchange="aiToggle(this.checked)">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="ai-form-grid">
+                  <div class="form-group">
+                    <label>Provedor de IA</label>
+                    <select id="aiProvider" onchange="aiProviderChanged()">
+                      <option value="openai">OpenAI (GPT)</option>
+                      <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Modelo</label>
+                    <select id="aiModel">
+                      <option value="gpt-4o-mini">GPT-4o Mini (rápido)</option>
+                      <option value="gpt-4o">GPT-4o (avançado)</option>
+                      <option value="claude-haiku-4-5-20251001">Claude Haiku (rápido)</option>
+                      <option value="claude-sonnet-4-6">Claude Sonnet (avançado)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                  <label>API Key do provedor <span style="color:#dc2626;">*</span></label>
+                  <div style="display:flex;gap:8px;">
+                    <input type="password" id="aiApiKey" placeholder="sk-... ou claude-api-key" style="flex:1;">
+                    <button class="integ-actions btn-secondary-sm" style="padding:8px 14px;white-space:nowrap;" onclick="aiToggleKeyVisibility()">Mostrar</button>
+                  </div>
+                  <p style="font-size:11px;color:var(--text-muted);margin-top:5px;" id="aiApiKeyHint">A chave é criptografada e nunca exposta. Salve para atualizar.</p>
+                </div>
+                <div class="ai-form-grid">
+                  <div class="form-group">
+                    <label>Nome do assistente</label>
+                    <input type="text" id="aiAssistantName" placeholder="Ex: Ana">
+                  </div>
+                  <div class="form-group">
+                    <label>Temperatura (criatividade)</label>
+                    <input type="number" id="aiTemperature" min="0" max="1" step="0.1" value="0.7">
+                  </div>
+                  <div class="form-group">
+                    <label>Horario de atendimento — inicio</label>
+                    <input type="time" id="aiServiceStart" value="08:00">
+                  </div>
+                  <div class="form-group">
+                    <label>Horario de atendimento — fim</label>
+                    <input type="time" id="aiServiceEnd" value="18:00">
+                  </div>
+                  <div class="form-group">
+                    <label>Delay de resposta (seg)</label>
+                    <input type="number" id="aiResponseDelay" min="0" max="30" value="2">
+                  </div>
+                  <div class="form-group">
+                    <label>Palavra-chave para humano</label>
+                    <input type="text" id="aiHumanKeyword" placeholder="falar com atendente">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                  <label>Mensagem de ausencia</label>
+                  <input type="text" id="aiAwayMessage" placeholder="No momento nao estou disponivel...">
+                </div>
+                <div class="form-group" style="margin-bottom:18px;">
+                  <label>Prompt do sistema <span style="font-size:11px;color:var(--text-muted);">(deixe vazio para gerar automaticamente)</span></label>
+                  <textarea id="aiSystemPrompt" rows="4" placeholder="Voce e o assistente virtual da [empresa]..." style="width:100%;resize:vertical;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;"></textarea>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                  <button class="btn btn-primary" onclick="aiSaveConfig()">Salvar configuracao</button>
+                  <button class="integ-actions btn-secondary-sm" style="padding:9px 16px;" onclick="aiTestMessage()">Testar IA</button>
+                </div>
+                <!-- Test output -->
+                <div id="aiTestOutput" style="display:none;margin-top:16px;padding:14px 16px;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;">
+                  <p style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">Resposta da IA</p>
+                  <p id="aiTestResponse" style="font-size:13px;color:var(--text);white-space:pre-wrap;margin:0;"></p>
+                </div>
+              </div>
             </div>
-            <span class="badge-soon">Em breve</span>
           </div>
+
+          <!-- ── API Key n8n ────────────────────────────── -->
+          <div class="integ-section">
+            <p class="integ-section-title">
+              <span style="font-size:18px;">⚡</span> n8n / Automacoes
+            </p>
+            <div class="integ-card">
+              <div class="integ-card-header">
+                <div class="integ-card-icon orange">⚡</div>
+                <div class="integ-card-meta">
+                  <strong>Chave de integracao (API Key)</strong>
+                  <span>Use no header <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px;">x-api-key</code> para conectar o n8n e automacoes ao sistema.</span>
+                </div>
+              </div>
+              <div class="integ-card-body">
+                <div id="apiKeyStatusBlock" style="margin-bottom:12px;display:none;">
+                  <span style="font-size:12px;color:var(--text-muted);" id="apiKeyStatusText"></span>
+                </div>
+                <div id="apiKeyRevealBlock" style="display:none;margin-bottom:14px;">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input id="apiKeyReveal" type="text" readonly
+                      style="flex:1;min-width:0;font-family:monospace;font-size:12px;background:#1e293b;color:#4ade80;
+                             border:1px solid #334155;border-radius:8px;padding:10px 14px;cursor:text;" />
+                    <button onclick="copyApiKey()" class="btn btn-primary" style="font-size:12px;padding:10px 16px;white-space:nowrap;">Copiar</button>
+                  </div>
+                  <p style="margin:6px 0 0;font-size:11px;color:#f59e0b;">Atencao: esta chave nao sera exibida novamente. Copie agora.</p>
+                </div>
+                <button id="btnGenerateKey" onclick="generateApiKey()" class="btn btn-primary" style="font-size:12px;">Gerar nova chave</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Integracoes externas ───────────────────── -->
+          <div class="integ-section">
+            <p class="integ-section-title">
+              <span style="font-size:18px;">🔗</span> APIs e Webhooks Externos
+            </p>
+            <div class="integ-card">
+              <div class="integ-card-body">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                  <span style="font-size:13px;color:var(--text-muted);">Integre com CRMs, sistemas externos, webhooks e mais.</span>
+                  <button class="btn btn-primary" style="font-size:12px;padding:8px 16px;" onclick="extShowForm()">+ Nova integracao</button>
+                </div>
+
+                <!-- Formulario nova integracao -->
+                <div id="extForm" style="display:none;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;">
+                  <p style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;" id="extFormTitle">Nova integracao</p>
+                  <input type="hidden" id="extEditId">
+                  <div class="ai-form-grid">
+                    <div class="form-group">
+                      <label>Nome <span style="color:#dc2626;">*</span></label>
+                      <input type="text" id="extName" placeholder="Ex: CRM Principal">
+                    </div>
+                    <div class="form-group">
+                      <label>Tipo</label>
+                      <select id="extType">
+                        <option value="webhook">Webhook</option>
+                        <option value="n8n">n8n</option>
+                        <option value="crm">CRM</option>
+                        <option value="whatsapp_api">WhatsApp API</option>
+                        <option value="ia_externa">IA Externa</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>URL da API</label>
+                      <input type="url" id="extApiUrl" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                      <label>URL do Webhook</label>
+                      <input type="url" id="extWebhookUrl" placeholder="https://...">
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label>API Key / Token</label>
+                    <input type="password" id="extApiKey" placeholder="Chave de autenticacao">
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary" style="font-size:12px;" onclick="extSave()">Salvar</button>
+                    <button class="integ-actions btn-secondary-sm" style="padding:8px 16px;" onclick="extHideForm()">Cancelar</button>
+                  </div>
+                </div>
+
+                <!-- Tabela de integracoes -->
+                <div id="extTableWrap">
+                  <table class="ext-table">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Status</th>
+                        <th>Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody id="extTableBody">
+                      <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhuma integracao cadastrada</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
       </div>
@@ -535,8 +833,344 @@ function copyApiKey() {
   navigator.clipboard.writeText(val).then(() => toast('Chave copiada!', 'success'));
 }
 
-// Carregar info ao abrir aba de integrações
-document.querySelector('[data-tab="integracoes"]').addEventListener('click', loadApiKeyInfo);
+// ── Integracoes: load on tab click ───────────────────────
+document.querySelector('[data-tab="integracoes"]').addEventListener('click', () => {
+  loadApiKeyInfo();
+  waLoadStatus();
+  aiLoadConfig();
+  extLoadList();
+});
+
+// ── WhatsApp ──────────────────────────────────────────────
+let waPollingInterval = null;
+
+async function waLoadStatus() {
+  try {
+    const data = await apiFetch('/whatsapp/status');
+    if (!data) return;
+    waRenderStatus(data);
+  } catch (e) { /* silencioso */ }
+}
+
+function waRenderStatus(data) {
+  const status = data.status || 'disconnected';
+  const session = data.session || {};
+  const badge = document.getElementById('waStatusBadge');
+  const detail = document.getElementById('waStatusDetail');
+  const infoGrid = document.getElementById('waInfoGrid');
+  const btnConnect = document.getElementById('btnWaConnect');
+  const btnReconnect = document.getElementById('btnWaReconnect');
+  const btnDisconnect = document.getElementById('btnWaDisconnect');
+
+  const statusMap = {
+    connected:    { cls: 'connected',    label: 'Conectado' },
+    connecting:   { cls: 'connecting',   label: 'Conectando...' },
+    disconnected: { cls: 'disconnected', label: 'Desconectado' },
+    error:        { cls: 'error',        label: 'Erro' }
+  };
+  const s = statusMap[status] || statusMap.disconnected;
+  badge.className = 'status-badge ' + s.cls;
+  badge.textContent = s.label;
+
+  if (!data.configured) {
+    detail.textContent = 'Configure EVOLUTION_API_URL e EVOLUTION_API_KEY no .env do servidor para usar esta funcionalidade.';
+  } else {
+    detail.textContent = '';
+  }
+
+  if (status === 'connected' && session.phone_number) {
+    infoGrid.style.display = 'grid';
+    document.getElementById('waPhone').textContent = session.phone_number || '—';
+    document.getElementById('waProfile').textContent = session.profile_name || '—';
+    document.getElementById('waConnectedAt').textContent = session.connected_at ? new Date(session.connected_at).toLocaleString('pt-BR') : '—';
+    document.getElementById('waLastActivity').textContent = session.last_activity ? new Date(session.last_activity).toLocaleString('pt-BR') : '—';
+  } else {
+    infoGrid.style.display = 'none';
+  }
+
+  btnConnect.style.display   = status === 'disconnected' ? '' : 'none';
+  btnReconnect.style.display = status !== 'disconnected' ? '' : 'none';
+  btnDisconnect.style.display= status !== 'disconnected' ? '' : 'none';
+}
+
+async function waConnect() {
+  document.getElementById('btnWaConnect').disabled = true;
+  document.getElementById('btnWaConnect').textContent = 'Conectando...';
+  try {
+    const data = await apiFetch('/whatsapp/connect', { method: 'POST' });
+    if (!data) return;
+    if (!data.success) { toast(data.error || 'Erro ao conectar', 'error'); return; }
+    waShowQRModal(data.qrCode);
+  } catch (e) {
+    toast('Erro de conexao', 'error');
+  } finally {
+    document.getElementById('btnWaConnect').disabled = false;
+    document.getElementById('btnWaConnect').textContent = 'Conectar WhatsApp';
+  }
+}
+
+async function waReconnect() {
+  try {
+    const data = await apiFetch('/whatsapp/reconnect', { method: 'POST' });
+    if (!data?.success) { toast(data?.error || 'Erro ao reconectar', 'error'); return; }
+    waShowQRModal(data.qrCode);
+  } catch (e) { toast('Erro de conexao', 'error'); }
+}
+
+async function waDisconnect() {
+  if (!confirm('Desconectar o WhatsApp? Voce tera que escanear o QR Code novamente para reconectar.')) return;
+  try {
+    await apiFetch('/whatsapp/disconnect', { method: 'POST' });
+    toast('WhatsApp desconectado', 'success');
+    waLoadStatus();
+  } catch (e) { toast('Erro ao desconectar', 'error'); }
+}
+
+function waShowQRModal(initialQR) {
+  const overlay = document.createElement('div');
+  overlay.className = 'qr-modal-overlay';
+  overlay.id = 'qrModalOverlay';
+  overlay.innerHTML = `
+    <div class="qr-modal">
+      <h3>Conectar WhatsApp</h3>
+      <p>Abra o WhatsApp no celular e escaneie o QR Code abaixo.</p>
+      <div class="qr-box" id="qrBox">
+        ${initialQR
+          ? `<img id="qrImg" src="${initialQR.startsWith('data:') ? initialQR : 'data:image/png;base64,' + initialQR}" alt="QR Code">`
+          : '<div class="qr-spinner"></div>'}
+      </div>
+      <p class="qr-step"><strong>1.</strong> Abra o WhatsApp no celular</p>
+      <p class="qr-step"><strong>2.</strong> Acesse Dispositivos Conectados (ou Aparelhos Conectados)</p>
+      <p class="qr-step"><strong>3.</strong> Toque em "Conectar dispositivo" e escaneie</p>
+      <p id="qrStatus" style="font-size:12px;color:var(--text-muted);margin-top:12px;"></p>
+      <button class="integ-actions btn-secondary-sm" style="margin-top:16px;padding:9px 20px;" onclick="waCloseQRModal()">Fechar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Polling: atualiza QR a cada 8s e verifica conexao a cada 3s
+  let pollCount = 0;
+  waPollingInterval = setInterval(async () => {
+    pollCount++;
+    try {
+      const status = await apiFetch('/whatsapp/status');
+      if (status?.status === 'connected') {
+        clearInterval(waPollingInterval);
+        document.getElementById('qrStatus').textContent = 'WhatsApp conectado com sucesso!';
+        document.getElementById('qrStatus').style.color = '#22c55e';
+        setTimeout(() => { waCloseQRModal(); waLoadStatus(); }, 1500);
+        return;
+      }
+      if (pollCount % 3 === 0) {
+        const qrData = await apiFetch('/whatsapp/qrcode');
+        if (qrData?.qrCode) {
+          const box = document.getElementById('qrBox');
+          if (box) {
+            const src = qrData.qrCode.startsWith('data:') ? qrData.qrCode : 'data:image/png;base64,' + qrData.qrCode;
+            box.innerHTML = `<img id="qrImg" src="${src}" alt="QR Code">`;
+          }
+        }
+      }
+      if (pollCount > 60) { clearInterval(waPollingInterval); document.getElementById('qrStatus').textContent = 'QR Code expirado. Feche e tente novamente.'; }
+    } catch {}
+  }, 3000);
+}
+
+function waCloseQRModal() {
+  clearInterval(waPollingInterval);
+  const el = document.getElementById('qrModalOverlay');
+  if (el) el.remove();
+  waLoadStatus();
+}
+
+// ── Assistente IA ─────────────────────────────────────────
+async function aiLoadConfig() {
+  try {
+    const data = await apiFetch('/ai-assistant');
+    if (!data?.success) return;
+    const c = data.config;
+    document.getElementById('aiActiveToggle').checked = !!c.is_active;
+    document.getElementById('aiToggleSub').textContent = c.is_active ? 'IA ativada' : 'IA desativada';
+    document.getElementById('aiProvider').value = c.ai_provider || 'openai';
+    aiProviderChanged();
+    document.getElementById('aiModel').value = c.ai_model || 'gpt-4o-mini';
+    document.getElementById('aiAssistantName').value = c.assistant_name || '';
+    document.getElementById('aiTemperature').value = c.temperature ?? 0.7;
+    document.getElementById('aiServiceStart').value = c.service_hours_start || '08:00';
+    document.getElementById('aiServiceEnd').value = c.service_hours_end || '18:00';
+    document.getElementById('aiResponseDelay').value = c.response_delay_seconds ?? 2;
+    document.getElementById('aiHumanKeyword').value = c.human_transfer_keyword || '';
+    document.getElementById('aiAwayMessage').value = c.away_message || '';
+    document.getElementById('aiSystemPrompt').value = c.system_prompt || '';
+    document.getElementById('aiApiKeyHint').textContent = c.has_api_key
+      ? 'Chave configurada. Deixe vazio para manter a atual ou preencha para substituir.'
+      : 'A chave e criptografada e nunca exposta. Salve para atualizar.';
+  } catch {}
+}
+
+function aiProviderChanged() {
+  const provider = document.getElementById('aiProvider').value;
+  const modelSel = document.getElementById('aiModel');
+  const currentVal = modelSel.value;
+  const openaiModels = ['gpt-4o-mini','gpt-4o'];
+  const anthropicModels = ['claude-haiku-4-5-20251001','claude-sonnet-4-6'];
+  const models = provider === 'anthropic' ? anthropicModels : openaiModels;
+  modelSel.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+  if (models.includes(currentVal)) modelSel.value = currentVal;
+}
+
+function aiToggle(active) {
+  document.getElementById('aiToggleSub').textContent = active ? 'IA ativada' : 'IA desativada';
+  apiFetch('/ai-assistant/toggle', { method: 'POST', body: JSON.stringify({ active }) })
+    .then(d => { if (d?.success) toast(active ? 'IA ativada' : 'IA desativada', 'success'); });
+}
+
+function aiToggleKeyVisibility() {
+  const input = document.getElementById('aiApiKey');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function aiSaveConfig() {
+  const body = {
+    is_active: document.getElementById('aiActiveToggle').checked,
+    ai_provider: document.getElementById('aiProvider').value,
+    ai_model: document.getElementById('aiModel').value,
+    assistant_name: document.getElementById('aiAssistantName').value,
+    temperature: parseFloat(document.getElementById('aiTemperature').value),
+    service_hours_start: document.getElementById('aiServiceStart').value,
+    service_hours_end: document.getElementById('aiServiceEnd').value,
+    service_days: ['monday','tuesday','wednesday','thursday','friday'],
+    away_message: document.getElementById('aiAwayMessage').value,
+    human_transfer_keyword: document.getElementById('aiHumanKeyword').value,
+    response_delay_seconds: parseInt(document.getElementById('aiResponseDelay').value),
+    system_prompt: document.getElementById('aiSystemPrompt').value
+  };
+  const apiKey = document.getElementById('aiApiKey').value;
+  if (apiKey) body.api_key = apiKey;
+  const data = await apiFetch('/ai-assistant', { method: 'PUT', body: JSON.stringify(body) });
+  if (data?.success) {
+    toast('Configuracao salva!', 'success');
+    document.getElementById('aiApiKey').value = '';
+    aiLoadConfig();
+  } else {
+    toast(data?.error || 'Erro ao salvar', 'error');
+  }
+}
+
+async function aiTestMessage() {
+  const msg = prompt('Digite uma mensagem de teste para a IA:');
+  if (!msg) return;
+  const out = document.getElementById('aiTestOutput');
+  const resp = document.getElementById('aiTestResponse');
+  out.style.display = 'block';
+  resp.textContent = 'Aguardando resposta da IA...';
+  try {
+    const data = await apiFetch('/ai-assistant/test', { method: 'POST', body: JSON.stringify({ message: msg }) });
+    if (data?.success) { resp.textContent = data.response; }
+    else { resp.textContent = 'Erro: ' + (data?.error || 'desconhecido'); }
+  } catch { resp.textContent = 'Erro de conexao.'; }
+}
+
+// ── Integracoes Externas ──────────────────────────────────
+let extList = [];
+
+async function extLoadList() {
+  try {
+    const data = await apiFetch('/external-integrations');
+    if (!data?.success) return;
+    extList = data.integrations || [];
+    extRenderTable();
+  } catch {}
+}
+
+function extRenderTable() {
+  const tbody = document.getElementById('extTableBody');
+  if (!extList.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhuma integracao cadastrada</td></tr>';
+    return;
+  }
+  const typeLabels = { webhook:'Webhook', n8n:'n8n', crm:'CRM', whatsapp_api:'WhatsApp API', ia_externa:'IA Externa', outro:'Outro' };
+  const statusLabels = { active:'Ativo', inactive:'Inativo', error:'Erro' };
+  const statusColors = { active:'#22c55e', inactive:'#94a3b8', error:'#ef4444' };
+  tbody.innerHTML = extList.map(i => `
+    <tr>
+      <td style="font-weight:600;">${i.integration_name}</td>
+      <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);">${typeLabels[i.type] || i.type}</span></td>
+      <td><span style="font-size:11px;font-weight:600;color:${statusColors[i.status] || '#94a3b8'}">${statusLabels[i.status] || i.status}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="integ-actions btn-secondary-sm" style="padding:5px 10px;font-size:11px;" onclick="extEdit(${i.id})">Editar</button>
+        <button class="integ-actions btn-secondary-sm" style="padding:5px 10px;font-size:11px;margin-left:4px;" onclick="extTest(${i.id})">Testar</button>
+        <button class="integ-actions btn-danger" style="padding:5px 10px;font-size:11px;margin-left:4px;" onclick="extDelete(${i.id})">Remover</button>
+      </td>
+    </tr>`).join('');
+}
+
+function extShowForm(clear = true) {
+  if (clear) {
+    document.getElementById('extEditId').value = '';
+    document.getElementById('extFormTitle').textContent = 'Nova integracao';
+    document.getElementById('extName').value = '';
+    document.getElementById('extType').value = 'webhook';
+    document.getElementById('extApiUrl').value = '';
+    document.getElementById('extWebhookUrl').value = '';
+    document.getElementById('extApiKey').value = '';
+  }
+  document.getElementById('extForm').style.display = 'block';
+}
+
+function extHideForm() {
+  document.getElementById('extForm').style.display = 'none';
+}
+
+function extEdit(id) {
+  const item = extList.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('extEditId').value = id;
+  document.getElementById('extFormTitle').textContent = 'Editar integracao';
+  document.getElementById('extName').value = item.integration_name;
+  document.getElementById('extType').value = item.type;
+  document.getElementById('extApiUrl').value = item.api_url || '';
+  document.getElementById('extWebhookUrl').value = item.webhook_url || '';
+  document.getElementById('extApiKey').value = '';
+  extShowForm(false);
+}
+
+async function extSave() {
+  const id = document.getElementById('extEditId').value;
+  const body = {
+    integration_name: document.getElementById('extName').value,
+    type: document.getElementById('extType').value,
+    api_url: document.getElementById('extApiUrl').value || null,
+    webhook_url: document.getElementById('extWebhookUrl').value || null
+  };
+  const apiKey = document.getElementById('extApiKey').value;
+  if (apiKey) body.api_key = apiKey;
+
+  if (!body.integration_name) { toast('Nome e obrigatorio', 'error'); return; }
+
+  const path = id ? `/external-integrations/${id}` : '/external-integrations';
+  const method = id ? 'PUT' : 'POST';
+  const data = await apiFetch(path, { method, body: JSON.stringify(body) });
+  if (data?.success) {
+    toast(id ? 'Integracao atualizada!' : 'Integracao criada!', 'success');
+    extHideForm();
+    extLoadList();
+  } else {
+    toast(data?.error || 'Erro ao salvar', 'error');
+  }
+}
+
+async function extTest(id) {
+  const data = await apiFetch(`/external-integrations/${id}/test`, { method: 'POST' });
+  if (data?.success) toast('Conexao testada com sucesso! Status HTTP: ' + data.httpStatus, 'success');
+  else toast('Falha: ' + (data?.detail || data?.error || 'erro desconhecido'), 'error');
+}
+
+async function extDelete(id) {
+  if (!confirm('Remover esta integracao?')) return;
+  const data = await apiFetch(`/external-integrations/${id}`, { method: 'DELETE' });
+  if (data?.success) { toast('Integracao removida', 'success'); extLoadList(); }
+  else toast(data?.error || 'Erro ao remover', 'error');
+}
 
 // ── Tab navigation ────────────────────────────────────────
 function switchTab(name, btn) {

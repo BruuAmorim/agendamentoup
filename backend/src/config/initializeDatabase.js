@@ -75,6 +75,10 @@ async function runMigrations(dialect) {
   await autoCreateTenants(dialect);
   await migrateCompanyServices(dialect);
   await migrateIntegrations(dialect);
+  await migrateWhatsAppSessions(dialect);
+  await migrateExternalIntegrations(dialect);
+  await migrateAIAssistantConfig(dialect);
+  await migrateWhatsAppMessageLogs(dialect);
   await migrateIndexes(dialect);
 
   if (dialect === 'sqlite') {
@@ -907,6 +911,188 @@ async function migrateIntegrations(dialect) {
     console.log('[integrations] Tabela verificada/migrada');
   } catch (e) {
     console.warn('[integrations] Erro na migration:', e.message);
+  }
+}
+
+async function migrateWhatsAppSessions(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL UNIQUE,
+          instance_name TEXT NOT NULL,
+          phone_number TEXT,
+          profile_name TEXT,
+          status TEXT DEFAULT 'disconnected',
+          qr_code TEXT,
+          connected_at TEXT,
+          last_activity TEXT,
+          evolution_data TEXT DEFAULT '{}',
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          instance_name VARCHAR(100) NOT NULL,
+          phone_number VARCHAR(30),
+          profile_name VARCHAR(255),
+          status VARCHAR(30) DEFAULT 'disconnected',
+          qr_code TEXT,
+          connected_at TIMESTAMP WITH TIME ZONE,
+          last_activity TIMESTAMP WITH TIME ZONE,
+          evolution_data JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela whatsapp_sessions criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar whatsapp_sessions:', e.message);
+  }
+}
+
+async function migrateExternalIntegrations(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS external_integrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL,
+          integration_name TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'webhook',
+          api_url TEXT,
+          api_key TEXT,
+          webhook_url TEXT,
+          status TEXT DEFAULT 'inactive',
+          config TEXT DEFAULT '{}',
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS external_integrations (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          integration_name VARCHAR(255) NOT NULL,
+          type VARCHAR(50) NOT NULL DEFAULT 'webhook',
+          api_url TEXT,
+          api_key TEXT,
+          webhook_url TEXT,
+          status VARCHAR(20) DEFAULT 'inactive',
+          config JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela external_integrations criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar external_integrations:', e.message);
+  }
+}
+
+async function migrateAIAssistantConfig(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS ai_assistant_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL UNIQUE,
+          is_active INTEGER DEFAULT 0,
+          ai_provider TEXT DEFAULT 'openai',
+          ai_model TEXT DEFAULT 'gpt-4o-mini',
+          api_key_encrypted TEXT,
+          assistant_name TEXT DEFAULT 'Assistente',
+          system_prompt TEXT,
+          temperature REAL DEFAULT 0.7,
+          service_hours_start TEXT DEFAULT '08:00',
+          service_hours_end TEXT DEFAULT '18:00',
+          service_days TEXT DEFAULT '["monday","tuesday","wednesday","thursday","friday"]',
+          away_message TEXT DEFAULT 'No momento não estou disponível. Retorno em breve!',
+          human_transfer_keyword TEXT DEFAULT 'falar com atendente',
+          response_delay_seconds INTEGER DEFAULT 2,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS ai_assistant_config (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          is_active BOOLEAN DEFAULT FALSE,
+          ai_provider VARCHAR(50) DEFAULT 'openai',
+          ai_model VARCHAR(100) DEFAULT 'gpt-4o-mini',
+          api_key_encrypted TEXT,
+          assistant_name VARCHAR(255) DEFAULT 'Assistente',
+          system_prompt TEXT,
+          temperature DECIMAL(3,2) DEFAULT 0.7,
+          service_hours_start VARCHAR(5) DEFAULT '08:00',
+          service_hours_end VARCHAR(5) DEFAULT '18:00',
+          service_days JSONB DEFAULT '["monday","tuesday","wednesday","thursday","friday"]'::jsonb,
+          away_message TEXT DEFAULT 'No momento não estou disponível. Retorno em breve!',
+          human_transfer_keyword VARCHAR(255) DEFAULT 'falar com atendente',
+          response_delay_seconds INTEGER DEFAULT 2,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
+    console.log('✅ Tabela ai_assistant_config criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar ai_assistant_config:', e.message);
+  }
+}
+
+async function migrateWhatsAppMessageLogs(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_message_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL,
+          message_id TEXT,
+          from_number TEXT,
+          to_number TEXT,
+          message_type TEXT DEFAULT 'text',
+          content TEXT,
+          direction TEXT DEFAULT 'inbound',
+          status TEXT DEFAULT 'received',
+          ai_processed INTEGER DEFAULT 0,
+          ai_response TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+      await query('CREATE INDEX IF NOT EXISTS idx_wa_logs_empresa ON whatsapp_message_logs (empresa_id)', []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_message_logs (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          message_id VARCHAR(255),
+          from_number VARCHAR(30),
+          to_number VARCHAR(30),
+          message_type VARCHAR(30) DEFAULT 'text',
+          content TEXT,
+          direction VARCHAR(20) DEFAULT 'inbound',
+          status VARCHAR(30) DEFAULT 'received',
+          ai_processed BOOLEAN DEFAULT FALSE,
+          ai_response TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+      await query('CREATE INDEX IF NOT EXISTS idx_wa_logs_empresa ON whatsapp_message_logs (empresa_id)', []);
+    }
+    console.log('✅ Tabela whatsapp_message_logs criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar whatsapp_message_logs:', e.message);
   }
 }
 
