@@ -1,4 +1,5 @@
 const aiService = require('../services/aiAssistantService');
+const builtinAI = require('../services/builtinAIService');
 const { query } = require('../config/database');
 
 function getEmpresaId(req) {
@@ -19,6 +20,9 @@ class AIAssistantController {
           success: true,
           config: {
             is_active: false,
+            use_builtin_ai: true,
+            prompt_mode: 'auto',
+            greeting_message: '',
             ai_provider: 'openai',
             ai_model: 'gpt-4o-mini',
             assistant_name: 'Assistente',
@@ -45,6 +49,9 @@ class AIAssistantController {
         config: {
           ...config,
           service_days: serviceDays,
+          use_builtin_ai: config.use_builtin_ai !== undefined ? !!config.use_builtin_ai : true,
+          prompt_mode: config.prompt_mode || 'auto',
+          greeting_message: config.greeting_message || '',
           api_key_encrypted: undefined,
           has_api_key: !!config.api_key_encrypted
         }
@@ -58,7 +65,8 @@ class AIAssistantController {
     try {
       const empresaId = getEmpresaId(req);
       const {
-        is_active, ai_provider, ai_model, api_key,
+        is_active, use_builtin_ai, prompt_mode, greeting_message,
+        ai_provider, ai_model, api_key,
         assistant_name, system_prompt, temperature,
         service_hours_start, service_hours_end, service_days,
         away_message, human_transfer_keyword, response_delay_seconds
@@ -77,7 +85,8 @@ class AIAssistantController {
       const now = new Date().toISOString();
 
       if (!existing) {
-        const cols = ['empresa_id', 'is_active', 'ai_provider', 'ai_model', 'assistant_name',
+        const cols = ['empresa_id', 'is_active', 'use_builtin_ai', 'prompt_mode', 'greeting_message',
+          'ai_provider', 'ai_model', 'assistant_name',
           'system_prompt', 'temperature', 'service_hours_start', 'service_hours_end',
           'service_days', 'away_message', 'human_transfer_keyword', 'response_delay_seconds',
           'created_at', 'updated_at'];
@@ -85,6 +94,9 @@ class AIAssistantController {
         const vals = [
           empresaId,
           is_active ? 1 : 0,
+          use_builtin_ai !== undefined ? (use_builtin_ai ? 1 : 0) : 1,
+          prompt_mode || 'auto',
+          greeting_message || null,
           ai_provider || 'openai',
           ai_model || 'gpt-4o-mini',
           assistant_name || 'Assistente',
@@ -114,6 +126,9 @@ class AIAssistantController {
         const set = (col, val) => { if (val !== undefined) { fields.push(`${col} = $${p++}`); vals.push(val); } };
 
         if (is_active !== undefined) set('is_active', is_active ? 1 : 0);
+        if (use_builtin_ai !== undefined) set('use_builtin_ai', use_builtin_ai ? 1 : 0);
+        set('prompt_mode', prompt_mode);
+        if (greeting_message !== undefined) set('greeting_message', greeting_message || null);
         set('ai_provider', ai_provider);
         set('ai_model', ai_model);
         set('assistant_name', assistant_name);
@@ -182,6 +197,29 @@ class AIAssistantController {
         message: active ? 'Assistente IA ativado' : 'Assistente IA desativado',
         active: !!active
       });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async simulate(req, res) {
+    try {
+      const empresaId = getEmpresaId(req);
+      const { message } = req.body;
+      if (!message) return res.status(400).json({ success: false, error: 'message é obrigatório' });
+
+      const result = await builtinAI.simulateMessage(empresaId, message);
+      res.json({ success: true, response: result?.response || null, state: result?.state || null });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async simulateReset(req, res) {
+    try {
+      const empresaId = getEmpresaId(req);
+      await builtinAI.resetTestConversation(empresaId);
+      res.json({ success: true, message: 'Conversa de teste reiniciada' });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }

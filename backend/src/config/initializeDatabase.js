@@ -79,6 +79,7 @@ async function runMigrations(dialect) {
   await migrateExternalIntegrations(dialect);
   await migrateAIAssistantConfig(dialect);
   await migrateWhatsAppMessageLogs(dialect);
+  await migrateWhatsAppConversations(dialect);
   await migrateIndexes(dialect);
 
   if (dialect === 'sqlite') {
@@ -1045,9 +1046,65 @@ async function migrateAIAssistantConfig(dialect) {
         )
       `, []);
     }
+    // Adicionar coluna use_builtin_ai se não existir
+    if (dialect === 'sqlite') {
+      try {
+        const cols = (await query('PRAGMA table_info(ai_assistant_config)', [])).rows.map(c => c.name);
+        if (!cols.includes('use_builtin_ai')) {
+          await query('ALTER TABLE ai_assistant_config ADD COLUMN use_builtin_ai INTEGER DEFAULT 1', []);
+        }
+        if (!cols.includes('greeting_message')) {
+          await query(`ALTER TABLE ai_assistant_config ADD COLUMN greeting_message TEXT DEFAULT 'Olá! Sou o assistente virtual. Como posso ajudar?'`, []);
+        }
+        if (!cols.includes('prompt_mode')) {
+          await query(`ALTER TABLE ai_assistant_config ADD COLUMN prompt_mode TEXT DEFAULT 'auto'`, []);
+        }
+      } catch {}
+    } else {
+      await query(`ALTER TABLE ai_assistant_config ADD COLUMN IF NOT EXISTS use_builtin_ai BOOLEAN DEFAULT TRUE`, []);
+      await query(`ALTER TABLE ai_assistant_config ADD COLUMN IF NOT EXISTS greeting_message TEXT DEFAULT 'Olá! Sou o assistente virtual. Como posso ajudar?'`, []);
+      await query(`ALTER TABLE ai_assistant_config ADD COLUMN IF NOT EXISTS prompt_mode VARCHAR(10) DEFAULT 'auto'`, []);
+    }
     console.log('✅ Tabela ai_assistant_config criada/verificada');
   } catch (e) {
     console.warn('⚠️ Erro ao criar ai_assistant_config:', e.message);
+  }
+}
+
+async function migrateWhatsAppConversations(dialect) {
+  try {
+    if (dialect === 'sqlite') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          empresa_id INTEGER NOT NULL,
+          phone_number TEXT NOT NULL,
+          state TEXT DEFAULT 'idle',
+          context_data TEXT DEFAULT '{}',
+          last_message_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(empresa_id, phone_number)
+        )
+      `, []);
+    } else {
+      await query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_conversations (
+          id SERIAL PRIMARY KEY,
+          empresa_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          phone_number VARCHAR(30) NOT NULL,
+          state VARCHAR(50) DEFAULT 'idle',
+          context_data JSONB DEFAULT '{}'::jsonb,
+          last_message_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(empresa_id, phone_number)
+        )
+      `, []);
+    }
+    console.log('✅ Tabela whatsapp_conversations criada/verificada');
+  } catch (e) {
+    console.warn('⚠️ Erro ao criar whatsapp_conversations:', e.message);
   }
 }
 

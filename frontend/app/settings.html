@@ -333,6 +333,9 @@
     /* AI Assistant */
     .ai-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     .ai-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--bg); border-radius: 10px; margin-bottom: 16px; }
+    .ai-engine-card { border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .ai-engine-card:hover { border-color: var(--primary); }
+    .ai-engine-card.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
     .ai-toggle-row .toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
     .ai-toggle-row .toggle-sub { font-size: 11px; color: var(--text-muted); }
     .toggle-switch {
@@ -563,11 +566,13 @@
               <div class="integ-card-header">
                 <div class="integ-card-icon purple">🤖</div>
                 <div class="integ-card-meta">
-                  <strong>Respostas automáticas com IA</strong>
-                  <span>A IA responde clientes, agenda consultas e encaminha para humano quando necessário.</span>
+                  <strong>Respostas automaticas com IA</strong>
+                  <span>A IA responde clientes, agenda consultas e encaminha para humano quando necessario.</span>
                 </div>
               </div>
               <div class="integ-card-body">
+
+                <!-- Ativar/desativar -->
                 <div class="ai-toggle-row">
                   <div>
                     <div class="toggle-label">Ativar assistente IA</div>
@@ -578,41 +583,109 @@
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
-                <div class="ai-form-grid">
-                  <div class="form-group">
-                    <label>Provedor de IA</label>
-                    <select id="aiProvider" onchange="aiProviderChanged()">
-                      <option value="openai">OpenAI (GPT)</option>
-                      <option value="anthropic">Anthropic (Claude)</option>
-                    </select>
+
+                <!-- Seletor de motor -->
+                <p style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Motor de IA</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+                  <div id="aiEngineBuiltin" class="ai-engine-card selected" onclick="aiSelectEngine('builtin')">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="font-size:22px;">⚙️</span>
+                      <div>
+                        <div style="font-weight:700;font-size:13px;">IA Interna</div>
+                        <div style="font-size:11px;color:var(--text-muted);">Sem custo — sem API Key</div>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;color:#22c55e;font-weight:600;margin-top:8px;">Incluida no sistema</div>
                   </div>
-                  <div class="form-group">
-                    <label>Modelo</label>
-                    <select id="aiModel">
-                      <option value="gpt-4o-mini">GPT-4o Mini (rápido)</option>
-                      <option value="gpt-4o">GPT-4o (avançado)</option>
-                      <option value="claude-haiku-4-5-20251001">Claude Haiku (rápido)</option>
-                      <option value="claude-sonnet-4-6">Claude Sonnet (avançado)</option>
-                    </select>
+                  <div id="aiEngineExternal" class="ai-engine-card" onclick="aiSelectEngine('external')">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="font-size:22px;">🌐</span>
+                      <div>
+                        <div style="font-weight:700;font-size:13px;">IA Externa</div>
+                        <div style="font-size:11px;color:var(--text-muted);">OpenAI / Anthropic</div>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Requer API Key paga</div>
                   </div>
                 </div>
-                <div class="form-group" style="margin-bottom:14px;">
-                  <label>API Key do provedor <span style="color:#dc2626;">*</span></label>
-                  <div style="display:flex;gap:8px;">
-                    <input type="password" id="aiApiKey" placeholder="sk-... ou claude-api-key" style="flex:1;">
-                    <button class="integ-actions btn-secondary-sm" style="padding:8px 14px;white-space:nowrap;" onclick="aiToggleKeyVisibility()">Mostrar</button>
+
+                <!-- Configuracoes da IA Interna -->
+                <div id="aiBuiltinSection">
+                  <div class="ai-form-grid">
+                    <div class="form-group">
+                      <label>Nome do assistente</label>
+                      <input type="text" id="aiAssistantName" placeholder="Ex: Ana">
+                    </div>
+                    <div class="form-group">
+                      <label>Mensagem de boas-vindas</label>
+                      <input type="text" id="aiGreetingMessage" placeholder="Ola! Como posso ajudar?">
+                    </div>
                   </div>
-                  <p style="font-size:11px;color:var(--text-muted);margin-top:5px;" id="aiApiKeyHint">A chave é criptografada e nunca exposta. Salve para atualizar.</p>
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label>Modo do prompt</label>
+                    <div style="display:flex;gap:10px;margin-top:6px;">
+                      <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                        <input type="radio" name="aiPromptMode" value="auto" id="aiPromptAuto" onchange="aiPromptModeChanged()" checked>
+                        <span>Automatico <span style="font-size:11px;color:var(--text-muted);">(gerado com dados da empresa)</span></span>
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                        <input type="radio" name="aiPromptMode" value="manual" id="aiPromptManual" onchange="aiPromptModeChanged()">
+                        <span>Manual</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div id="aiManualPromptWrap" style="display:none;" class="form-group" style="margin-bottom:18px;">
+                    <label>Prompt do sistema</label>
+                    <textarea id="aiSystemPrompt" rows="5" placeholder="Voce e [nome] da [empresa]. Sua funcao e..." style="width:100%;resize:vertical;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;"></textarea>
+                  </div>
                 </div>
+
+                <!-- Configuracoes da IA Externa -->
+                <div id="aiExternalSection" style="display:none;">
+                  <div class="ai-form-grid">
+                    <div class="form-group">
+                      <label>Provedor de IA</label>
+                      <select id="aiProvider" onchange="aiProviderChanged()">
+                        <option value="openai">OpenAI (GPT)</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Modelo</label>
+                      <select id="aiModel">
+                        <option value="gpt-4o-mini">GPT-4o Mini (rapido)</option>
+                        <option value="gpt-4o">GPT-4o (avancado)</option>
+                        <option value="claude-haiku-4-5-20251001">Claude Haiku (rapido)</option>
+                        <option value="claude-sonnet-4-6">Claude Sonnet (avancado)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label>API Key do provedor <span style="color:#dc2626;">*</span></label>
+                    <div style="display:flex;gap:8px;">
+                      <input type="password" id="aiApiKey" placeholder="sk-... ou claude-api-key" style="flex:1;">
+                      <button class="integ-actions btn-secondary-sm" style="padding:8px 14px;white-space:nowrap;" onclick="aiToggleKeyVisibility()">Mostrar</button>
+                    </div>
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:5px;" id="aiApiKeyHint">A chave e criptografada e nunca exposta. Salve para atualizar.</p>
+                  </div>
+                  <div class="ai-form-grid">
+                    <div class="form-group">
+                      <label>Nome do assistente</label>
+                      <input type="text" id="aiAssistantNameExt" placeholder="Ex: Ana">
+                    </div>
+                    <div class="form-group">
+                      <label>Temperatura (criatividade)</label>
+                      <input type="number" id="aiTemperature" min="0" max="1" step="0.1" value="0.7">
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-bottom:18px;">
+                    <label>Prompt do sistema <span style="font-size:11px;color:var(--text-muted);">(deixe vazio para gerar automaticamente)</span></label>
+                    <textarea id="aiSystemPromptExt" rows="4" placeholder="Voce e o assistente virtual da [empresa]..." style="width:100%;resize:vertical;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;"></textarea>
+                  </div>
+                </div>
+
+                <!-- Configuracoes comuns -->
                 <div class="ai-form-grid">
-                  <div class="form-group">
-                    <label>Nome do assistente</label>
-                    <input type="text" id="aiAssistantName" placeholder="Ex: Ana">
-                  </div>
-                  <div class="form-group">
-                    <label>Temperatura (criatividade)</label>
-                    <input type="number" id="aiTemperature" min="0" max="1" step="0.1" value="0.7">
-                  </div>
                   <div class="form-group">
                     <label>Horario de atendimento — inicio</label>
                     <input type="time" id="aiServiceStart" value="08:00">
@@ -622,7 +695,7 @@
                     <input type="time" id="aiServiceEnd" value="18:00">
                   </div>
                   <div class="form-group">
-                    <label>Delay de resposta (seg)</label>
+                    <label>Delay de resposta (segundos)</label>
                     <input type="number" id="aiResponseDelay" min="0" max="30" value="2">
                   </div>
                   <div class="form-group">
@@ -630,19 +703,34 @@
                     <input type="text" id="aiHumanKeyword" placeholder="falar com atendente">
                   </div>
                 </div>
-                <div class="form-group" style="margin-bottom:14px;">
-                  <label>Mensagem de ausencia</label>
+                <div class="form-group" style="margin-bottom:18px;">
+                  <label>Mensagem de ausencia (fora do horario)</label>
                   <input type="text" id="aiAwayMessage" placeholder="No momento nao estou disponivel...">
                 </div>
-                <div class="form-group" style="margin-bottom:18px;">
-                  <label>Prompt do sistema <span style="font-size:11px;color:var(--text-muted);">(deixe vazio para gerar automaticamente)</span></label>
-                  <textarea id="aiSystemPrompt" rows="4" placeholder="Voce e o assistente virtual da [empresa]..." style="width:100%;resize:vertical;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;"></textarea>
-                </div>
+
+                <!-- Botoes de acao -->
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                   <button class="btn btn-primary" onclick="aiSaveConfig()">Salvar configuracao</button>
-                  <button class="integ-actions btn-secondary-sm" style="padding:9px 16px;" onclick="aiTestMessage()">Testar IA</button>
+                  <button id="aiSimulateBtn" class="integ-actions btn-secondary-sm" style="padding:9px 16px;" onclick="aiOpenSimulator()">Simular conversa</button>
+                  <button id="aiTestBtn" class="integ-actions btn-secondary-sm" style="padding:9px 16px;display:none;" onclick="aiTestMessage()">Testar IA</button>
                 </div>
-                <!-- Test output -->
+
+                <!-- Simulador de conversa (builtin) -->
+                <div id="aiSimulator" style="display:none;margin-top:18px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;">
+                  <div style="background:var(--bg);padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Simulador de conversa</span>
+                    <button onclick="aiSimulatorReset()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);cursor:pointer;">Reiniciar</button>
+                  </div>
+                  <div id="aiSimMessages" style="height:240px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:var(--surface);">
+                    <div style="text-align:center;color:var(--text-muted);font-size:12px;">Envie uma mensagem para comecar</div>
+                  </div>
+                  <div style="padding:12px 14px;background:var(--bg);border-top:1px solid var(--border);display:flex;gap:8px;">
+                    <input type="text" id="aiSimInput" placeholder="Digite sua mensagem..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);" onkeydown="if(event.key==='Enter')aiSimSend()">
+                    <button onclick="aiSimSend()" class="btn btn-primary" style="padding:8px 16px;font-size:13px;white-space:nowrap;">Enviar</button>
+                  </div>
+                </div>
+
+                <!-- Resposta de teste (external) -->
                 <div id="aiTestOutput" style="display:none;margin-top:16px;padding:14px 16px;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;">
                   <p style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">Resposta da IA</p>
                   <p id="aiTestResponse" style="font-size:13px;color:var(--text);white-space:pre-wrap;margin:0;"></p>
@@ -1000,6 +1088,8 @@ function waCloseQRModal() {
 }
 
 // ── Assistente IA ─────────────────────────────────────────
+let _aiUseBuiltin = true;
+
 async function aiLoadConfig() {
   try {
     const data = await apiFetch('/ai-assistant');
@@ -1007,21 +1097,57 @@ async function aiLoadConfig() {
     const c = data.config;
     document.getElementById('aiActiveToggle').checked = !!c.is_active;
     document.getElementById('aiToggleSub').textContent = c.is_active ? 'IA ativada' : 'IA desativada';
+
+    _aiUseBuiltin = c.use_builtin_ai !== false;
+    aiSelectEngine(_aiUseBuiltin ? 'builtin' : 'external', true);
+
+    // Builtin fields
+    document.getElementById('aiAssistantName').value = c.assistant_name || '';
+    document.getElementById('aiGreetingMessage').value = c.greeting_message || '';
+    const mode = c.prompt_mode || 'auto';
+    document.getElementById(mode === 'manual' ? 'aiPromptManual' : 'aiPromptAuto').checked = true;
+    document.getElementById('aiManualPromptWrap').style.display = mode === 'manual' ? '' : 'none';
+    document.getElementById('aiSystemPrompt').value = c.system_prompt || '';
+
+    // External fields
     document.getElementById('aiProvider').value = c.ai_provider || 'openai';
     aiProviderChanged();
     document.getElementById('aiModel').value = c.ai_model || 'gpt-4o-mini';
-    document.getElementById('aiAssistantName').value = c.assistant_name || '';
+    document.getElementById('aiAssistantNameExt').value = c.assistant_name || '';
     document.getElementById('aiTemperature').value = c.temperature ?? 0.7;
+    document.getElementById('aiSystemPromptExt').value = c.system_prompt || '';
+    if (document.getElementById('aiApiKeyHint')) {
+      document.getElementById('aiApiKeyHint').textContent = c.has_api_key
+        ? 'Chave configurada. Deixe vazio para manter a atual ou preencha para substituir.'
+        : 'A chave e criptografada e nunca exposta. Salve para atualizar.';
+    }
+
+    // Common
     document.getElementById('aiServiceStart').value = c.service_hours_start || '08:00';
     document.getElementById('aiServiceEnd').value = c.service_hours_end || '18:00';
     document.getElementById('aiResponseDelay').value = c.response_delay_seconds ?? 2;
     document.getElementById('aiHumanKeyword').value = c.human_transfer_keyword || '';
     document.getElementById('aiAwayMessage').value = c.away_message || '';
-    document.getElementById('aiSystemPrompt').value = c.system_prompt || '';
-    document.getElementById('aiApiKeyHint').textContent = c.has_api_key
-      ? 'Chave configurada. Deixe vazio para manter a atual ou preencha para substituir.'
-      : 'A chave e criptografada e nunca exposta. Salve para atualizar.';
   } catch {}
+}
+
+function aiSelectEngine(engine, silent) {
+  _aiUseBuiltin = engine === 'builtin';
+  document.getElementById('aiEngineBuiltin').classList.toggle('selected', _aiUseBuiltin);
+  document.getElementById('aiEngineExternal').classList.toggle('selected', !_aiUseBuiltin);
+  document.getElementById('aiBuiltinSection').style.display = _aiUseBuiltin ? '' : 'none';
+  document.getElementById('aiExternalSection').style.display = _aiUseBuiltin ? 'none' : '';
+  document.getElementById('aiSimulateBtn').style.display = _aiUseBuiltin ? '' : 'none';
+  document.getElementById('aiTestBtn').style.display = _aiUseBuiltin ? 'none' : '';
+  if (!_aiUseBuiltin) {
+    document.getElementById('aiSimulator').style.display = 'none';
+    document.getElementById('aiTestOutput').style.display = 'none';
+  }
+}
+
+function aiPromptModeChanged() {
+  const manual = document.getElementById('aiPromptManual').checked;
+  document.getElementById('aiManualPromptWrap').style.display = manual ? '' : 'none';
 }
 
 function aiProviderChanged() {
@@ -1047,30 +1173,93 @@ function aiToggleKeyVisibility() {
 }
 
 async function aiSaveConfig() {
+  const isBuiltin = _aiUseBuiltin;
+  const promptMode = document.querySelector('input[name="aiPromptMode"]:checked')?.value || 'auto';
   const body = {
     is_active: document.getElementById('aiActiveToggle').checked,
+    use_builtin_ai: isBuiltin,
+    prompt_mode: promptMode,
+    greeting_message: document.getElementById('aiGreetingMessage').value,
+    assistant_name: isBuiltin
+      ? document.getElementById('aiAssistantName').value
+      : document.getElementById('aiAssistantNameExt').value,
+    system_prompt: isBuiltin
+      ? (promptMode === 'manual' ? document.getElementById('aiSystemPrompt').value : '')
+      : document.getElementById('aiSystemPromptExt').value,
     ai_provider: document.getElementById('aiProvider').value,
     ai_model: document.getElementById('aiModel').value,
-    assistant_name: document.getElementById('aiAssistantName').value,
     temperature: parseFloat(document.getElementById('aiTemperature').value),
     service_hours_start: document.getElementById('aiServiceStart').value,
     service_hours_end: document.getElementById('aiServiceEnd').value,
     service_days: ['monday','tuesday','wednesday','thursday','friday'],
     away_message: document.getElementById('aiAwayMessage').value,
     human_transfer_keyword: document.getElementById('aiHumanKeyword').value,
-    response_delay_seconds: parseInt(document.getElementById('aiResponseDelay').value),
-    system_prompt: document.getElementById('aiSystemPrompt').value
+    response_delay_seconds: parseInt(document.getElementById('aiResponseDelay').value)
   };
-  const apiKey = document.getElementById('aiApiKey').value;
+  const apiKey = document.getElementById('aiApiKey')?.value;
   if (apiKey) body.api_key = apiKey;
   const data = await apiFetch('/ai-assistant', { method: 'PUT', body: JSON.stringify(body) });
   if (data?.success) {
     toast('Configuracao salva!', 'success');
-    document.getElementById('aiApiKey').value = '';
+    if (document.getElementById('aiApiKey')) document.getElementById('aiApiKey').value = '';
     aiLoadConfig();
   } else {
     toast(data?.error || 'Erro ao salvar', 'error');
   }
+}
+
+// Simulador da IA interna
+function aiOpenSimulator() {
+  const sim = document.getElementById('aiSimulator');
+  sim.style.display = sim.style.display === 'none' ? '' : 'none';
+}
+
+async function aiSimSend() {
+  const input = document.getElementById('aiSimInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  aiSimAppend('user', msg);
+  aiSimAppend('typing', '...');
+  try {
+    const data = await apiFetch('/ai-assistant/simulate', { method: 'POST', body: JSON.stringify({ message: msg }) });
+    aiSimRemoveTyping();
+    if (data?.success && data.response) {
+      aiSimAppend('bot', data.response);
+    } else {
+      aiSimAppend('bot', 'Sem resposta: ' + (data?.error || 'erro desconhecido'));
+    }
+  } catch {
+    aiSimRemoveTyping();
+    aiSimAppend('bot', 'Erro de conexao.');
+  }
+}
+
+function aiSimAppend(role, text) {
+  const wrap = document.getElementById('aiSimMessages');
+  const el = document.createElement('div');
+  el.dataset.simRole = role;
+  if (role === 'typing') {
+    el.id = 'aiSimTyping';
+    el.style.cssText = 'align-self:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:12px 12px 12px 2px;padding:8px 12px;font-size:13px;color:var(--text-muted);';
+  } else if (role === 'user') {
+    el.style.cssText = 'align-self:flex-end;background:var(--primary);color:#fff;border-radius:12px 12px 2px 12px;padding:8px 12px;font-size:13px;max-width:80%;';
+  } else {
+    el.style.cssText = 'align-self:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:12px 12px 12px 2px;padding:8px 12px;font-size:13px;color:var(--text);max-width:80%;white-space:pre-wrap;';
+  }
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function aiSimRemoveTyping() {
+  const t = document.getElementById('aiSimTyping');
+  if (t) t.remove();
+}
+
+async function aiSimulatorReset() {
+  document.getElementById('aiSimMessages').innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;">Conversa reiniciada</div>';
+  await apiFetch('/ai-assistant/simulate/reset', { method: 'POST', body: '{}' });
 }
 
 async function aiTestMessage() {

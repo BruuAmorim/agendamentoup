@@ -113,8 +113,20 @@ async function callAnthropic(config, systemPrompt, userMessage) {
 
 async function processMessage(empresaId, fromNumber, messageText) {
   const config = await getConfig(empresaId);
-
   if (!config || !config.is_active) return null;
+
+  // Route to built-in AI if enabled
+  if (config.use_builtin_ai) {
+    try {
+      const builtin = require('./builtinAIService');
+      return await builtin.processMessage(empresaId, fromNumber, messageText);
+    } catch (err) {
+      console.error('[AI] Erro no motor interno:', err.message);
+      return null;
+    }
+  }
+
+  // External AI path — requires API key
   if (!config.api_key_encrypted) return null;
 
   const transferKeyword = config.human_transfer_keyword || 'falar com atendente';
@@ -158,14 +170,16 @@ async function processMessage(empresaId, fromNumber, messageText) {
 async function testMessage(empresaId, testInput) {
   const config = await getConfig(empresaId);
   if (!config) throw new Error('Assistente IA não configurado');
-  if (!config.api_key_encrypted) throw new Error('API Key não configurada');
 
+  if (config.use_builtin_ai) {
+    const builtin = require('./builtinAIService');
+    return builtin.simulateMessage(empresaId, testInput);
+  }
+
+  if (!config.api_key_encrypted) throw new Error('API Key não configurada');
   const systemPrompt = await buildSystemPrompt(empresaId, config);
   const provider = config.ai_provider || 'openai';
-
-  if (provider === 'anthropic') {
-    return callAnthropic(config, systemPrompt, testInput);
-  }
+  if (provider === 'anthropic') return callAnthropic(config, systemPrompt, testInput);
   return callOpenAI(config, systemPrompt, testInput);
 }
 
