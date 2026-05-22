@@ -25,7 +25,8 @@ class WhatsAppController {
       const result = await baileys.connect(empresaId);
       res.json({ success: true, ...result });
     } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
+      const isServerlessError = err.message?.includes('serverless') || err.message?.includes('Vercel');
+      res.status(isServerlessError ? 503 : 500).json({ success: false, error: err.message, serverless: isServerlessError });
     }
   }
 
