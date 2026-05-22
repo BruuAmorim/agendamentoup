@@ -40,10 +40,10 @@ class N8nAppointmentController {
       const filters = {};
       if (customer_name) filters.customer_name = customer_name;
       if (status) filters.status = status;
-      if (date) filters.date = this.normalizeDate(date);
+      if (date) filters.date = Appointment.normalizeDate(date);
       if (start_date && end_date) {
-        filters.start_date = this.normalizeDate(start_date);
-        filters.end_date = this.normalizeDate(end_date);
+        filters.start_date = Appointment.normalizeDate(start_date);
+        filters.end_date = Appointment.normalizeDate(end_date);
       }
 
       // CRÍTICO: Filtrar apenas agendamentos da empresa especificada
@@ -79,8 +79,8 @@ class N8nAppointmentController {
       
       const payload = {
         ...body,
-        appointment_date: this.normalizeDate(body.appointment_date),
-        appointment_time: this.normalizeTime(body.appointment_time)
+        appointment_date: Appointment.normalizeDate(body.appointment_date),
+        appointment_time: Appointment.normalizeTime(body.appointment_time)
       };
       
       // Remover empresa_id do payload (será passado como userId para create)
@@ -135,8 +135,8 @@ class N8nAppointmentController {
       // Remover empresa_id do payload (não deve ser atualizado)
       delete payload.empresa_id;
       
-      if (payload.appointment_date) payload.appointment_date = this.normalizeDate(payload.appointment_date);
-      if (payload.appointment_time) payload.appointment_time = this.normalizeTime(payload.appointment_time);
+      if (payload.appointment_date) payload.appointment_date = Appointment.normalizeDate(payload.appointment_date);
+      if (payload.appointment_time) payload.appointment_time = Appointment.normalizeTime(payload.appointment_time);
 
       // CRÍTICO: Passar empresa_id para validação de conflitos
       const updated = await appointment.update(payload, empresaIdInt);
