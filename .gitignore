@@ -126,3 +126,6 @@ backend/.env.local
 
 # Pasta functions/ (template vazio — Firebase usa backend/)
 functions/node_modules/
+
+# Sessoes WhatsApp — contem credenciais, nunca commitar
+backend/whatsapp-sessions/
