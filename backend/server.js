@@ -19,13 +19,21 @@ async function startServer() {
       console.warn('⚠️ Seed de usuários:', e.message);
     }
 
-    app.listen(PORT, HOST, () => {
+    app.listen(PORT, HOST, async () => {
       console.log('========================================');
       console.log('🚀 Cloudd Agenda API iniciada!');
       console.log(`📡 Porta: ${PORT}`);
       console.log(`🔗 API:   http://localhost:${PORT}/api`);
       console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
       console.log('========================================');
+
+      // Restaurar sessões WhatsApp ativas
+      if (!process.env.VERCEL) {
+        try {
+          const { restoreActiveSessions } = require('./src/services/whatsappBaileysService');
+          await restoreActiveSessions();
+        } catch {}
+      }
     });
   } catch (error) {
     console.error('❌ Erro ao iniciar o servidor:', error);

@@ -842,8 +842,6 @@ document.querySelector('[data-tab="integracoes"]').addEventListener('click', () 
 });
 
 // ── WhatsApp ──────────────────────────────────────────────
-let waPollingInterval = null;
-
 async function waLoadStatus() {
   try {
     const data = await apiFetch('/whatsapp/status');
@@ -894,27 +892,35 @@ function waRenderStatus(data) {
 }
 
 async function waConnect() {
-  document.getElementById('btnWaConnect').disabled = true;
-  document.getElementById('btnWaConnect').textContent = 'Conectando...';
+  const btn = document.getElementById('btnWaConnect');
+  btn.disabled = true;
+  btn.textContent = 'Iniciando...';
   try {
+    // Abrir o modal imediatamente — SSE vai trazer o QR assim que gerado
+    waShowQRModal();
     const data = await apiFetch('/whatsapp/connect', { method: 'POST' });
-    if (!data) return;
-    if (!data.success) { toast(data.error || 'Erro ao conectar', 'error'); return; }
-    waShowQRModal(data.qrCode);
+    if (!data?.success) {
+      waCloseQRModal();
+      toast(data?.error || 'Erro ao conectar', 'error');
+    }
   } catch (e) {
+    waCloseQRModal();
     toast('Erro de conexao', 'error');
   } finally {
-    document.getElementById('btnWaConnect').disabled = false;
-    document.getElementById('btnWaConnect').textContent = 'Conectar WhatsApp';
+    btn.disabled = false;
+    btn.textContent = 'Conectar WhatsApp';
   }
 }
 
 async function waReconnect() {
+  waShowQRModal();
   try {
     const data = await apiFetch('/whatsapp/reconnect', { method: 'POST' });
-    if (!data?.success) { toast(data?.error || 'Erro ao reconectar', 'error'); return; }
-    waShowQRModal(data.qrCode);
-  } catch (e) { toast('Erro de conexao', 'error'); }
+    if (!data?.success) {
+      waCloseQRModal();
+      toast(data?.error || 'Erro ao reconectar', 'error');
+    }
+  } catch (e) { waCloseQRModal(); toast('Erro de conexao', 'error'); }
 }
 
 async function waDisconnect() {
@@ -926,7 +932,11 @@ async function waDisconnect() {
   } catch (e) { toast('Erro ao desconectar', 'error'); }
 }
 
-function waShowQRModal(initialQR) {
+let waSSE = null;
+
+function waShowQRModal() {
+  if (document.getElementById('qrModalOverlay')) return;
+
   const overlay = document.createElement('div');
   overlay.className = 'qr-modal-overlay';
   overlay.id = 'qrModalOverlay';
@@ -934,49 +944,56 @@ function waShowQRModal(initialQR) {
     <div class="qr-modal">
       <h3>Conectar WhatsApp</h3>
       <p>Abra o WhatsApp no celular e escaneie o QR Code abaixo.</p>
-      <div class="qr-box" id="qrBox">
-        ${initialQR
-          ? `<img id="qrImg" src="${initialQR.startsWith('data:') ? initialQR : 'data:image/png;base64,' + initialQR}" alt="QR Code">`
-          : '<div class="qr-spinner"></div>'}
-      </div>
+      <div class="qr-box" id="qrBox"><div class="qr-spinner"></div></div>
       <p class="qr-step"><strong>1.</strong> Abra o WhatsApp no celular</p>
-      <p class="qr-step"><strong>2.</strong> Acesse Dispositivos Conectados (ou Aparelhos Conectados)</p>
-      <p class="qr-step"><strong>3.</strong> Toque em "Conectar dispositivo" e escaneie</p>
-      <p id="qrStatus" style="font-size:12px;color:var(--text-muted);margin-top:12px;"></p>
+      <p class="qr-step"><strong>2.</strong> Va em <strong>Dispositivos Conectados</strong></p>
+      <p class="qr-step"><strong>3.</strong> Toque em <strong>"Conectar dispositivo"</strong> e escaneie</p>
+      <p id="qrStatus" style="font-size:12px;color:var(--text-muted);margin-top:10px;min-height:18px;"></p>
       <button class="integ-actions btn-secondary-sm" style="margin-top:16px;padding:9px 20px;" onclick="waCloseQRModal()">Fechar</button>
     </div>`;
   document.body.appendChild(overlay);
 
-  // Polling: atualiza QR a cada 8s e verifica conexao a cada 3s
-  let pollCount = 0;
-  waPollingInterval = setInterval(async () => {
-    pollCount++;
+  // Abrir SSE para receber QR e status em tempo real
+  const sseUrl = API + '/whatsapp/qr-stream';
+  waSSE = new EventSource(sseUrl + '?token=' + token());
+
+  waSSE.addEventListener('qr', (e) => {
     try {
-      const status = await apiFetch('/whatsapp/status');
-      if (status?.status === 'connected') {
-        clearInterval(waPollingInterval);
-        document.getElementById('qrStatus').textContent = 'WhatsApp conectado com sucesso!';
-        document.getElementById('qrStatus').style.color = '#22c55e';
-        setTimeout(() => { waCloseQRModal(); waLoadStatus(); }, 1500);
-        return;
+      const { qrCode } = JSON.parse(e.data);
+      const box = document.getElementById('qrBox');
+      if (box && qrCode) {
+        box.innerHTML = `<img src="${qrCode}" alt="QR Code" style="width:200px;height:200px;object-fit:contain;">`;
+        const st = document.getElementById('qrStatus');
+        if (st) st.textContent = 'QR Code atualizado — escaneie agora.';
       }
-      if (pollCount % 3 === 0) {
-        const qrData = await apiFetch('/whatsapp/qrcode');
-        if (qrData?.qrCode) {
-          const box = document.getElementById('qrBox');
-          if (box) {
-            const src = qrData.qrCode.startsWith('data:') ? qrData.qrCode : 'data:image/png;base64,' + qrData.qrCode;
-            box.innerHTML = `<img id="qrImg" src="${src}" alt="QR Code">`;
-          }
-        }
-      }
-      if (pollCount > 60) { clearInterval(waPollingInterval); document.getElementById('qrStatus').textContent = 'QR Code expirado. Feche e tente novamente.'; }
     } catch {}
-  }, 3000);
+  });
+
+  waSSE.addEventListener('status', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.status === 'connected') {
+        const st = document.getElementById('qrStatus');
+        if (st) { st.textContent = 'WhatsApp conectado!'; st.style.color = '#22c55e'; }
+        const box = document.getElementById('qrBox');
+        if (box) box.innerHTML = '<span style="font-size:40px;">✓</span>';
+        setTimeout(() => { waCloseQRModal(); waLoadStatus(); }, 1800);
+      }
+      if (data.status === 'disconnected' && data.error) {
+        const st = document.getElementById('qrStatus');
+        if (st) { st.textContent = 'Erro: ' + data.error; st.style.color = '#dc2626'; }
+      }
+    } catch {}
+  });
+
+  waSSE.onerror = () => {
+    const st = document.getElementById('qrStatus');
+    if (st && st.textContent === '') st.textContent = 'Aguardando QR Code...';
+  };
 }
 
 function waCloseQRModal() {
-  clearInterval(waPollingInterval);
+  if (waSSE) { waSSE.close(); waSSE = null; }
   const el = document.getElementById('qrModalOverlay');
   if (el) el.remove();
   waLoadStatus();
