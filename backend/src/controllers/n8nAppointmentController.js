@@ -67,22 +67,13 @@ class N8nAppointmentController {
   static async create(req, res) {
     try {
       const body = req.body || {};
-      
-      // CRÍTICO: empresa_id é obrigatório para integrações n8n
-      if (!body.empresa_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'empresa_id obrigatório',
-          message: 'O campo empresa_id é obrigatório no body da requisição'
-        });
-      }
-      
-      const empresaIdInt = parseInt(body.empresa_id);
+
+      const empresaIdInt = parseInt(body.empresa_id || req.empresa?.id);
       if (isNaN(empresaIdInt)) {
         return res.status(400).json({
           success: false,
-          error: 'empresa_id inválido',
-          message: 'empresa_id deve ser um número válido'
+          error: 'empresa_id obrigatório',
+          message: 'empresa_id não encontrado no body nem na autenticação'
         });
       }
       
@@ -121,21 +112,12 @@ class N8nAppointmentController {
       const { id } = req.params;
       const body = req.body || {};
       
-      // CRÍTICO: empresa_id é obrigatório para integrações n8n
-      if (!body.empresa_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'empresa_id obrigatório',
-          message: 'O campo empresa_id é obrigatório no body da requisição'
-        });
-      }
-      
-      const empresaIdInt = parseInt(body.empresa_id);
+      const empresaIdInt = parseInt(body.empresa_id || req.empresa?.id);
       if (isNaN(empresaIdInt)) {
         return res.status(400).json({
           success: false,
-          error: 'empresa_id inválido',
-          message: 'empresa_id deve ser um número válido'
+          error: 'empresa_id obrigatório',
+          message: 'empresa_id não encontrado no body nem na autenticação'
         });
       }
 
@@ -187,22 +169,13 @@ class N8nAppointmentController {
           error: 'Protocolo é obrigatório'
         });
       }
-      
-      // CRÍTICO: empresa_id é obrigatório para integrações n8n
-      if (!empresa_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'empresa_id obrigatório',
-          message: 'O campo empresa_id é obrigatório no body da requisição'
-        });
-      }
-      
-      const empresaIdInt = parseInt(empresa_id);
+
+      const empresaIdInt = parseInt(empresa_id || req.empresa?.id);
       if (isNaN(empresaIdInt)) {
         return res.status(400).json({
           success: false,
-          error: 'empresa_id inválido',
-          message: 'empresa_id deve ser um número válido'
+          error: 'empresa_id obrigatório',
+          message: 'empresa_id não encontrado no body nem na autenticação'
         });
       }
 
